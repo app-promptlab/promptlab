@@ -221,18 +221,18 @@ export default function App() {
     checkSession();
   }, []);
 
-  const fetchProfileData = async (userId, email) => {
+const fetchProfileData = async (userId, email) => {
     try {
-        // 1. Busca Perfil
+        // Busca perfil forçando a atualização dos dados
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('*')
+            .select('*') // Garante que traga a nova coluna 'plan'
             .eq('id', userId)
             .single();
         
         if (profileError && profileError.code !== 'PGRST116') console.error(profileError);
 
-        // 2. Busca Compras
+        // Busca Compras
         const { data: purchases, error: purchaseError } = await supabase
             .from('user_purchases')
             .select('product_id')
@@ -242,26 +242,21 @@ export default function App() {
 
         const accessList = purchases ? purchases.map(p => p.product_id) : [];
 
+        // LOG DE DEPURAÇÃO (Para você ver no console se precisar)
+        console.log("Dados do Usuário Carregados:", profile);
+
         setUser({
             ...profile,
             email: email,
             name: profile?.name || 'Usuário',
             access: accessList, 
-            plan: profile?.plan || 'free',
+            plan: profile?.plan || 'free', // Aqui ele vai pegar o 'admin' do banco
             avatar: profile?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
             cover: profile?.cover || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80'
         });
     } catch (error) {
         console.error("Erro ao carregar dados:", error);
-        // Fallback de segurança
-        setUser({
-           id: userId,
-           email: email,
-           name: 'Usuário',
-           access: [],
-           plan: 'free',
-           avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'
-        });
+        setUser(null); // Força recarregar se der erro grave
     } finally {
         setLoading(false);
     }
@@ -608,7 +603,7 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
            )}
 
           {/* --- FIM DO CÓDIGO A ADICIONAR --- */}
-          
+
           <div className="pt-8">
             <button 
               onClick={onLogout}
@@ -660,8 +655,10 @@ function SidebarItem({ icon: Icon, label, active, onClick, minimized }) {
 }
 
 function Dashboard({ news, changeTab, user }) {
+  // Lógicas de Plano
+  const isAdmin = user.plan === 'admin';
   const isGold = user.plan === 'gold';
-  const isFree = !isGold && (!user.access || user.access.length === 0);
+  const isFree = !isAdmin && !isGold && (!user.access || user.access.length === 0);
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-6xl mx-auto">
@@ -673,12 +670,17 @@ function Dashboard({ news, changeTab, user }) {
         <div className="text-right hidden md:block">
           <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Status da Conta</div>
           
-          {isGold ? (
+          {/* BLOCO DE STATUS ATUALIZADO */}
+          {isAdmin ? (
+             <div className="text-red-500 font-bold flex items-center gap-2 justify-end drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">
+                <Shield size={18} className="fill-red-500 text-black" /> ADMINISTRADOR
+             </div>
+          ) : isGold ? (
              <div className="text-yellow-400 font-bold flex items-center gap-2 justify-end drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]">
                 <Crown size={18} className="fill-yellow-400" /> MEMBRO GOLD
              </div>
           ) : (
-            <div className={`${isFree ? 'text-red-500' : 'text-blue-400'} font-bold flex items-center gap-2 justify-end`}>
+            <div className={`${isFree ? 'text-gray-500' : 'text-blue-400'} font-bold flex items-center gap-2 justify-end`}>
                 {!isFree ? (
                     <><Sparkles size={16} /> MEMBRO PRO</>
                 ) : (
@@ -689,21 +691,25 @@ function Dashboard({ news, changeTab, user }) {
         </div>
       </div>
 
+      {/* Atalhos Rápidos (Admin vê atalho para o painel) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {isAdmin && (
+            <div onClick={() => changeTab('admin')} className="bg-red-900/20 p-6 rounded-2xl border border-red-900/50 hover:border-red-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(239,68,68,0.2)] relative overflow-hidden">
+              <div className="bg-red-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-red-500 mb-4">
+                <Shield size={24} />
+              </div>
+              <p className="text-sm text-gray-400 uppercase tracking-wider font-semibold">Gerenciamento</p>
+              <p className="text-2xl font-bold text-white mt-1">Painel Admin</p>
+            </div>
+        )}
+
         <div onClick={() => changeTab('prompts')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-blue-500/50 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(59,130,246,0.1)] relative overflow-hidden">
           <div className="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-blue-400 mb-4">
             <Images size={24} />
           </div>
           <p className="text-sm text-gray-400 uppercase tracking-wider font-semibold">Prompts</p>
           <p className="text-3xl font-bold text-white mt-1">Acessar</p>
-        </div>
-
-        <div onClick={() => changeTab('favorites')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-pink-500/50 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(236,72,153,0.1)] relative overflow-hidden">
-          <div className="bg-pink-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-pink-400 mb-4">
-            <Star size={24} />
-          </div>
-          <p className="text-sm text-gray-400 uppercase tracking-wider font-semibold">Favoritos</p>
-          <p className="text-3xl font-bold text-white mt-1">8 Salvos</p>
         </div>
 
         <div onClick={() => changeTab('generator')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-yellow-500/50 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(234,179,8,0.1)] relative overflow-hidden">
@@ -715,6 +721,7 @@ function Dashboard({ news, changeTab, user }) {
         </div>
       </div>
 
+      {/* Feed de Notícias */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="lg:col-span-2 space-y-6">
             <h3 className="text-xl font-bold text-white flex items-center"><Play size={20} className="mr-2 text-blue-500"/> Feed PromptLab</h3>
