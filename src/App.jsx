@@ -1,44 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
-  LayoutDashboard, 
-  Images, 
-  Star, 
-  Zap, 
-  BookOpen, 
-  User, 
-  LogOut, 
-  Menu, 
-  X, 
-  Heart, 
-  Copy, 
-  Check,
-  ExternalLink,
-  Camera,
-  Edit3,
-  Lock,
-  Unlock,
-  ShoppingCart,
-  Sparkles,
-  Play,
-  Mail,
-  ArrowRight,
-  Loader2,
-  Database,
-  Trash2,
-  Bold,
-  Italic,
-  Underline,
-  Link as LinkIcon,
-  List,
-  AlignLeft,
-  Facebook,
-  Instagram,
-  Music, 
-  Key,
-  ChevronLeft,  
-  ChevronRight,
-  Crown
+  LayoutDashboard, Images, Star, Zap, BookOpen, User, LogOut, Menu, X, 
+  Heart, Copy, Check, ExternalLink, Camera, Edit3, Lock, Unlock, 
+  ShoppingCart, Sparkles, Play, Mail, ArrowRight, Loader2, Database, 
+  Trash2, Bold, Italic, Underline, Link as LinkIcon, List, AlignLeft, 
+  Facebook, Instagram, Music, Key, ChevronLeft, ChevronRight, Crown,
+  Shield, Save, Plus, Search, Users // <--- Estes são os novos que adicionamos
 } from 'lucide-react';
 
 // --- CONEXÃO REAL COM SUPABASE ---
@@ -65,6 +33,175 @@ const TUTORIALS_DATA = [
   { id: 2, title: "Avançado: ControlNet", thumbnail: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?auto=format&fit=crop&w=400&q=80" },
 ];
 
+// --- COMPONENTE PAINEL ADMINISTRATIVO ---
+function AdminPanel({ user }) {
+  const [activeSection, setActiveSection] = useState('users');
+  const [dataList, setDataList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  // Função para buscar dados
+  const fetchData = async () => {
+    setLoading(true);
+    let query;
+    // Seleciona a tabela baseada na aba
+    if (activeSection === 'users') query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (activeSection === 'products') query = supabase.from('products').select('*').order('id', { ascending: true });
+    if (activeSection === 'news') query = supabase.from('news').select('*').order('id', { ascending: false });
+
+    const { data, error } = await query;
+    if (!error && data) setDataList(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+    setEditingItem(null);
+  }, [activeSection]);
+
+  // Função Salvar
+  const handleSave = async (e) => {
+    e.preventDefault();
+    const table = activeSection === 'users' ? 'profiles' : activeSection;
+    
+    // Se for usuário, salvamos apenas o plano. Se for produto/news, salvamos tudo.
+    const payload = activeSection === 'users' 
+      ? { plan: editingItem.plan } 
+      : editingItem;
+
+    const { error } = await supabase
+      .from(table)
+      .upsert(payload) // Cria ou Atualiza
+      .eq('id', editingItem.id);
+
+    if (error) {
+      alert('Erro: ' + error.message);
+    } else {
+      alert('Salvo com sucesso!');
+      setEditingItem(null);
+      fetchData();
+    }
+  };
+
+  // Função Deletar
+  const handleDelete = async (id) => {
+    if (!confirm('Tem certeza que deseja apagar?')) return;
+    const table = activeSection === 'users' ? 'profiles' : activeSection;
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) alert('Erro: ' + error.message);
+    else fetchData();
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
+      {/* Cabeçalho do Admin */}
+      <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-white flex items-center">
+            <Shield size={32} className="text-red-500 mr-3" /> Painel Admin
+          </h2>
+          <p className="text-gray-400">Gerencie usuários e produtos.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setActiveSection('users')} className={`px-4 py-2 rounded-lg font-bold ${activeSection === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Usuários</button>
+          <button onClick={() => setActiveSection('products')} className={`px-4 py-2 rounded-lg font-bold ${activeSection === 'products' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Produtos</button>
+          <button onClick={() => setActiveSection('news')} className={`px-4 py-2 rounded-lg font-bold ${activeSection === 'news' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>News</button>
+        </div>
+      </div>
+
+      {/* Formulário de Edição (Aparece só quando clica em editar/novo) */}
+      {editingItem && (
+        <div className="bg-gray-900 border border-blue-500 p-6 rounded-xl mb-8">
+          <h3 className="text-xl font-bold text-white mb-4">
+            {editingItem.id ? 'Editar' : 'Criar Novo'}
+          </h3>
+          <form onSubmit={handleSave} className="space-y-4">
+            {activeSection === 'users' ? (
+               <div>
+                 <label className="block text-gray-400 mb-2">Plano de Acesso</label>
+                 <select 
+                    className="w-full bg-black border border-gray-700 p-3 rounded text-white"
+                    value={editingItem.plan || 'free'}
+                    onChange={e => setEditingItem({...editingItem, plan: e.target.value})}
+                 >
+                   <option value="free">FREE</option>
+                   <option value="pro">PRO</option>
+                   <option value="gold">GOLD</option>
+                   <option value="admin">ADMIN</option>
+                 </select>
+               </div>
+            ) : (
+               // Campos genéricos para Produtos e News
+               Object.keys(editingItem).map(key => {
+                 if(key === 'id' || key === 'created_at') return null;
+                 return (
+                   <div key={key}>
+                     <label className="text-xs text-gray-500 uppercase">{key}</label>
+                     <input 
+                       className="w-full bg-black border border-gray-700 p-2 rounded text-white"
+                       value={editingItem[key] || ''}
+                       onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} 
+                     />
+                   </div>
+                 )
+               })
+            )}
+            <div className="flex justify-end gap-4 pt-4">
+               <button type="button" onClick={() => setEditingItem(null)} className="text-gray-400">Cancelar</button>
+               <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-500">Salvar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Lista de Itens */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+        <div className="p-4 border-b border-gray-800 flex justify-between">
+           <h3 className="font-bold text-white">Lista: {activeSection}</h3>
+           {activeSection !== 'users' && (
+             <button onClick={() => setEditingItem({})} className="text-blue-400 text-sm font-bold flex items-center"><Plus size={16} className="mr-1"/> Adicionar Novo</button>
+           )}
+        </div>
+        
+        {loading ? <div className="p-8 text-center text-gray-500">Carregando...</div> : (
+          <table className="w-full text-left text-sm text-gray-400">
+            <thead className="bg-black/50 text-xs uppercase">
+              <tr>
+                <th className="p-4">ID / Info</th>
+                <th className="p-4">Status / Valor</th>
+                <th className="p-4 text-right">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+               {dataList.map(item => (
+                 <tr key={item.id} className="border-b border-gray-800">
+                   <td className="p-4">
+                     {activeSection === 'users' ? (
+                        <div>{item.email}<br/><span className="text-xs text-gray-600">{item.id}</span></div>
+                     ) : (item.title || item.id)}
+                   </td>
+                   <td className="p-4">
+                     {activeSection === 'users' ? (
+                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${item.plan === 'admin' ? 'bg-red-900 text-red-200' : 'bg-gray-800 text-gray-300'}`}>
+                          {item.plan || 'FREE'}
+                        </span>
+                     ) : (item.price || item.date)}
+                   </td>
+                   <td className="p-4 text-right">
+                     <button onClick={() => setEditingItem(item)} className="text-blue-400 mr-3"><Edit3 size={16}/></button>
+                     {activeSection !== 'users' && (
+                       <button onClick={() => handleDelete(item.id)} className="text-red-500"><Trash2 size={16}/></button>
+                     )}
+                   </td>
+                 </tr>
+               ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
 // --- COMPONENTE PRINCIPAL ---
 
 export default function App() {
@@ -344,9 +481,18 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
     }
   };
 
+// Dentro de MainApp...
+
+  // VERIFICAÇÃO DE ADMIN
+  const isAdmin = user.plan === 'admin';
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard news={news} changeTab={setActiveTab} user={user} />;
+      
+      // NOVO CASE DO ADMIN
+      case 'admin': return isAdmin ? <AdminPanel user={user} /> : <Dashboard news={news} changeTab={setActiveTab} user={user} />;
+      
       case 'prompts': return <PromptsArea packs={packs} freePrompts={FREE_PROMPTS} favorites={favorites} toggleFavorite={toggleFavorite} user={user} onPurchase={onPurchase} />;
       case 'favorites': return <Favorites packs={packs} freePrompts={FREE_PROMPTS} favorites={favorites} toggleFavorite={toggleFavorite} />;
       case 'generator': return <GeneratorsHub user={user} onPurchase={onPurchase} />;
@@ -445,6 +591,23 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
             onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }} 
             minimized={sidebarMinimized}
           />
+          
+          {/* --- CÓDIGO A ADICIONAR NO MENU LATERAL --- */}
+          
+          {isAdmin && (
+             <>
+               <div className="my-4 border-t border-gray-800/50 mx-2"></div>
+               <SidebarItem 
+                  icon={Shield} 
+                  label="Painel Admin" 
+                  active={activeTab === 'admin'} 
+                  onClick={() => { setActiveTab('admin'); setSidebarOpen(false); }} 
+                  minimized={sidebarMinimized}
+               />
+             </>
+           )}
+
+          {/* --- FIM DO CÓDIGO A ADICIONAR --- */}
           
           <div className="pt-8">
             <button 
