@@ -8,7 +8,8 @@ import {
   Facebook, Instagram, Music, Key, ChevronLeft, ChevronRight, Crown,
   Shield, Save, Plus, Search, Users,
   ShoppingBag, Settings, UploadCloud,
-  Twitter, Linkedin, Globe, Github, HelpCircle, LayoutGrid, Monitor
+  Twitter, Linkedin, Globe, Github, HelpCircle, LayoutGrid, Monitor, 
+  Gamepad2, Trophy
 } from 'lucide-react';
 
 // --- CONEXÃO COM SUPABASE ---
@@ -39,8 +40,8 @@ export default function App() {
         const { data: purchases } = await supabase.from('user_purchases').select('product_id').eq('user_id', userId);
         const accessList = purchases ? purchases.map(p => p.product_id) : [];
 
-        // TRAVA DE SEGURANÇA ADMIN (Coloque seu email real abaixo)
-        const MEU_EMAIL = "seu.email.aqui@exemplo.com"; 
+        // --- EMAIL DO ADMIN DEFINIDO ---
+        const MEU_EMAIL = "app.promptlab@gmail.com"; 
         
         const finalPlan = (email === MEU_EMAIL) ? 'admin' : (profile?.plan || 'free');
 
@@ -105,7 +106,7 @@ export default function App() {
   return <MainApp user={user} setUser={setUser} onLogout={handleLogout} onPurchase={handlePurchase} />;
 }
 
-// --- COMPONENTE DE UPLOAD DE IMAGEM (NOVO) ---
+// --- COMPONENTE UPLOAD ---
 function ImageUploader({ currentImage, onUploadComplete, label, compact = false }) {
   const [uploading, setUploading] = useState(false);
 
@@ -113,55 +114,55 @@ function ImageUploader({ currentImage, onUploadComplete, label, compact = false 
     try {
       setUploading(true);
       if (!event.target.files || event.target.files.length === 0) throw new Error('Selecione uma imagem.');
-
       const file = event.target.files[0];
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
-
       const { error: uploadError } = await supabase.storage.from('uploads').upload(filePath, file);
       if (uploadError) throw uploadError;
-
       const { data } = supabase.storage.from('uploads').getPublicUrl(filePath);
       onUploadComplete(data.publicUrl);
-    } catch (error) {
-      alert('Erro no upload: ' + error.message);
-    } finally {
-      setUploading(false);
-    }
+    } catch (error) { alert('Erro no upload: ' + error.message); } finally { setUploading(false); }
   };
 
   return (
     <div className={`relative group ${compact ? '' : 'mb-4'}`}>
       {!compact && <label className="text-gray-400 text-sm font-bold block mb-2">{label}</label>}
       <div className="flex items-center gap-3">
-         {/* Botão Invisível sobreposto */}
          <input type="file" accept="image/*" onChange={uploadImage} className="hidden" id={`file-${label}`} disabled={uploading}/>
          <label htmlFor={`file-${label}`} className={`cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-lg transition-all flex items-center ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
              {uploading ? <Loader2 size={16} className="animate-spin mr-2"/> : <UploadCloud size={16} className="mr-2"/>}
              {uploading ? 'Enviando...' : (compact ? 'Trocar' : 'Escolher Imagem')}
          </label>
-         {/* Preview */}
          {!compact && currentImage && <img src={currentImage} className="h-10 w-10 rounded object-cover border border-gray-700"/>}
       </div>
     </div>
   );
 }
 
-// --- TELA DE LOGIN ---
+// --- TELA DE LOGIN (ARCADE COMPLETO) ---
 function AuthScreen({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  
+  // Estados do Jogo
   const canvasRef = useRef(null);
   const [logoUrl, setLogoUrl] = useState('');
+  const [gameData, setGameData] = useState({ score: 0, lives: 3, level: 1, gameOver: false });
+  const gameState = useRef({ score: 0, lives: 3, level: 1, gameOver: false, lastShot: 0 }); // Ref para acesso dentro do loop
 
   useEffect(() => {
       supabase.from('app_settings').select('logo_header_url').single().then(({data}) => {
           if(data && data.logo_header_url) setLogoUrl(data.logo_header_url);
       });
   }, []);
+
+  const restartGame = () => {
+      gameState.current = { score: 0, lives: 3, level: 1, gameOver: false, lastShot: 0 };
+      setGameData({ score: 0, lives: 3, level: 1, gameOver: false });
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -176,60 +177,167 @@ function AuthScreen({ onLogin }) {
     let player = { x: width / 2, y: height - 100 };
     let bullets = [];
     let enemies = [];
+    let particles = []; 
     let mouseX = width / 2;
+    let isMouseDown = false;
 
+    // Inicializa estrelas
     for(let i=0; i<100; i++) stars.push({x: Math.random()*width, y: Math.random()*height, z: Math.random()*2, speed: isMobile ? 15 : 2});
 
     const handleMouseMove = (e) => { mouseX = e.clientX; };
-    const handleClick = () => { if(!isMobile) bullets.push({x: player.x, y: player.y, speed: 12}); };
+    const handleMouseDown = () => { isMouseDown = true; };
+    const handleMouseUp = () => { isMouseDown = false; };
 
     if(!isMobile) {
         window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('click', handleClick);
-        setInterval(() => { if(Math.random() < 0.05) enemies.push({x: Math.random() * width, y: -50, size: 30, speed: 4}); }, 1000);
+        window.addEventListener('mousedown', handleMouseDown);
+        window.addEventListener('mouseup', handleMouseUp);
     }
 
     const render = () => {
-        ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'; // Rastro
+        ctx.fillRect(0, 0, width, height);
+
+        // 1. Estrelas (Fundo)
         ctx.fillStyle = '#ffffff';
         stars.forEach(star => {
             star.y += star.speed; if(star.y > height) star.y = 0;
+            ctx.globalAlpha = Math.random();
             ctx.beginPath(); ctx.arc(star.x, star.y, isMobile ? 1 : 2, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
         });
 
-        if (!isMobile) {
-            player.x += (mouseX - player.x) * 0.1;
-            ctx.fillStyle = '#2563eb'; ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(player.x - 15, player.y + 30); ctx.lineTo(player.x + 15, player.y + 30); ctx.fill();
-            ctx.fillStyle = '#60a5fa'; 
-            bullets.forEach((b, i) => { b.y -= b.speed; ctx.fillRect(b.x - 2, b.y, 4, 15); if(b.y < 0) bullets.splice(i, 1); });
-            ctx.fillStyle = '#ef4444'; 
-            enemies.forEach((e, i) => { e.y += e.speed; ctx.fillRect(e.x - e.size/2, e.y, e.size, e.size); 
-                bullets.forEach((b, bi) => { if(b.x > e.x - e.size/2 && b.x < e.x + e.size/2 && b.y < e.y + e.size && b.y > e.y) { enemies.splice(i, 1); bullets.splice(bi, 1); } });
-                if(e.y > height) enemies.splice(i, 1);
+        // Lógica do Jogo (Apenas se não for mobile e não for Game Over)
+        if (!isMobile && !gameState.current.gameOver) {
+            const gs = gameState.current;
+
+            // Níveis e Dificuldade (A cada 15 pontos)
+            const currentLevel = Math.floor(gs.score / 15) + 1;
+            if(currentLevel !== gs.level) {
+                gs.level = currentLevel;
+                setGameData(prev => ({ ...prev, level: currentLevel })); // Atualiza UI
+            }
+
+            // Jogador
+            player.x += (mouseX - player.x) * 0.15;
+            ctx.shadowBlur = 15; ctx.shadowColor = '#3b82f6';
+            ctx.fillStyle = '#2563eb'; 
+            ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(player.x - 15, player.y + 30); ctx.lineTo(player.x, player.y + 20); ctx.lineTo(player.x + 15, player.y + 30); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Sistema de Tiro (Power-ups)
+            const fireRate = gs.level >= 2 ? 100 : 200; // Nível 2: Tiro Rápido
+            if (isMouseDown && Date.now() - gs.lastShot > fireRate) {
+                if (gs.level >= 3) { // Nível 3: Tiro Triplo
+                    bullets.push({x: player.x, y: player.y, speed: 15, color: '#60a5fa', vx: -2});
+                    bullets.push({x: player.x, y: player.y, speed: 15, color: '#60a5fa', vx: 0});
+                    bullets.push({x: player.x, y: player.y, speed: 15, color: '#60a5fa', vx: 2});
+                } else {
+                    bullets.push({x: player.x - 10, y: player.y, speed: 15, color: '#60a5fa', vx: 0});
+                    bullets.push({x: player.x + 10, y: player.y, speed: 15, color: '#60a5fa', vx: 0});
+                }
+                gs.lastShot = Date.now();
+            }
+
+            // Balas
+            bullets.forEach((b, i) => {
+                b.y -= b.speed; b.x += b.vx;
+                ctx.fillStyle = b.color; ctx.fillRect(b.x - 2, b.y, 4, 15);
+                if(b.y < 0) bullets.splice(i, 1);
+            });
+
+            // Inimigos (Spawn rate aumenta com nível)
+            const spawnRate = 0.02 + (gs.level * 0.005);
+            if(Math.random() < spawnRate) enemies.push({x: Math.random() * width, y: -50, size: 20 + Math.random()*30, speed: 2 + (gs.level * 0.5), hp: 1 + Math.floor(gs.level/3)});
+
+            enemies.forEach((e, i) => {
+                e.y += e.speed;
+                
+                ctx.shadowBlur = 20; ctx.shadowColor = '#f97316'; ctx.fillStyle = '#ef4444';
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.size/2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+
+                // Passou da tela (Perde Vida)
+                if(e.y > height) {
+                    enemies.splice(i, 1);
+                    gs.lives -= 1;
+                    setGameData(prev => ({ ...prev, lives: gs.lives }));
+                    if(gs.lives <= 0) {
+                        gs.gameOver = true;
+                        setGameData(prev => ({ ...prev, gameOver: true }));
+                    }
+                }
+
+                // Colisão
+                bullets.forEach((b, bi) => {
+                    if(b.x > e.x - e.size/2 && b.x < e.x + e.size/2 && b.y < e.y + e.size/2 && b.y > e.y - e.size/2) {
+                        e.hp--; bullets.splice(bi, 1);
+                        if(e.hp <= 0) {
+                            // Explosão
+                            for(let k=0; k<10; k++) particles.push({x: e.x, y: e.y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, life: 1.0, color: Math.random()>0.5?'#f97316':'#ef4444'});
+                            enemies.splice(i, 1);
+                            gs.score += 1;
+                            setGameData(prev => ({ ...prev, score: gs.score }));
+                        }
+                    }
+                });
+            });
+
+            // Partículas
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3); ctx.globalAlpha = 1;
+                if(p.life <= 0) particles.splice(i, 1);
             });
         }
         animationFrameId = requestAnimationFrame(render);
     };
     render();
-    return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('click', handleClick); cancelAnimationFrame(animationFrameId); };
+
+    return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mousedown', handleMouseDown);
+        window.removeEventListener('mouseup', handleMouseUp);
+        cancelAnimationFrame(animationFrameId);
+    };
   }, []);
   
   return (
     <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden font-sans select-none">
-      <canvas ref={canvasRef} className="absolute inset-0 z-0" />
-      <div className="w-full max-w-md bg-gray-900/80 backdrop-blur-lg p-10 rounded-2xl border border-blue-900/30 relative z-10 transition-all duration-500 hover:scale-105 hover:shadow-[0_0_50px_rgba(37,99,235,0.4)] shadow-2xl group">
-        <div className="text-center mb-8">
-            {logoUrl ? <img src={logoUrl} className="h-20 mx-auto mb-4 object-contain drop-shadow-lg"/> : <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">Prompt<span className="text-blue-600">Lab</span></h2>}
-            <p className="text-blue-200/60 text-sm font-medium tracking-wide">{isRegister ? "Criar nova conta" : "Acessar o sistema"}</p>
-        </div>
-        <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password, name, isRegister); }} className="space-y-5">
-          {isRegister && <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Nome completo" />}
-          <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Seu e-mail" />
-          <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Sua senha" />
-          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-600/40 active:scale-95 uppercase tracking-widest text-xs">{isRegister ? "Cadastrar" : "Entrar"}</button>
-        </form>
-        <button onClick={() => setIsRegister(!isRegister)} className="w-full text-center mt-6 text-sm text-gray-500 hover:text-blue-400 transition-colors">{isRegister ? "Já tenho conta? Login" : "Não tem conta? Cadastre-se"}</button>
+      <canvas ref={canvasRef} className="absolute inset-0 z-0 cursor-crosshair" />
+      
+      {/* HUD DO JOGO (Só Desktop) */}
+      <div className="absolute top-4 left-4 hidden md:flex gap-6 text-white font-mono z-20">
+          <div className="bg-blue-900/50 px-4 py-2 rounded border border-blue-500/30">SCORE: <span className="text-blue-400 font-bold">{gameData.score}</span></div>
+          <div className="bg-red-900/50 px-4 py-2 rounded border border-red-500/30">VIDAS: <span className="text-red-400 font-bold">{'♥'.repeat(Math.max(0, gameData.lives))}</span></div>
+          <div className="bg-yellow-900/50 px-4 py-2 rounded border border-yellow-500/30">LEVEL: <span className="text-yellow-400 font-bold">{gameData.level}</span></div>
       </div>
+
+      {/* TELA DE GAME OVER */}
+      {gameData.gameOver && (
+          <div className="absolute inset-0 bg-black/80 z-50 flex flex-col items-center justify-center animate-fadeIn">
+              <h1 className="text-6xl font-black text-red-600 mb-4 tracking-tighter">GAME OVER</h1>
+              <p className="text-white text-2xl mb-8">Pontuação Final: <span className="text-blue-500 font-bold">{gameData.score}</span></p>
+              <button onClick={restartGame} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold text-xl shadow-lg hover:scale-105 transition-transform">Tentar Novamente</button>
+          </div>
+      )}
+
+      {/* CARD DE LOGIN (Escondido se der Game Over para não atrapalhar) */}
+      {!gameData.gameOver && (
+          <div className="w-full max-w-md bg-gray-900/80 backdrop-blur-lg p-10 rounded-2xl border border-blue-900/30 relative z-10 transition-all duration-500 hover:scale-105 hover:shadow-[0_0_50px_rgba(37,99,235,0.4)] shadow-2xl group">
+            <div className="text-center mb-8">
+                {logoUrl ? <img src={logoUrl} className="h-20 mx-auto mb-4 object-contain drop-shadow-lg"/> : <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">Prompt<span className="text-blue-600">Lab</span></h2>}
+                <p className="text-blue-200/60 text-sm font-medium tracking-wide">{isRegister ? "Criar nova conta" : "Acessar o sistema"}</p>
+            </div>
+            
+            <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password, name, isRegister); }} className="space-y-5">
+              {isRegister && <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Nome completo" />}
+              <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Seu e-mail" />
+              <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Sua senha" />
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-600/40 active:scale-95 uppercase tracking-widest text-xs">{isRegister ? "Cadastrar" : "Entrar"}</button>
+            </form>
+            <button onClick={() => setIsRegister(!isRegister)} className="w-full text-center mt-6 text-sm text-gray-500 hover:text-blue-400 transition-colors">{isRegister ? "Já tenho conta? Login" : "Não tem conta? Cadastre-se"}</button>
+          </div>
+      )}
     </div>
   );
 }
@@ -349,7 +457,7 @@ function Dashboard({ news, changeTab, user, settings }) {
   );
 }
 
-// --- PERFIL (COM UPLOAD) ---
+// --- PERFIL ---
 function Profile({ user, setUser }) {
   const [activeTab, setActiveTab] = useState('perfil');
   const [formData, setFormData] = useState({
@@ -417,7 +525,7 @@ function Profile({ user, setUser }) {
   );
 }
 
-// --- ADMIN PANEL (COM UPLOAD INTEGRADO) ---
+// --- ADMIN PANEL ---
 function AdminPanel({ user, updateSettings, settings }) {
   const [activeSection, setActiveSection] = useState('users');
   const [dataList, setDataList] = useState([]);
@@ -575,7 +683,7 @@ function StorePage({ packs, onPurchase }) {
                  {packs.map(pack => (
                      <div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-blue-600 transition-all cursor-pointer group shadow-lg">
                          <div className="aspect-square relative overflow-hidden">
-                             <img src={pack.cover} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                             <img src={pack.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
                              <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/90 to-transparent"><h4 className="text-white font-bold text-sm md:text-base leading-tight">{pack.title}</h4><p className="text-blue-500 font-bold text-xs mt-1">{pack.price}</p></div>
                          </div>
                          <button onClick={() => onPurchase(pack.id)} className="w-full bg-blue-600 text-white font-bold py-2 text-sm hover:bg-blue-500 transition-colors">COMPRAR</button>
