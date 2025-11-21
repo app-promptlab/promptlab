@@ -11,13 +11,13 @@ import {
   Settings,
   UploadCloud
 } from 'lucide-react';
+
 // --- CONEXÃO REAL COM SUPABASE ---
-// As chaves são carregadas do ficheiro .env na raiz do projeto
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- DADOS DE FALLBACK (Caso o banco de dados esteja vazio) ---
+// --- DADOS DE FALLBACK ---
 const NEWS_DATA = [
   { id: 1, title: "PromptLab V2 no Ar", date: "Hoje", content: "Novo motor de gems atualizado." },
   { id: 2, title: "Dica da Semana", date: "Ontem", content: "Use '--stylize 250' para resultados artísticos." },
@@ -35,369 +35,12 @@ const TUTORIALS_DATA = [
   { id: 2, title: "Avançado: ControlNet", thumbnail: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?auto=format&fit=crop&w=400&q=80" },
 ];
 
-// --- COMPONENTE PAINEL ADMINISTRATIVO ---
-function AdminPanel({ user, updateLogo, currentLogo }) {
-  const [activeSection, setActiveSection] = useState('users'); // users | products | news | settings
-  const [dataList, setDataList] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-
-  // Busca dados
-  const fetchData = async () => {
-    setLoading(true);
-    let query;
-    if (activeSection === 'users') query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    if (activeSection === 'products') query = supabase.from('products').select('*').order('id', { ascending: true });
-    if (activeSection === 'news') query = supabase.from('news').select('*').order('id', { ascending: false });
-    // Settings não precisa de fetch em lista, já vem via props
-    
-    if (activeSection !== 'settings') {
-        const { data, error } = await query;
-        if (!error) setDataList(data);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchData();
-    setEditingItem(null);
-  }, [activeSection]);
-
-  // Salvar
-  const handleSave = async (e) => {
-    e.preventDefault();
-    
-    // Lógica Especial para Configurações
-    if (activeSection === 'settings') {
-         const { error } = await supabase.from('app_settings').update({ logo_url: editingItem.logo_url }).gt('id', 0);
-         if (error) {
-             alert('Erro: ' + error.message);
-         } else {
-             alert('Logo atualizada com sucesso!');
-             updateLogo(editingItem.logo_url);
-         }
-         return;
-    }
-
-    // Lógica Padrão (Users/News/Products)
-    const table = activeSection === 'users' ? 'profiles' : activeSection;
-    const payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
-
-    const { error } = await supabase.from(table).upsert(payload).eq('id', editingItem.id);
-
-    if (error) alert('Erro: ' + error.message);
-    else {
-      alert('Salvo!');
-      setEditingItem(null);
-      fetchData();
-    }
-  };
-
-  // Deletar
-  const handleDelete = async (id) => {
-    if (!confirm('Tem certeza?')) return;
-    const table = activeSection === 'users' ? 'profiles' : activeSection;
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if (error) alert('Erro: ' + error.message);
-    else fetchData();
-  };
-
-  return (
-    <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-6 gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-white flex items-center">
-            <Shield size={32} className="text-red-500 mr-3" /> Painel Admin
-          </h2>
-          <p className="text-gray-400">Controle total do sistema PromptLab.</p>
-        </div>
-        <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2">
-          <button onClick={() => setActiveSection('users')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Usuários</button>
-          <button onClick={() => setActiveSection('products')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'products' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Produtos</button>
-          <button onClick={() => setActiveSection('news')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'news' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Blog/News</button>
-          <button onClick={() => { setActiveSection('settings'); setEditingItem({ logo_url: currentLogo }) }} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap flex items-center ${activeSection === 'settings' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>
-             <Settings size={16} className="mr-2"/> Configurações
-          </button>
-        </div>
-      </div>
-
-      {/* Formulário de Edição */}
-      {(editingItem || activeSection === 'settings') && (
-        <div className="bg-gray-900 border border-blue-500/50 p-6 rounded-xl mb-8 shadow-2xl shadow-blue-900/10">
-          <h3 className="text-xl font-bold text-white mb-6 flex items-center">
-            <Edit3 size={20} className="mr-2 text-blue-400"/> Editor: {activeSection.toUpperCase()}
-          </h3>
-          
-          <form onSubmit={handleSave} className="grid grid-cols-1 gap-6">
-            
-            {/* FORM: Usuários */}
-            {activeSection === 'users' && (
-              <div>
-                 <label className="block text-gray-400 mb-2 font-bold">Plano de Acesso</label>
-                 <select 
-                    className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white focus:border-blue-500 outline-none"
-                    value={editingItem.plan || 'free'}
-                    onChange={e => setEditingItem({...editingItem, plan: e.target.value})}
-                 >
-                   <option value="free">FREE</option>
-                   <option value="pro">PRO</option>
-                   <option value="gold">GOLD</option>
-                   <option value="admin">ADMIN</option>
-                 </select>
-              </div>
-            )}
-
-            {/* FORM: Configurações (Logo) */}
-            {activeSection === 'settings' && (
-               <div className="space-y-6">
-                   <div>
-                       <label className="block text-gray-400 mb-2 font-bold">URL da Logo (PNG Transparente)</label>
-                       <div className="flex gap-4">
-                           <div className="relative flex-1">
-                               <LinkIcon className="absolute left-4 top-4 text-gray-500" size={18}/>
-                               <input 
-                                  type="text" 
-                                  className="w-full bg-black border border-gray-700 p-3 pl-12 rounded-xl text-white focus:border-blue-500 outline-none"
-                                  value={editingItem.logo_url}
-                                  onChange={e => setEditingItem({...editingItem, logo_url: e.target.value})}
-                                  placeholder="https://..."
-                               />
-                           </div>
-                       </div>
-                   </div>
-                   <div className="p-8 bg-black/50 rounded-xl border border-gray-800 flex flex-col items-center justify-center">
-                       <p className="text-gray-500 text-xs mb-4 uppercase tracking-widest">Pré-visualização no Site</p>
-                       {editingItem.logo_url ? (
-                           <img src={editingItem.logo_url} alt="Preview" className="h-16 object-contain"/>
-                       ) : <span className="text-gray-600">Sem imagem</span>}
-                   </div>
-               </div>
-            )}
-
-            {/* FORM: News/Produtos (Genérico + Campos Especiais) */}
-            {(activeSection === 'news' || activeSection === 'products') && Object.keys(editingItem).map(key => {
-                 if(key === 'id' || key === 'created_at') return null;
-                 
-                 // Campos longos (Conteúdo)
-                 if(key === 'content' || key === 'description') {
-                     return (
-                        <div key={key}>
-                             <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{key}</label>
-                             <textarea 
-                                className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white h-32 focus:border-blue-500 outline-none"
-                                value={editingItem[key] || ''}
-                                onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} 
-                             />
-                        </div>
-                     )
-                 }
-
-                 return (
-                   <div key={key}>
-                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{key} {key === 'image' && '(URL da Imagem)'}</label>
-                     <input 
-                       className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white focus:border-blue-500 outline-none"
-                       value={editingItem[key] || ''}
-                       onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} 
-                       placeholder={key === 'image' || key === 'cover' ? 'https://...' : ''}
-                     />
-                   </div>
-                 )
-            })}
-
-            <div className="flex justify-end gap-4 pt-4 border-t border-gray-800">
-               {activeSection !== 'settings' && <button type="button" onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-white font-bold px-4">Cancelar</button>}
-               <button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-500 font-bold shadow-lg flex items-center">
-                   <Save size={18} className="mr-2"/> Salvar
-               </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Lista de Itens (Não mostra em Settings) */}
-      {activeSection !== 'settings' && (
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/20">
-               <h3 className="font-bold text-white flex items-center"><List size={18} className="mr-2 text-gray-500"/> Registros: {activeSection}</h3>
-               {activeSection !== 'users' && (
-                 <button onClick={() => setEditingItem({})} className="bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all border border-blue-600/30"><Plus size={16} className="mr-1"/> Adicionar</button>
-               )}
-            </div>
-            
-            {loading ? <div className="p-12 text-center text-gray-500 flex justify-center"><Loader2 className="animate-spin"/></div> : (
-              <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-black/50 text-xs uppercase font-bold text-gray-500">
-                  <tr>
-                    <th className="p-4">ID / Info Principal</th>
-                    <th className="p-4">Status / Detalhe</th>
-                    <th className="p-4 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                   {dataList.map(item => (
-                     <tr key={item.id} className="hover:bg-gray-800/30 transition-colors">
-                       <td className="p-4">
-                         {activeSection === 'users' ? (
-                            <div><span className="text-white font-bold">{item.name}</span><br/><span className="text-xs">{item.email}</span></div>
-                         ) : (
-                            <div className="flex items-center gap-3">
-                                {(item.cover || item.image) && <img src={item.cover || item.image} className="w-10 h-10 rounded bg-gray-800 object-cover"/>}
-                                <span className="text-white font-medium">{item.title || item.id}</span>
-                            </div>
-                         )}
-                       </td>
-                       <td className="p-4">
-                         {activeSection === 'users' ? (
-                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${item.plan === 'admin' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-gray-800 text-gray-300 border border-gray-700'}`}>
-                              {item.plan || 'FREE'}
-                            </span>
-                         ) : (item.price || item.date)}
-                       </td>
-                       <td className="p-4 text-right">
-                         <button onClick={() => setEditingItem(item)} className="bg-gray-800 hover:bg-blue-600 hover:text-white text-blue-400 p-2 rounded mr-2 transition-colors"><Edit3 size={16}/></button>
-                         {activeSection !== 'users' && (
-                           <button onClick={() => handleDelete(item.id)} className="bg-gray-800 hover:bg-red-600 hover:text-white text-red-500 p-2 rounded transition-colors"><Trash2 size={16}/></button>
-                         )}
-                       </td>
-                     </tr>
-                   ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-      )}
-    </div>
-  );
-}
-
-  // Função Deletar
-  const handleDelete = async (id) => {
-    if (!confirm('Tem certeza que deseja apagar?')) return;
-    const table = activeSection === 'users' ? 'profiles' : activeSection;
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if (error) alert('Erro: ' + error.message);
-    else fetchData();
-  };
-
-  return (
-    <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
-      {/* Cabeçalho do Admin */}
-      <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-6">
-        <div>
-          <h2 className="text-3xl font-bold text-white flex items-center">
-            <Shield size={32} className="text-red-500 mr-3" /> Painel Admin
-          </h2>
-          <p className="text-gray-400">Gerencie usuários e produtos.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setActiveSection('users')} className={`px-4 py-2 rounded-lg font-bold ${activeSection === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Usuários</button>
-          <button onClick={() => setActiveSection('products')} className={`px-4 py-2 rounded-lg font-bold ${activeSection === 'products' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Produtos</button>
-          <button onClick={() => setActiveSection('news')} className={`px-4 py-2 rounded-lg font-bold ${activeSection === 'news' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>News</button>
-        </div>
-      </div>
-
-      {/* Formulário de Edição (Aparece só quando clica em editar/novo) */}
-      {editingItem && (
-        <div className="bg-gray-900 border border-blue-500 p-6 rounded-xl mb-8">
-          <h3 className="text-xl font-bold text-white mb-4">
-            {editingItem.id ? 'Editar' : 'Criar Novo'}
-          </h3>
-          <form onSubmit={handleSave} className="space-y-4">
-            {activeSection === 'users' ? (
-               <div>
-                 <label className="block text-gray-400 mb-2">Plano de Acesso</label>
-                 <select 
-                    className="w-full bg-black border border-gray-700 p-3 rounded text-white"
-                    value={editingItem.plan || 'free'}
-                    onChange={e => setEditingItem({...editingItem, plan: e.target.value})}
-                 >
-                   <option value="free">FREE</option>
-                   <option value="pro">PRO</option>
-                   <option value="gold">GOLD</option>
-                   <option value="admin">ADMIN</option>
-                 </select>
-               </div>
-            ) : (
-               // Campos genéricos para Produtos e News
-               Object.keys(editingItem).map(key => {
-                 if(key === 'id' || key === 'created_at') return null;
-                 return (
-                   <div key={key}>
-                     <label className="text-xs text-gray-500 uppercase">{key}</label>
-                     <input 
-                       className="w-full bg-black border border-gray-700 p-2 rounded text-white"
-                       value={editingItem[key] || ''}
-                       onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} 
-                     />
-                   </div>
-                 )
-               })
-            )}
-            <div className="flex justify-end gap-4 pt-4">
-               <button type="button" onClick={() => setEditingItem(null)} className="text-gray-400">Cancelar</button>
-               <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-500">Salvar</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Lista de Itens */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-        <div className="p-4 border-b border-gray-800 flex justify-between">
-           <h3 className="font-bold text-white">Lista: {activeSection}</h3>
-           {activeSection !== 'users' && (
-             <button onClick={() => setEditingItem({})} className="text-blue-400 text-sm font-bold flex items-center"><Plus size={16} className="mr-1"/> Adicionar Novo</button>
-           )}
-        </div>
-        
-        {loading ? <div className="p-8 text-center text-gray-500">Carregando...</div> : (
-          <table className="w-full text-left text-sm text-gray-400">
-            <thead className="bg-black/50 text-xs uppercase">
-              <tr>
-                <th className="p-4">ID / Info</th>
-                <th className="p-4">Status / Valor</th>
-                <th className="p-4 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-               {dataList.map(item => (
-                 <tr key={item.id} className="border-b border-gray-800">
-                   <td className="p-4">
-                     {activeSection === 'users' ? (
-                        <div>{item.email}<br/><span className="text-xs text-gray-600">{item.id}</span></div>
-                     ) : (item.title || item.id)}
-                   </td>
-                   <td className="p-4">
-                     {activeSection === 'users' ? (
-                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${item.plan === 'admin' ? 'bg-red-900 text-red-200' : 'bg-gray-800 text-gray-300'}`}>
-                          {item.plan || 'FREE'}
-                        </span>
-                     ) : (item.price || item.date)}
-                   </td>
-                   <td className="p-4 text-right">
-                     <button onClick={() => setEditingItem(item)} className="text-blue-400 mr-3"><Edit3 size={16}/></button>
-                     {activeSection !== 'users' && (
-                       <button onClick={() => handleDelete(item.id)} className="text-red-500"><Trash2 size={16}/></button>
-                     )}
-                   </td>
-                 </tr>
-               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
-}
-// --- COMPONENTE PRINCIPAL ---
-
+// --- COMPONENTE PRINCIPAL APP ---
 export default function App() {
   const [user, setUser] = useState(null); 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verifica sessão ativa ao carregar
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -409,18 +52,16 @@ export default function App() {
     checkSession();
   }, []);
 
-const fetchProfileData = async (userId, email) => {
+  const fetchProfileData = async (userId, email) => {
     try {
-        // Busca perfil forçando a atualização dos dados
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('*') // Garante que traga a nova coluna 'plan'
+            .select('*')
             .eq('id', userId)
             .single();
         
         if (profileError && profileError.code !== 'PGRST116') console.error(profileError);
 
-        // Busca Compras
         const { data: purchases, error: purchaseError } = await supabase
             .from('user_purchases')
             .select('product_id')
@@ -430,33 +71,18 @@ const fetchProfileData = async (userId, email) => {
 
         const accessList = purchases ? purchases.map(p => p.product_id) : [];
 
-        // LOG DE DEPURAÇÃO (Para você ver no console se precisar)
-        console.log("Dados do Usuário Carregados:", profile);
-
-        // ... código anterior da função ...
-
-        console.log("Dados vindos do banco:", profile); // Para a gente ver no console
-
-        // SEU EMAIL AQUI: Coloque seu email exato dentro das aspas abaixo
-        const MEU_EMAIL_ADMIN = "eu.lucasholtz@gmail.com"; 
-        
-        // Força ser admin se o email bater
-        const finalPlan = (email === MEU_EMAIL_ADMIN) ? 'admin' : (profile?.plan || 'free');
-
         setUser({
             ...profile,
             email: email,
             name: profile?.name || 'Usuário',
             access: accessList, 
-            plan: finalPlan, // <--- USA A NOSSA VARIÁVEL FORÇADA
+            plan: profile?.plan || 'free',
             avatar: profile?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
             cover: profile?.cover || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80'
         });
-
-        // ... resto do código (catch/finally) ...
     } catch (error) {
         console.error("Erro ao carregar dados:", error);
-        setUser(null); // Força recarregar se der erro grave
+        setUser(null);
     } finally {
         setLoading(false);
     }
@@ -466,7 +92,6 @@ const fetchProfileData = async (userId, email) => {
     setLoading(true);
     try {
         let authResponse;
-        
         if (isRegister) {
             authResponse = await supabase.auth.signUp({
                 email,
@@ -483,7 +108,6 @@ const fetchProfileData = async (userId, email) => {
         if (authResponse.error) throw authResponse.error;
 
         if (authResponse.data.user) {
-            // Delay para o trigger do banco criar o perfil
             setTimeout(() => fetchProfileData(authResponse.data.user.id, email), 1500);
         } else if (isRegister) {
             alert("Verifique seu email para confirmar o cadastro!");
@@ -505,10 +129,7 @@ const fetchProfileData = async (userId, email) => {
       try {
           const { error } = await supabase
             .from('user_purchases')
-            .insert({ 
-                user_id: user.id, 
-                product_id: productId 
-            });
+            .insert({ user_id: user.id, product_id: productId });
           
           if (error) throw error;
 
@@ -528,7 +149,7 @@ const fetchProfileData = async (userId, email) => {
     return (
       <div className="h-screen bg-black flex flex-col items-center justify-center text-blue-500">
         <Loader2 size={48} className="animate-spin mb-4" />
-        <p className="text-gray-500 text-sm animate-pulse">Iniciando aplicação...</p>
+        <p className="text-gray-500 text-sm animate-pulse">Iniciando PromptLab...</p>
       </div>
     );
   }
@@ -541,7 +162,6 @@ const fetchProfileData = async (userId, email) => {
 }
 
 // --- TELA DE LOGIN ---
-
 function AuthScreen({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -558,7 +178,6 @@ function AuthScreen({ onLogin }) {
   return (
     <div className="min-h-screen bg-black text-white flex relative overflow-hidden">
       <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[150px] animate-pulse"></div>
-      
       <div className="hidden lg:flex w-1/2 flex-col justify-center p-16 relative z-10">
         <div className="mb-8">
           <div className="text-5xl font-bold tracking-tighter flex items-center mb-4">
@@ -570,7 +189,6 @@ function AuthScreen({ onLogin }) {
           </p>
         </div>
       </div>
-
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative z-10">
         <div className="w-full max-w-md bg-gray-900/60 backdrop-blur-xl p-8 rounded-2xl border border-gray-800 shadow-2xl">
           <h2 className="text-2xl font-bold text-white mb-2 text-center">
@@ -579,62 +197,29 @@ function AuthScreen({ onLogin }) {
           <p className="text-gray-400 text-center mb-6 text-sm">
             {isRegister ? "Preencha seus dados abaixo" : "Faça login para continuar"}
           </p>
-          
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (
               <div className="relative">
                   <User className="absolute left-3 top-3.5 text-gray-500" size={18} />
-                  <input 
-                    type="text" 
-                    required 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none transition-colors"
-                    placeholder="Seu nome"
-                  />
+                  <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none" placeholder="Seu nome" />
               </div>
             )}
-
             <div className="relative">
                 <Mail className="absolute left-3 top-3.5 text-gray-500" size={18} />
-                <input 
-                  type="email" 
-                  required 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none transition-colors"
-                  placeholder="seu@email.com"
-                />
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none" placeholder="seu@email.com" />
             </div>
-
             <div className="relative">
                 <Lock className="absolute left-3 top-3.5 text-gray-500" size={18} />
-                <input 
-                  type="password" 
-                  required 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none transition-colors"
-                  placeholder="••••••••"
-                />
+                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none" placeholder="••••••••" />
             </div>
-
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center mt-6 shadow-lg"
-            >
+            <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center mt-6 shadow-lg">
               {isLoading ? <Loader2 className="animate-spin" /> : (isRegister ? "Cadastrar" : "Entrar")}
             </button>
           </form>
-
           <div className="mt-6 text-center border-t border-gray-800 pt-6">
-             <button 
-               onClick={() => setIsRegister(!isRegister)} 
-               className="text-blue-400 hover:text-blue-300 text-sm font-medium"
-             >
-               {isRegister ? "Já tenho conta? Fazer Login" : "Não tem conta? Criar nova conta"}
-             </button>
+              <button onClick={() => setIsRegister(!isRegister)} className="text-blue-400 hover:text-blue-300 text-sm font-medium">
+                {isRegister ? "Já tenho conta? Fazer Login" : "Não tem conta? Criar nova conta"}
+              </button>
           </div>
         </div>
       </div>
@@ -642,13 +227,12 @@ function AuthScreen({ onLogin }) {
   );
 }
 
-// --- APP LOGADO ---
-
+// --- APP LOGADO (MAIN) ---
 function MainApp({ user, setUser, onLogout, onPurchase }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false); 
-  const [appSettings, setAppSettings] = useState({ logo_url: '' }); // Novo estado da Logo
+  const [appSettings, setAppSettings] = useState({ logo_url: '' }); 
 
   // Dados
   const [favorites, setFavorites] = useState([901]); 
@@ -656,16 +240,14 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
   const [news, setNews] = useState(NEWS_DATA);
   const [tutorials, setTutorials] = useState(TUTORIALS_DATA);
 
-  // Verifica se é Admin
   const isAdmin = user.plan === 'admin';
 
-  // Busca dados ao carregar (Incluindo a Logo)
   useEffect(() => {
     const fetchData = async () => {
       const { data: packsRes } = await supabase.from('products').select();
       const { data: newsRes } = await supabase.from('news').select().order('id', { ascending: false });
       const { data: tutsRes } = await supabase.from('tutorials').select();
-      const { data: settingsRes } = await supabase.from('app_settings').select().single(); // Pega a logo
+      const { data: settingsRes } = await supabase.from('app_settings').select().single();
       
       if (packsRes) setPacks(packsRes);
       if (newsRes && newsRes.length > 0) setNews(newsRes);
@@ -675,7 +257,6 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
     fetchData();
   }, []);
 
-  // Função para favoritar
   const toggleFavorite = (id) => {
     if (favorites.includes(id)) {
       setFavorites(favorites.filter(favId => favId !== id));
@@ -684,7 +265,6 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
     }
   };
 
-  // Função auxiliar para atualizar a logo instantaneamente
   const updateLogo = (newUrl) => {
       setAppSettings(prev => ({ ...prev, logo_url: newUrl }));
   };
@@ -692,7 +272,7 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard news={news} changeTab={setActiveTab} user={user} />;
-      case 'loja': return <StorePage packs={packs} user={user} onPurchase={onPurchase} />; // NOVA ABA LOJA
+      case 'loja': return <StorePage packs={packs} user={user} onPurchase={onPurchase} />;
       case 'admin': return isAdmin ? <AdminPanel user={user} updateLogo={updateLogo} currentLogo={appSettings.logo_url} /> : <Dashboard news={news} changeTab={setActiveTab} user={user} />;
       case 'prompts': return <PromptsArea packs={packs} freePrompts={FREE_PROMPTS} favorites={favorites} toggleFavorite={toggleFavorite} user={user} onPurchase={onPurchase} />;
       case 'favorites': return <Favorites packs={packs} freePrompts={FREE_PROMPTS} favorites={favorites} toggleFavorite={toggleFavorite} />;
@@ -711,10 +291,7 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
       </div>
 
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/80 z-40 lg:hidden backdrop-blur-sm"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/80 z-40 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
       )}
 
       <aside className={`
@@ -724,7 +301,6 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
         transform transition-all duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* CABEÇALHO DA SIDEBAR COM LOGO DINÂMICA */}
         <div className={`flex items-center ${sidebarMinimized ? 'justify-center' : 'justify-between'} p-8 border-b border-gray-800/50 transition-all`}>
            {!sidebarMinimized ? (
              appSettings.logo_url && appSettings.logo_url.length > 10 ? (
@@ -743,94 +319,34 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
               )
            )}
            
-           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
-             <X size={24} />
-           </button>
+           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white"><X size={24} /></button>
 
-           <button 
-             onClick={() => setSidebarMinimized(!sidebarMinimized)} 
-             className={`hidden lg:block text-gray-500 hover:text-white transition-colors ${sidebarMinimized ? 'absolute top-8 right-[-12px] bg-gray-800 rounded-full p-1 border border-gray-700' : ''}`}
-           >
+           <button onClick={() => setSidebarMinimized(!sidebarMinimized)} className={`hidden lg:block text-gray-500 hover:text-white transition-colors ${sidebarMinimized ? 'absolute top-8 right-[-12px] bg-gray-800 rounded-full p-1 border border-gray-700' : ''}`}>
              {sidebarMinimized ? <ChevronRight size={14} /> : <ChevronLeft size={20} />}
            </button>
         </div>
 
         <nav className="mt-8 px-4 space-y-2">
-          <SidebarItem 
-            icon={LayoutDashboard} 
-            label="Dashboard" 
-            active={activeTab === 'dashboard'} 
-            onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} 
-            minimized={sidebarMinimized}
-          />
-          
-          {/* NOVO ITEM DE LOJA */}
-          <SidebarItem 
-            icon={ShoppingBag} 
-            label="Loja Oficial" 
-            active={activeTab === 'loja'} 
-            onClick={() => { setActiveTab('loja'); setSidebarOpen(false); }} 
-            minimized={sidebarMinimized}
-          />
-
-          <SidebarItem 
-            icon={Images} 
-            label="Prompts" 
-            active={activeTab === 'prompts'} 
-            onClick={() => { setActiveTab('prompts'); setSidebarOpen(false); }} 
-            minimized={sidebarMinimized}
-          />
-          <SidebarItem 
-            icon={Star} 
-            label="Favoritos" 
-            active={activeTab === 'favorites'} 
-            onClick={() => { setActiveTab('favorites'); setSidebarOpen(false); }} 
-            minimized={sidebarMinimized}
-          />
-          <SidebarItem 
-            icon={Zap} 
-            label="Geradores" 
-            active={activeTab === 'generator'} 
-            onClick={() => { setActiveTab('generator'); setSidebarOpen(false); }} 
-            minimized={sidebarMinimized}
-          />
-          <SidebarItem 
-            icon={BookOpen} 
-            label="Tutoriais" 
-            active={activeTab === 'tutorial'} 
-            onClick={() => { setActiveTab('tutorial'); setSidebarOpen(false); }} 
-            minimized={sidebarMinimized}
-          />
+          <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
+          <SidebarItem icon={ShoppingBag} label="Loja Oficial" active={activeTab === 'loja'} onClick={() => { setActiveTab('loja'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
+          <SidebarItem icon={Images} label="Prompts" active={activeTab === 'prompts'} onClick={() => { setActiveTab('prompts'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
+          <SidebarItem icon={Star} label="Favoritos" active={activeTab === 'favorites'} onClick={() => { setActiveTab('favorites'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
+          <SidebarItem icon={Zap} label="Geradores" active={activeTab === 'generator'} onClick={() => { setActiveTab('generator'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
+          <SidebarItem icon={BookOpen} label="Tutoriais" active={activeTab === 'tutorial'} onClick={() => { setActiveTab('tutorial'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
           
           <div className="my-4 border-t border-gray-800/50 mx-2"></div>
           
           {isAdmin && (
              <>
-               <SidebarItem 
-                  icon={Shield} 
-                  label="Painel Admin" 
-                  active={activeTab === 'admin'} 
-                  onClick={() => { setActiveTab('admin'); setSidebarOpen(false); }} 
-                  minimized={sidebarMinimized}
-               />
+               <SidebarItem icon={Shield} label="Painel Admin" active={activeTab === 'admin'} onClick={() => { setActiveTab('admin'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
                <div className="my-4 border-t border-gray-800/50 mx-2"></div>
              </>
            )}
           
-          <SidebarItem 
-            icon={User} 
-            label="Meu Perfil" 
-            active={activeTab === 'profile'} 
-            onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }} 
-            minimized={sidebarMinimized}
-          />
+          <SidebarItem icon={User} label="Meu Perfil" active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
           
           <div className="pt-8">
-            <button 
-              onClick={onLogout}
-              className={`flex items-center w-full px-4 py-3 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors group ${sidebarMinimized ? 'justify-center' : ''}`}
-              title={sidebarMinimized ? "Sair" : ""}
-            >
+            <button onClick={onLogout} className={`flex items-center w-full px-4 py-3 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors group ${sidebarMinimized ? 'justify-center' : ''}`} title={sidebarMinimized ? "Sair" : ""}>
               <LogOut size={20} className={`${sidebarMinimized ? '' : 'mr-3'} group-hover:rotate-12 transition-transform`} />
               {!sidebarMinimized && <span>Sair da Conta</span>}
             </button>
@@ -842,15 +358,10 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
         <header className="lg:hidden flex items-center justify-center p-4 border-b border-gray-800 bg-black/80 backdrop-blur-md">
           <div className="text-xl font-bold text-white">Prompt<span className="text-blue-500">Lab</span></div>
         </header>
-
         <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
           {renderContent()}
         </main>
-
-        <button 
-          onClick={() => setSidebarOpen(true)} 
-          className="fixed bottom-6 left-6 z-50 lg:hidden bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-500 flex items-center justify-center"
-        >
+        <button onClick={() => setSidebarOpen(true)} className="fixed bottom-6 left-6 z-50 lg:hidden bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-500 flex items-center justify-center">
           <Menu size={24} />
         </button>
       </div>
@@ -858,12 +369,21 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
   );
 }
 
+function SidebarItem({ icon: Icon, label, active, onClick, minimized }) {
+  return (
+    <button onClick={onClick} title={minimized ? label : ""} className={`flex items-center w-full px-4 py-3.5 rounded-xl transition-all duration-300 border border-transparent ${active ? 'bg-blue-600/10 text-blue-400 border-blue-500/20 shadow-[0_0_20px_rgba(37,99,235,0.15)]' : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200 hover:border-gray-800'} ${minimized ? 'justify-center' : ''}`}>
+      <Icon size={20} className={`${minimized ? '' : 'mr-3'} ${active ? 'drop-shadow-[0_0_5px_rgba(59,130,246,0.8)]' : ''}`} />
+      {!minimized && <span className="font-medium tracking-wide animate-fadeIn">{label}</span>}
+    </button>
+  );
+}
+
+// --- DASHBOARD ATUALIZADO ---
 function Dashboard({ news, changeTab, user }) {
   const isAdmin = user.plan === 'admin';
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto">
-      {/* Cabeçalho */}
       <div className="flex justify-between items-end border-b border-gray-800 pb-6">
         <div>
           <h2 className="text-3xl font-bold text-white mb-2">Olá, {user.name.split(' ')[0]}</h2>
@@ -876,38 +396,25 @@ function Dashboard({ news, changeTab, user }) {
         )}
       </div>
 
-      {/* GRID SUPERIOR: 3 ITENS (Prompts, Geradores, LOJA) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* 1. Prompts */}
         <div onClick={() => changeTab('prompts')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-blue-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(59,130,246,0.1)]">
-          <div className="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-blue-400 mb-4">
-            <Images size={24} />
-          </div>
+          <div className="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-blue-400 mb-4"><Images size={24} /></div>
           <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Acervo</p>
           <p className="text-3xl font-bold text-white mt-1">Prompts</p>
         </div>
-
-        {/* 2. Geradores */}
         <div onClick={() => changeTab('generator')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-yellow-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(234,179,8,0.1)]">
-          <div className="bg-yellow-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-yellow-400 mb-4">
-            <Zap size={24} />
-          </div>
+          <div className="bg-yellow-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-yellow-400 mb-4"><Zap size={24} /></div>
           <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Ferramentas</p>
           <p className="text-3xl font-bold text-white mt-1">Geradores</p>
         </div>
-
-        {/* 3. LOJA (Novo Item) */}
         <div onClick={() => changeTab('loja')} className="bg-gradient-to-br from-purple-900/40 to-black p-6 rounded-2xl border border-purple-500/30 hover:border-purple-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] relative overflow-hidden">
            <div className="absolute top-0 right-0 bg-purple-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl">NOVO</div>
-           <div className="bg-purple-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-purple-400 mb-4">
-            <ShoppingBag size={24} />
-          </div>
+           <div className="bg-purple-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-purple-400 mb-4"><ShoppingBag size={24} /></div>
           <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Marketplace</p>
           <p className="text-3xl font-bold text-white mt-1">Loja Oficial</p>
         </div>
       </div>
 
-      {/* SEÇÃO DE BLOG / FEED GRANDE */}
       <div>
         <div className="flex items-center justify-between mb-6 mt-8">
              <h3 className="text-2xl font-bold text-white flex items-center">
@@ -920,7 +427,6 @@ function Dashboard({ news, changeTab, user }) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {news.slice(0, 2).map(item => (
               <div key={item.id} className="group bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-600 transition-all flex flex-col h-full">
-                 {/* Imagem da Notícia */}
                  <div className="h-56 overflow-hidden relative bg-gray-800">
                     {item.image ? (
                         <img src={item.image} alt="Capa" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>
@@ -931,12 +437,9 @@ function Dashboard({ news, changeTab, user }) {
                         {item.date || 'Novidade'}
                     </div>
                  </div>
-                 
-                 {/* Texto da Notícia */}
                  <div className="p-8 flex-1 flex flex-col">
                     <h4 className="text-2xl font-bold text-white mb-4 leading-tight">{item.title}</h4>
                     <p className="text-gray-400 leading-relaxed flex-1">{item.content}</p>
-                    
                     <button className="mt-8 w-full py-3 rounded-xl border border-gray-700 text-gray-300 font-bold hover:bg-white hover:text-black transition-all flex items-center justify-center">
                         Ler Artigo Completo <ArrowRight size={16} className="ml-2"/>
                     </button>
@@ -949,51 +452,39 @@ function Dashboard({ news, changeTab, user }) {
   );
 }
 
+// --- LOJA (NOVO) ---
 function StorePage({ packs, user, onPurchase }) {
     return (
         <div className="animate-fadeIn max-w-7xl mx-auto pb-20">
             <div className="text-center mb-16">
                 <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">Loja <span className="text-blue-500">PromptLab</span></h2>
-                <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                    Explore nossos packs premium e ferramentas exclusivas para levar sua criatividade para o próximo nível.
-                </p>
+                <p className="text-gray-400 text-lg max-w-2xl mx-auto">Explore nossos packs premium e ferramentas exclusivas.</p>
             </div>
 
-            {/* Destaque: Geradores */}
             <div className="mb-16 transform hover:scale-[1.01] transition-all duration-500">
                 <div className="bg-gradient-to-r from-gray-900 to-black border border-yellow-500/30 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-                    
                     <div className="bg-gray-800/50 p-8 rounded-2xl border border-yellow-500/20 shadow-2xl">
                         <Zap size={80} className="text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]"/>
                     </div>
-                    
                     <div className="flex-1 text-center md:text-left z-10">
                         <h4 className="text-3xl font-bold text-white mb-4">Acesso Creator Vitalício</h4>
-                        <p className="text-gray-400 mb-6 text-lg leading-relaxed">
-                            Desbloqueie o poder total da plataforma. Acesso ilimitado ao Gerador de Prompts, Criador de Imagens e todas as futuras ferramentas de IA.
-                        </p>
+                        <p className="text-gray-400 mb-6 text-lg leading-relaxed">Acesso ilimitado ao Gerador de Prompts e Criador de Imagens.</p>
                         <div className="flex flex-wrap gap-3 justify-center md:justify-start mb-6">
                             <span className="px-4 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-sm text-yellow-200 font-medium flex items-center"><Check size={14} className="mr-1"/> Acesso Ilimitado</span>
                             <span className="px-4 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-sm text-yellow-200 font-medium flex items-center"><Check size={14} className="mr-1"/> Suporte Prioritário</span>
                         </div>
                     </div>
-                    
                     <div className="text-center z-10 min-w-[200px]">
                          <p className="text-sm text-gray-500 mb-1 line-through">R$ 97,00</p>
                          <p className="text-4xl font-bold text-white mb-4">R$ 49,90</p>
-                         <button onClick={() => onPurchase('access-generators')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.3)] transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95">
-                            Comprar Agora
-                         </button>
+                         <button onClick={() => onPurchase('access-generators')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.3)] transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95">Comprar Agora</button>
                     </div>
                 </div>
             </div>
 
-            {/* Lista de Packs */}
             <div className="flex items-center justify-between mb-8">
-                 <h3 className="text-2xl font-bold text-white flex items-center">
-                    <Images size={24} className="text-blue-500 mr-3"/> Packs Disponíveis
-                 </h3>
+                 <h3 className="text-2xl font-bold text-white flex items-center"><Images size={24} className="text-blue-500 mr-3"/> Packs Disponíveis</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -1002,18 +493,11 @@ function StorePage({ packs, user, onPurchase }) {
                         <div className="aspect-[4/3] relative overflow-hidden">
                             <img src={pack.cover} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
-                            <div className="absolute bottom-4 left-4 right-4">
-                                <h4 className="text-xl font-bold text-white leading-tight drop-shadow-md">{pack.title}</h4>
-                            </div>
+                            <div className="absolute bottom-4 left-4 right-4"><h4 className="text-xl font-bold text-white leading-tight drop-shadow-md">{pack.title}</h4></div>
                         </div>
                         <div className="p-6 flex items-center justify-between mt-auto bg-gray-900">
-                            <div>
-                                <span className="text-xs text-gray-500 block uppercase tracking-wider mb-1">Preço Único</span>
-                                <span className="text-white font-bold text-2xl">{pack.price}</span>
-                            </div>
-                            <button onClick={() => onPurchase(pack.id)} className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-600/30">
-                                <ShoppingCart size={20} />
-                            </button>
+                            <div><span className="text-xs text-gray-500 block uppercase tracking-wider mb-1">Preço Único</span><span className="text-white font-bold text-2xl">{pack.price}</span></div>
+                            <button onClick={() => onPurchase(pack.id)} className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-600/30"><ShoppingCart size={20} /></button>
                         </div>
                     </div>
                 ))}
@@ -1042,7 +526,7 @@ function PromptsArea({ packs, freePrompts, favorites, toggleFavorite, user, onPu
     if (isGold || userAccess.includes(pack.id)) {
       setSelectedPack(pack);
       setLoadingItems(true);
-      const res = await supabase.from('pack_items').select('*').eq('pack_id', pack.id);
+      const { data } = await supabase.from('pack_items').select('*').eq('pack_id', pack.id);
       setPackItems(data || []); 
       setLoadingItems(false);
     }
@@ -1056,68 +540,32 @@ function PromptsArea({ packs, freePrompts, favorites, toggleFavorite, user, onPu
   if (selectedPack) {
     return (
       <div className="animate-fadeIn max-w-7xl mx-auto">
-        <button 
-          onClick={() => setSelectedPack(null)}
-          className="mb-8 flex items-center text-gray-400 hover:text-white transition-colors group"
-        >
-          <div className="bg-gray-800 p-2 rounded-lg mr-3 group-hover:bg-gray-700 transition-colors">
-            <Images size={20} />
-          </div>
-          Voltar para Biblioteca
+        <button onClick={() => setSelectedPack(null)} className="mb-8 flex items-center text-gray-400 hover:text-white transition-colors group">
+          <div className="bg-gray-800 p-2 rounded-lg mr-3 group-hover:bg-gray-700 transition-colors"><Images size={20} /></div> Voltar para Biblioteca
         </button>
-
         <div className="flex justify-between items-end mb-8 pb-4 border-b border-gray-800">
           <div>
             <h2 className="text-3xl font-bold text-white mb-2">{selectedPack.title}</h2>
-            {isGold ? (
-                <p className="text-yellow-400 flex items-center font-bold drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">
-                    <Crown size={14} className="mr-2 fill-yellow-400"/> Acesso Gold
-                </p>
-            ) : (
-                <p className="text-blue-400 flex items-center"><Unlock size={14} className="mr-2"/> Produto Adquirido</p>
-            )}
+            {isGold ? <p className="text-yellow-400 flex items-center font-bold drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]"><Crown size={14} className="mr-2 fill-yellow-400"/> Acesso Gold</p> : <p className="text-blue-400 flex items-center"><Unlock size={14} className="mr-2"/> Produto Adquirido</p>}
           </div>
         </div>
-
         {loadingItems ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {[1,2,3,4].map(i => <div key={i} className="aspect-[3/4] bg-gray-900/50 animate-pulse rounded-xl"></div>)}
-            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">{[1,2,3,4].map(i => <div key={i} className="aspect-[3/4] bg-gray-900/50 animate-pulse rounded-xl"></div>)}</div>
         ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {packItems.map(item => (
-                <div 
-                key={item.id} 
-                onClick={() => setModalImage(item)}
-                className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-blue-500 transition-all relative group hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
-                >
-                <img 
-                  src={item.url} 
-                  alt="Prompt" 
-                  className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" 
-                />
-                
+                <div key={item.id} onClick={() => setModalImage(item)} className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-blue-500 transition-all relative group hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]">
+                <img src={item.url} alt="Prompt" className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
                     <div className="bg-blue-600/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 shadow-xl">
-                      <Copy size={18} className="text-white mr-2" />
-                      <span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
+                      <Copy size={18} className="text-white mr-2" /><span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
                     </div>
                 </div>
                 </div>
             ))}
             </div>
         )}
-        
-        {modalImage && (
-          <PromptModal 
-            data={modalImage} 
-            close={() => setModalImage(null)} 
-            copy={handleCopy} 
-            copied={copied}
-            toggleFav={toggleFavorite}
-            isFav={favorites.includes(modalImage.id)}
-          />
-        )}
+        {modalImage && <PromptModal data={modalImage} close={() => setModalImage(null)} copy={handleCopy} copied={copied} toggleFav={toggleFavorite} isFav={favorites.includes(modalImage.id)} />}
       </div>
     );
   }
@@ -1125,42 +573,19 @@ function PromptsArea({ packs, freePrompts, favorites, toggleFavorite, user, onPu
   return (
     <div className="animate-fadeIn max-w-7xl mx-auto space-y-12">
       <section>
-        <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-          <Sparkles size={20} className="text-yellow-400 mr-2" /> Seus Packs & Loja
-        </h2>
+        <h2 className="text-2xl font-bold text-white mb-6 flex items-center"><Sparkles size={20} className="text-yellow-400 mr-2" /> Seus Packs & Loja</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {packs.map(pack => {
             const isLocked = !isGold && !userAccess.includes(pack.id);
-            
             return (
-              <div 
-                key={pack.id} 
-                onClick={() => isLocked ? onPurchase(pack.id) : openPack(pack)}
-                className={`aspect-[3/4] relative rounded-2xl overflow-hidden border transition-all duration-300 group cursor-pointer
-                  ${isLocked 
-                    ? 'border-gray-800 opacity-90 hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:border-blue-500' 
-                    : isGold 
-                        ? 'border-yellow-500/30 hover:border-yellow-400 hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' 
-                        : 'border-blue-500/30 hover:border-blue-400 hover:shadow-[0_0_25px_rgba(59,130,246,0.2)]'
-                  }
-                `}
-              >
+              <div key={pack.id} onClick={() => isLocked ? onPurchase(pack.id) : openPack(pack)} className={`aspect-[3/4] relative rounded-2xl overflow-hidden border transition-all duration-300 group cursor-pointer ${isLocked ? 'border-gray-800 opacity-90 hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:border-blue-500' : isGold ? 'border-yellow-500/30 hover:border-yellow-400 hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' : 'border-blue-500/30 hover:border-blue-400 hover:shadow-[0_0_25px_rgba(59,130,246,0.2)]'}`}>
                 <img src={pack.cover} alt={pack.title} className={`w-full h-full object-cover transition-transform duration-700 ${isLocked ? 'grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80' : 'group-hover:scale-110'}`} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
-                
-                <div className="absolute bottom-0 left-0 right-0 p-4 z-20 text-center">
-                  <h3 className="text-white font-bold text-lg leading-tight drop-shadow-md">{pack.title}</h3>
-                </div>
-
+                <div className="absolute bottom-0 left-0 right-0 p-4 z-20 text-center"><h3 className="text-white font-bold text-lg leading-tight drop-shadow-md">{pack.title}</h3></div>
                 {isLocked && (
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                     <Lock size={32} className="text-blue-400 mb-4 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
-                     <button 
-                      onClick={(e) => handlePurchaseClick(e, pack.id)}
-                      className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg shadow-blue-900/50 transition-all transform hover:scale-105"
-                     >
-                       Comprar {pack.price}
-                     </button>
+                      <Lock size={32} className="text-blue-400 mb-4 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+                      <button onClick={(e) => handlePurchaseClick(e, pack.id)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg shadow-blue-900/50 transition-all transform hover:scale-105">Comprar {pack.price}</button>
                   </div>
                 )}
               </div>
@@ -1168,47 +593,24 @@ function PromptsArea({ packs, freePrompts, favorites, toggleFavorite, user, onPu
           })}
         </div>
       </section>
-
       <section>
         <div className="flex items-center justify-between mb-6 border-t border-gray-800 pt-8">
-          <h2 className="text-2xl font-bold text-white flex items-center">
-            <Zap size={20} className="text-blue-500 mr-2" /> Prompts Gratuitos
-          </h2>
+          <h2 className="text-2xl font-bold text-white flex items-center"><Zap size={20} className="text-blue-500 mr-2" /> Prompts Gratuitos</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {freePrompts.map(item => (
-            <div 
-              key={item.id} 
-              onClick={() => setModalImage(item)}
-              className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-blue-500 transition-all relative group"
-            >
-              <img 
-                src={item.url} 
-                alt="Free Prompt" 
-                className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" 
-              />
-              
+            <div key={item.id} onClick={() => setModalImage(item)} className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-blue-500 transition-all relative group">
+              <img src={item.url} alt="Free Prompt" className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
                   <div className="bg-blue-600/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 shadow-xl">
-                    <Copy size={18} className="text-white mr-2" />
-                    <span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
+                    <Copy size={18} className="text-white mr-2" /><span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
                   </div>
               </div>
             </div>
           ))}
         </div>
       </section>
-      
-      {modalImage && (
-        <PromptModal 
-            data={modalImage} 
-            close={() => setModalImage(null)} 
-            copy={handleCopy} 
-            copied={copied} 
-            toggleFav={toggleFavorite} 
-            isFav={favorites.includes(modalImage.id)}
-        />
-      )}
+      {modalImage && <PromptModal data={modalImage} close={() => setModalImage(null)} copy={handleCopy} copied={copied} toggleFav={toggleFavorite} isFav={favorites.includes(modalImage.id)} />}
     </div>
   );
 }
@@ -1223,23 +625,14 @@ function GeneratorsHub({ user, onPurchase }) {
       <div className="animate-fadeIn max-w-4xl mx-auto text-center py-12">
         <div className="inline-block p-6 rounded-full bg-gray-900 border border-gray-800 mb-6 relative">
           <Zap size={64} className="text-gray-600" />
-          <div className="absolute -top-2 -right-2 bg-blue-500 p-2 rounded-full animate-bounce">
-            <Lock size={20} className="text-white" />
-          </div>
+          <div className="absolute -top-2 -right-2 bg-blue-500 p-2 rounded-full animate-bounce"><Lock size={20} className="text-white" /></div>
         </div>
         <h2 className="text-4xl font-bold text-white mb-4">Área Restrita: Creators Lab</h2>
-        <p className="text-xl text-gray-400 mb-8 max-w-xl mx-auto">
-          Acesse nosso gerador de Gems exclusivo e as melhores ferramentas de IA do mercado.
-        </p>
+        <p className="text-xl text-gray-400 mb-8 max-w-xl mx-auto">Acesse nosso gerador de Gems exclusivo e as melhores ferramentas de IA do mercado.</p>
         <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-8 max-w-md mx-auto hover:border-blue-500 transition-colors group">
           <h3 className="text-2xl font-bold text-white mb-2">Plano Creator</h3>
           <div className="text-3xl font-bold text-blue-400 mb-6">R$ 49,90 <span className="text-sm text-gray-500 font-normal">/ vitalício</span></div>
-          <button 
-            onClick={() => onPurchase('access-generators')}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20 group-hover:shadow-blue-500/40"
-          >
-            Desbloquear Agora
-          </button>
+          <button onClick={() => onPurchase('access-generators')} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20 group-hover:shadow-blue-500/40">Desbloquear Agora</button>
         </div>
       </div>
     );
@@ -1248,30 +641,21 @@ function GeneratorsHub({ user, onPurchase }) {
   return (
     <div className="animate-fadeIn max-w-5xl mx-auto">
       <h2 className="text-3xl font-bold text-white mb-8 flex items-center">
-          {isGold ? <Crown size={28} className="text-yellow-400 mr-3 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" /> : null}
-          Central de Geradores
+          {isGold ? <Crown size={28} className="text-yellow-400 mr-3 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" /> : null} Central de Geradores
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className={`bg-gray-900 rounded-2xl border overflow-hidden group transition-all relative ${isGold ? 'border-yellow-500/30 hover:border-yellow-400' : 'border-gray-800 hover:border-blue-500'}`}>
-           <div className={`h-48 bg-gradient-to-br flex items-center justify-center ${isGold ? 'from-yellow-900/20 to-black' : 'from-blue-900/40 to-purple-900/40'}`}>
-              <Sparkles size={64} className={isGold ? "text-yellow-400" : "text-blue-400"} />
-           </div>
+           <div className={`h-48 bg-gradient-to-br flex items-center justify-center ${isGold ? 'from-yellow-900/20 to-black' : 'from-blue-900/40 to-purple-900/40'}`}><Sparkles size={64} className={isGold ? "text-yellow-400" : "text-blue-400"} /></div>
            <div className="p-8">
              <h3 className="text-2xl font-bold text-white mb-2">Gerador de Prompts</h3>
-             <button className={`w-full py-3 border font-bold rounded-xl transition-all ${isGold ? 'border-yellow-500 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white'}`}>
-               <Play size={20} className="mr-2 inline" /> Iniciar App
-             </button>
+             <button className={`w-full py-3 border font-bold rounded-xl transition-all ${isGold ? 'border-yellow-500 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white'}`}><Play size={20} className="mr-2 inline" /> Iniciar App</button>
            </div>
         </div>
         <div className={`bg-gray-900 rounded-2xl border overflow-hidden group transition-all relative ${isGold ? 'border-yellow-500/30 hover:border-purple-400' : 'border-gray-800 hover:border-purple-500'}`}>
-           <div className="h-48 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center relative">
-              <Images size={64} className="text-white relative z-10" />
-           </div>
+           <div className="h-48 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center relative"><Images size={64} className="text-white relative z-10" /></div>
            <div className="p-8">
              <h3 className="text-2xl font-bold text-white mb-2">Gerador de Imagens</h3>
-             <button className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-all">
-               Acessar Ferramenta <ExternalLink size={20} className="ml-2 inline" />
-             </button>
+             <button className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-all">Acessar Ferramenta <ExternalLink size={20} className="ml-2 inline" /></button>
            </div>
         </div>
       </div>
@@ -1289,22 +673,13 @@ function PromptModal({ data, close, copy, copied, toggleFav, isFav }) {
         </div>
         <div className="md:w-1/2 p-8 flex flex-col border-l border-gray-800 bg-gray-900">
           <div className="flex justify-between items-start mb-6">
-            <div>
-              <h3 className="text-2xl font-bold text-white">PromptLab Details</h3>
-              <p className="text-gray-500 text-sm font-mono mt-1">ID: #{data.id}</p>
-            </div>
+            <div><h3 className="text-2xl font-bold text-white">PromptLab Details</h3><p className="text-gray-500 text-sm font-mono mt-1">ID: #{data.id}</p></div>
             <button onClick={close} className="text-gray-500 hover:text-white hidden md:block"><X size={28}/></button>
           </div>
-          <div className="flex-1 bg-black rounded-xl p-6 border border-gray-800 mb-8 overflow-y-auto custom-scrollbar">
-            <p className="text-gray-300 font-mono text-sm leading-relaxed tracking-wide">{data.prompt}</p>
-          </div>
+          <div className="flex-1 bg-black rounded-xl p-6 border border-gray-800 mb-8 overflow-y-auto custom-scrollbar"><p className="text-gray-300 font-mono text-sm leading-relaxed tracking-wide">{data.prompt}</p></div>
           <div className="grid grid-cols-5 gap-4 mt-auto">
-            <button onClick={() => copy(data.prompt)} className={`col-span-4 flex items-center justify-center py-4 rounded-xl font-bold text-lg transition-all duration-300 ${copied ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
-              {copied ? <Check size={24} className="mr-2"/> : <Copy size={24} className="mr-2"/>} {copied ? "COPIADO" : "COPIAR PROMPT"}
-            </button>
-            <button onClick={() => toggleFav(data.id)} className={`col-span-1 flex items-center justify-center rounded-xl border transition-all ${isFav ? 'bg-pink-500/10 border-pink-500 text-pink-500' : 'border-gray-700 text-gray-500 hover:border-pink-500 hover:text-pink-500'}`}>
-              <Heart size={24} className={isFav ? "fill-current" : ""} />
-            </button>
+            <button onClick={() => copy(data.prompt)} className={`col-span-4 flex items-center justify-center py-4 rounded-xl font-bold text-lg transition-all duration-300 ${copied ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>{copied ? <Check size={24} className="mr-2"/> : <Copy size={24} className="mr-2"/>} {copied ? "COPIADO" : "COPIAR PROMPT"}</button>
+            <button onClick={() => toggleFav(data.id)} className={`col-span-1 flex items-center justify-center rounded-xl border transition-all ${isFav ? 'bg-pink-500/10 border-pink-500 text-pink-500' : 'border-gray-700 text-gray-500 hover:border-pink-500 hover:text-pink-500'}`}><Heart size={24} className={isFav ? "fill-current" : ""} /></button>
           </div>
         </div>
       </div>
@@ -1330,25 +705,12 @@ function Favorites({ packs, freePrompts, favorites, toggleFavorite }) {
       {favoriteItems.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {favoriteItems.map(item => (
-            <div 
-              key={item.id} 
-              onClick={() => setModalImage(item)}
-              className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-pink-500 transition-all relative group"
-            >
-              <img 
-                src={item.url} 
-                alt="Favorite" 
-                className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" 
-              />
-              
-              <div className="absolute top-2 right-2 bg-pink-500 text-white p-2 rounded-lg shadow-lg z-20">
-                <Heart size={14} className="fill-current"/>
-              </div>
-
+            <div key={item.id} onClick={() => setModalImage(item)} className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-pink-500 transition-all relative group">
+              <img src={item.url} alt="Favorite" className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" />
+              <div className="absolute top-2 right-2 bg-pink-500 text-white p-2 rounded-lg shadow-lg z-20"><Heart size={14} className="fill-current"/></div>
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
                   <div className="bg-pink-600/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 shadow-xl">
-                    <Copy size={18} className="text-white mr-2" />
-                    <span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
+                    <Copy size={18} className="text-white mr-2" /><span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
                   </div>
               </div>
             </div>
@@ -1356,21 +718,10 @@ function Favorites({ packs, freePrompts, favorites, toggleFavorite }) {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 opacity-30">
-          <Star size={64} className="mb-4"/>
-          <p>Nenhum favorito ainda.</p>
+          <Star size={64} className="mb-4"/><p>Nenhum favorito ainda.</p>
         </div>
       )}
-
-      {modalImage && (
-        <PromptModal 
-          data={modalImage} 
-          close={() => setModalImage(null)} 
-          copy={handleCopy} 
-          copied={copied}
-          toggleFav={toggleFavorite}
-          isFav={true}
-        />
-      )}
+      {modalImage && <PromptModal data={modalImage} close={() => setModalImage(null)} copy={handleCopy} copied={copied} toggleFav={toggleFavorite} isFav={true} />}
     </div>
   );
 }
@@ -1384,13 +735,9 @@ function Tutorials({ videos }) {
           <div key={video.id} className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-blue-500 transition-all group cursor-pointer">
             <div className="aspect-video relative overflow-hidden">
               <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-red-600 text-white rounded-full p-4 shadow-xl"><Play size={20} className="ml-1 fill-white" /></div>
-              </div>
+              <div className="absolute inset-0 flex items-center justify-center"><div className="bg-red-600 text-white rounded-full p-4 shadow-xl"><Play size={20} className="ml-1 fill-white" /></div></div>
             </div>
-            <div className="p-5">
-              <h3 className="font-bold text-white text-lg">{video.title}</h3>
-            </div>
+            <div className="p-5"><h3 className="font-bold text-white text-lg">{video.title}</h3></div>
           </div>
         ))}
       </div>
@@ -1403,49 +750,12 @@ function Profile({ user, setUser }) {
   const isGold = user.plan === 'gold';
   const isFree = !isGold && user.access.length === 0;
   
-  const [formData, setFormData] = useState({
-    firstName: user.name?.split(' ')[0] || '',
-    lastName: user.name?.split(' ').slice(1).join(' ') || '',
-    username: user.email,
-    phone: user.phone || '',
-    displayName: user.name,
-    avatar: user.avatar,
-    cover: user.cover,
-    facebook: '',
-    instagram: '',
-    tiktok: ''
-  });
-  
-  const [passwordData, setPasswordData] = useState({
-      current: '',
-      new: '',
-      confirm: ''
-  });
-
-  const handleImageUpload = (type) => {
-      alert(`Abertura de seletor de arquivos para: ${type}`);
-  };
+  const [formData, setFormData] = useState({ firstName: user.name?.split(' ')[0] || '', lastName: user.name?.split(' ').slice(1).join(' ') || '', username: user.email, phone: user.phone || '', displayName: user.name, avatar: user.avatar, cover: user.cover, facebook: '', instagram: '', tiktok: '' });
+  const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
 
   const handleSave = () => {
-    setUser({
-      ...user,
-      name: `${formData.firstName} ${formData.lastName}`,
-      avatar: formData.avatar,
-      cover: formData.cover
-    });
+    setUser({ ...user, name: `${formData.firstName} ${formData.lastName}`, avatar: formData.avatar, cover: formData.cover });
     alert("Perfil atualizado com sucesso!");
-  };
-
-  const handlePasswordUpdate = () => {
-      if(passwordData.new !== passwordData.confirm) {
-          alert("As senhas não coincidem!");
-          return;
-      }
-      alert("Senha atualizada com sucesso!");
-  };
-
-  const handleSocialUpdate = () => {
-      alert("Redes sociais atualizadas!");
   };
 
   return (
@@ -1453,253 +763,147 @@ function Profile({ user, setUser }) {
       <div className="flex justify-between items-start mb-8">
           <h2 className="text-3xl font-bold text-white">Configurações</h2>
           <div className="flex flex-col items-end">
-              {/* Status Badge */}
-              {isGold ? (
-                  <span className="text-yellow-400 text-sm font-bold flex items-center border border-yellow-500/50 px-3 py-1 rounded-full bg-yellow-500/10 shadow-[0_0_15px_rgba(250,204,21,0.2)] mb-2">
-                      <Crown size={14} className="mr-2 fill-yellow-400" /> CONTA GOLD
-                  </span>
-              ) : (
-                <div className={`${isFree ? 'text-red-500 border-red-500/30 bg-red-500/10' : 'text-blue-400 border-blue-500/30 bg-blue-500/10'} text-sm font-bold flex items-center border px-3 py-1 rounded-full mb-2`}>
-                    {!isFree ? (
-                        <><Sparkles size={14} className="mr-2" /> MEMBRO PRO</>
-                    ) : (
-                        <><User size={14} className="mr-2" /> MEMBRO FREE</>
-                    )}
-                </div>
-              )}
-
-              {/* Upgrade Button */}
-              {!isGold && (
-                <button 
-                  onClick={() => alert('Redirecionar para pagamento Gold')}
-                  className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/50 px-4 py-2 rounded-full text-sm font-bold flex items-center transition-all shadow-[0_0_15px_rgba(250,204,21,0.15)] hover:shadow-[0_0_25px_rgba(250,204,21,0.3)]"
-                >
-                  <Crown size={16} className="mr-2" /> SEJA GOLD
-                </button>
-              )}
+              {isGold ? <span className="text-yellow-400 text-sm font-bold flex items-center border border-yellow-500/50 px-3 py-1 rounded-full bg-yellow-500/10 shadow-[0_0_15px_rgba(250,204,21,0.2)] mb-2"><Crown size={14} className="mr-2 fill-yellow-400" /> CONTA GOLD</span> : <div className={`${isFree ? 'text-red-500 border-red-500/30 bg-red-500/10' : 'text-blue-400 border-blue-500/30 bg-blue-500/10'} text-sm font-bold flex items-center border px-3 py-1 rounded-full mb-2`}>{!isFree ? <><Sparkles size={14} className="mr-2" /> MEMBRO PRO</> : <><User size={14} className="mr-2" /> MEMBRO FREE</>}</div>}
           </div>
       </div>
-
       <div className="flex space-x-8 border-b border-gray-800 mb-8">
-        <button 
-          onClick={() => setActiveTab('perfil')}
-          className={`pb-4 font-medium text-sm transition-colors relative ${activeTab === 'perfil' ? 'text-blue-500' : 'text-gray-400 hover:text-white'}`}
-        >
-          Perfil
-          {activeTab === 'perfil' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-t-full"></div>}
-        </button>
-        <button 
-          onClick={() => setActiveTab('senha')}
-          className={`pb-4 font-medium text-sm transition-colors relative ${activeTab === 'senha' ? 'text-blue-500' : 'text-gray-400 hover:text-white'}`}
-        >
-          Senha
-          {activeTab === 'senha' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-t-full"></div>}
-        </button>
-        <button 
-          onClick={() => setActiveTab('social')}
-          className={`pb-4 font-medium text-sm transition-colors relative ${activeTab === 'social' ? 'text-blue-500' : 'text-gray-400 hover:text-white'}`}
-        >
-          Perfil Social
-          {activeTab === 'social' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-t-full"></div>}
-        </button>
+        <button onClick={() => setActiveTab('perfil')} className={`pb-4 font-medium text-sm transition-colors relative ${activeTab === 'perfil' ? 'text-blue-500' : 'text-gray-400 hover:text-white'}`}>Perfil {activeTab === 'perfil' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-t-full"></div>}</button>
       </div>
-
       {activeTab === 'perfil' && (
         <div className="space-y-8">
-          
           <div className="relative mb-12">
             <div className={`h-48 md:h-64 w-full rounded-t-xl relative overflow-hidden bg-gray-800 border group ${isGold ? 'border-yellow-500/30' : 'border-gray-700'}`}>
-              <button className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-red-500/80 rounded text-white transition-colors z-10">
-                <Trash2 size={18} />
-              </button>
-              
               <img src={formData.cover} alt="Capa" className="w-full h-full object-cover opacity-80" />
-              
-              <button 
-                onClick={() => handleImageUpload('Capa')}
-                className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold flex items-center shadow-lg transition-all"
-              >
-                <Camera size={16} className="mr-2" /> Alterar Capa
-              </button>
+              <button onClick={() => alert('Alterar capa')} className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold flex items-center shadow-lg transition-all"><Camera size={16} className="mr-2" /> Alterar Capa</button>
             </div>
-
             <div className="absolute -bottom-16 left-8 md:left-12">
               <div className="relative group">
-                <div className={`w-32 h-32 rounded-full border-[6px] overflow-hidden bg-gray-700 ${isGold ? 'border-yellow-500 shadow-[0_0_20px_rgba(250,204,21,0.4)]' : 'border-black'}`}>
-                   <img src={formData.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                </div>
-                <div 
-                    onClick={() => handleImageUpload('Avatar')}
-                    className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity border-[6px] border-transparent"
-                >
-                   <Camera size={24} className="text-white" />
-                </div>
+                <div className={`w-32 h-32 rounded-full border-[6px] overflow-hidden bg-gray-700 ${isGold ? 'border-yellow-500 shadow-[0_0_20px_rgba(250,204,21,0.4)]' : 'border-black'}`}><img src={formData.avatar} alt="Avatar" className="w-full h-full object-cover" /></div>
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity border-[6px] border-transparent"><Camera size={24} className="text-white" /></div>
               </div>
             </div>
           </div>
-
-          <div className="flex flex-col md:flex-row justify-end text-xs text-gray-500 gap-4 mt-2 px-4">
-             <span>Tamanho da Foto de Perfil: 200x200 pixels</span>
-             <span>Tamanho da Foto de Capa: 700x430 pixels</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-20">
+            <div className="space-y-2"><label className="text-sm font-bold text-white">Nome</label><input type="text" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none" /></div>
+            <div className="space-y-2"><label className="text-sm font-bold text-white">Último nome</label><input type="text" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none" /></div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-white">Nome</label>
-              <input 
-                type="text" 
-                value={formData.firstName}
-                onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors placeholder-gray-600"
-                placeholder="Seu primeiro nome"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-white">Último nome</label>
-              <input 
-                type="text" 
-                value={formData.lastName}
-                onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors placeholder-gray-600"
-                placeholder="Último nome"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-white">Nome de usuário</label>
-              <input 
-                type="text" 
-                value={formData.username}
-                onChange={(e) => setFormData({...formData, username: e.target.value})}
-                className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors placeholder-gray-600"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-white">Número de telefone</label>
-              <input 
-                type="text" 
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors placeholder-gray-600"
-                placeholder="Número de telefone"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-             <label className="text-sm font-bold text-white">Exibir nome publicamente como</label>
-             <div className="relative">
-                <select 
-                  value={formData.displayName}
-                  onChange={(e) => setFormData({...formData, displayName: e.target.value})}
-                  className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors appearance-none cursor-pointer"
-                >
-                  <option>{formData.firstName} {formData.lastName}</option>
-                  <option>{formData.firstName}</option>
-                  <option>{formData.username}</option>
-                </select>
-                <div className="absolute right-4 top-3.5 text-gray-500 pointer-events-none">▼</div>
-             </div>
-             <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-               O nome apresentado é exibido em todos os campos públicos...
-             </p>
-          </div>
-
-          <div>
-            <button 
-              onClick={handleSave}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-blue-900/20 transition-all transform active:scale-95"
-            >
-              Atualizar Perfil
-            </button>
-          </div>
-
+          <div><button onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all">Atualizar Perfil</button></div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {activeTab === 'senha' && (
-         <div className="max-w-2xl mx-auto py-10 space-y-6 animate-fadeIn">
-             <div className="space-y-2">
-                <label className="text-sm font-bold text-white flex items-center"><Key size={16} className="mr-2"/> Senha Atual</label>
-                <input 
-                    type="password" 
-                    value={passwordData.current}
-                    onChange={(e) => setPasswordData({...passwordData, current: e.target.value})}
-                    className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors"
-                    placeholder="••••••••"
-                />
-             </div>
-             <div className="space-y-2">
-                <label className="text-sm font-bold text-white">Nova Senha</label>
-                <input 
-                    type="password" 
-                    value={passwordData.new}
-                    onChange={(e) => setPasswordData({...passwordData, new: e.target.value})}
-                    className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors"
-                    placeholder="••••••••"
-                />
-             </div>
-             <div className="space-y-2">
-                <label className="text-sm font-bold text-white">Confirmação Nova Senha</label>
-                <input 
-                    type="password" 
-                    value={passwordData.confirm}
-                    onChange={(e) => setPasswordData({...passwordData, confirm: e.target.value})}
-                    className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors"
-                    placeholder="••••••••"
-                />
-             </div>
-             <button 
-              onClick={handlePasswordUpdate}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-blue-900/20 transition-all transform active:scale-95 mt-4"
-            >
-              Atualizar Senha
-            </button>
-         </div>
+// --- PAINEL ADMIN (NOVO) ---
+function AdminPanel({ user, updateLogo, currentLogo }) {
+  const [activeSection, setActiveSection] = useState('users');
+  const [dataList, setDataList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    let query;
+    if (activeSection === 'users') query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (activeSection === 'products') query = supabase.from('products').select('*').order('id', { ascending: true });
+    if (activeSection === 'news') query = supabase.from('news').select('*').order('id', { ascending: false });
+    if (activeSection !== 'settings') {
+        const { data, error } = await query;
+        if (!error) setDataList(data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+    setEditingItem(null);
+  }, [activeSection]);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (activeSection === 'settings') {
+         const { error } = await supabase.from('app_settings').update({ logo_url: editingItem.logo_url }).gt('id', 0);
+         if (error) alert('Erro: ' + error.message);
+         else { alert('Logo atualizada!'); updateLogo(editingItem.logo_url); }
+         return;
+    }
+    const table = activeSection === 'users' ? 'profiles' : activeSection;
+    const payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
+    const { error } = await supabase.from(table).upsert(payload).eq('id', editingItem.id);
+    if (error) alert('Erro: ' + error.message);
+    else { alert('Salvo!'); setEditingItem(null); fetchData(); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Tem certeza?')) return;
+    const table = activeSection === 'users' ? 'profiles' : activeSection;
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) alert('Erro: ' + error.message);
+    else fetchData();
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-6 gap-4">
+        <div><h2 className="text-3xl font-bold text-white flex items-center"><Shield size={32} className="text-red-500 mr-3" /> Painel Admin</h2><p className="text-gray-400">Controle total do sistema.</p></div>
+        <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2">
+          <button onClick={() => setActiveSection('users')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Usuários</button>
+          <button onClick={() => setActiveSection('products')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'products' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Produtos</button>
+          <button onClick={() => setActiveSection('news')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'news' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Blog/News</button>
+          <button onClick={() => { setActiveSection('settings'); setEditingItem({ logo_url: currentLogo }) }} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap flex items-center ${activeSection === 'settings' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}><Settings size={16} className="mr-2"/> Configurações</button>
+        </div>
+      </div>
+
+      {(editingItem || activeSection === 'settings') && (
+        <div className="bg-gray-900 border border-blue-500/50 p-6 rounded-xl mb-8 shadow-2xl shadow-blue-900/10">
+          <h3 className="text-xl font-bold text-white mb-6 flex items-center"><Edit3 size={20} className="mr-2 text-blue-400"/> Editor: {activeSection.toUpperCase()}</h3>
+          <form onSubmit={handleSave} className="grid grid-cols-1 gap-6">
+            {activeSection === 'users' && (
+              <div><label className="block text-gray-400 mb-2 font-bold">Plano de Acesso</label>
+                 <select className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}>
+                   <option value="free">FREE</option><option value="pro">PRO</option><option value="gold">GOLD</option><option value="admin">ADMIN</option>
+                 </select>
+              </div>
+            )}
+            {activeSection === 'settings' && (
+               <div className="space-y-6">
+                   <div><label className="block text-gray-400 mb-2 font-bold">URL da Logo</label><input type="text" className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white" value={editingItem.logo_url} onChange={e => setEditingItem({...editingItem, logo_url: e.target.value})} placeholder="https://..." /></div>
+                   {editingItem.logo_url && <div className="p-4 bg-black rounded border border-gray-800 flex justify-center"><img src={editingItem.logo_url} alt="Preview" className="h-16 object-contain"/></div>}
+               </div>
+            )}
+            {(activeSection === 'news' || activeSection === 'products') && Object.keys(editingItem).map(key => {
+                 if(key === 'id' || key === 'created_at') return null;
+                 if(key === 'content' || key === 'description') return <div key={key}><label className="block text-xs font-bold text-gray-500 uppercase mb-2">{key}</label><textarea className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white h-32" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} /></div>
+                 return <div key={key}><label className="block text-xs font-bold text-gray-500 uppercase mb-2">{key}</label><input className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} /></div>
+            })}
+            <div className="flex justify-end gap-4 pt-4 border-t border-gray-800">
+               {activeSection !== 'settings' && <button type="button" onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-white font-bold px-4">Cancelar</button>}
+               <button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-500 font-bold shadow-lg flex items-center"><Save size={18} className="mr-2"/> Salvar</button>
+            </div>
+          </form>
+        </div>
       )}
-
-      {activeTab === 'social' && (
-         <div className="max-w-2xl mx-auto py-10 space-y-6 animate-fadeIn">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-white flex items-center"><Facebook size={18} className="mr-2 text-blue-500"/> Facebook</label>
-              <input 
-                type="text" 
-                value={formData.facebook}
-                onChange={(e) => setFormData({...formData, facebook: e.target.value})}
-                className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors placeholder-gray-600"
-                placeholder="URL do perfil"
-              />
+      {activeSection !== 'settings' && (
+          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/20">
+               <h3 className="font-bold text-white flex items-center">Registros: {activeSection}</h3>
+               {activeSection !== 'users' && <button onClick={() => setEditingItem({})} className="bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all"><Plus size={16} className="mr-1"/> Adicionar</button>}
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-white flex items-center"><Instagram size={18} className="mr-2 text-pink-500"/> Instagram</label>
-              <input 
-                type="text" 
-                value={formData.instagram}
-                onChange={(e) => setFormData({...formData, instagram: e.target.value})}
-                className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors placeholder-gray-600"
-                placeholder="@usuario"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-white flex items-center"><Music size={18} className="mr-2 text-cyan-400"/> TikTok</label>
-              <input 
-                type="text" 
-                value={formData.tiktok}
-                onChange={(e) => setFormData({...formData, tiktok: e.target.value})}
-                className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none transition-colors placeholder-gray-600"
-                placeholder="@usuario"
-              />
-            </div>
-             <button 
-              onClick={handleSocialUpdate}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-blue-900/20 transition-all transform active:scale-95 mt-4"
-            >
-              Salvar Redes Sociais
-            </button>
-         </div>
+            {loading ? <div className="p-12 text-center text-gray-500"><Loader2 className="animate-spin inline"/></div> : (
+              <table className="w-full text-left text-sm text-gray-400">
+                <thead className="bg-black/50 text-xs uppercase font-bold text-gray-500"><tr><th className="p-4">ID / Info</th><th className="p-4">Status</th><th className="p-4 text-right">Ações</th></tr></thead>
+                <tbody className="divide-y divide-gray-800">
+                   {dataList.map(item => (
+                     <tr key={item.id} className="hover:bg-gray-800/30">
+                       <td className="p-4">{activeSection === 'users' ? <div><span className="text-white font-bold">{item.name}</span><br/>{item.email}</div> : (item.title || item.id)}</td>
+                       <td className="p-4">{activeSection === 'users' ? item.plan : (item.price || item.date)}</td>
+                       <td className="p-4 text-right"><button onClick={() => setEditingItem(item)} className="text-blue-400 mr-3"><Edit3 size={16}/></button>{activeSection !== 'users' && <button onClick={() => handleDelete(item.id)} className="text-red-500"><Trash2 size={16}/></button>}</td>
+                     </tr>
+                   ))}
+                </tbody>
+              </table>
+            )}
+          </div>
       )}
     </div>
   );
