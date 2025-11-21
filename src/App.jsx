@@ -245,15 +245,27 @@ const fetchProfileData = async (userId, email) => {
         // LOG DE DEPURAÇÃO (Para você ver no console se precisar)
         console.log("Dados do Usuário Carregados:", profile);
 
+        // ... código anterior da função ...
+
+        console.log("Dados vindos do banco:", profile); // Para a gente ver no console
+
+        // SEU EMAIL AQUI: Coloque seu email exato dentro das aspas abaixo
+        const MEU_EMAIL_ADMIN = "eu.lucasholtz@gmail.com"; 
+        
+        // Força ser admin se o email bater
+        const finalPlan = (email === MEU_EMAIL_ADMIN) ? 'admin' : (profile?.plan || 'free');
+
         setUser({
             ...profile,
             email: email,
             name: profile?.name || 'Usuário',
             access: accessList, 
-            plan: profile?.plan || 'free', // Aqui ele vai pegar o 'admin' do banco
+            plan: finalPlan, // <--- USA A NOSSA VARIÁVEL FORÇADA
             avatar: profile?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
             cover: profile?.cover || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80'
         });
+
+        // ... resto do código (catch/finally) ...
     } catch (error) {
         console.error("Erro ao carregar dados:", error);
         setUser(null); // Força recarregar se der erro grave
