@@ -6,9 +6,11 @@ import {
   ShoppingCart, Sparkles, Play, Mail, ArrowRight, Loader2, Database, 
   Trash2, Bold, Italic, Underline, Link as LinkIcon, List, AlignLeft, 
   Facebook, Instagram, Music, Key, ChevronLeft, ChevronRight, Crown,
-  Shield, Save, Plus, Search, Users // <--- Estes são os novos que adicionamos
+  Shield, Save, Plus, Search, Users,
+  ShoppingBag,
+  Settings,
+  UploadCloud
 } from 'lucide-react';
-
 // --- CONEXÃO REAL COM SUPABASE ---
 // As chaves são carregadas do ficheiro .env na raiz do projeto
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -34,23 +36,25 @@ const TUTORIALS_DATA = [
 ];
 
 // --- COMPONENTE PAINEL ADMINISTRATIVO ---
-function AdminPanel({ user }) {
-  const [activeSection, setActiveSection] = useState('users');
+function AdminPanel({ user, updateLogo, currentLogo }) {
+  const [activeSection, setActiveSection] = useState('users'); // users | products | news | settings
   const [dataList, setDataList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
-  // Função para buscar dados
+  // Busca dados
   const fetchData = async () => {
     setLoading(true);
     let query;
-    // Seleciona a tabela baseada na aba
     if (activeSection === 'users') query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
     if (activeSection === 'products') query = supabase.from('products').select('*').order('id', { ascending: true });
     if (activeSection === 'news') query = supabase.from('news').select('*').order('id', { ascending: false });
-
-    const { data, error } = await query;
-    if (!error && data) setDataList(data);
+    // Settings não precisa de fetch em lista, já vem via props
+    
+    if (activeSection !== 'settings') {
+        const { data, error } = await query;
+        if (!error) setDataList(data);
+    }
     setLoading(false);
   };
 
@@ -59,29 +63,213 @@ function AdminPanel({ user }) {
     setEditingItem(null);
   }, [activeSection]);
 
-  // Função Salvar
+  // Salvar
   const handleSave = async (e) => {
     e.preventDefault();
-    const table = activeSection === 'users' ? 'profiles' : activeSection;
     
-    // Se for usuário, salvamos apenas o plano. Se for produto/news, salvamos tudo.
-    const payload = activeSection === 'users' 
-      ? { plan: editingItem.plan } 
-      : editingItem;
+    // Lógica Especial para Configurações
+    if (activeSection === 'settings') {
+         const { error } = await supabase.from('app_settings').update({ logo_url: editingItem.logo_url }).gt('id', 0);
+         if (error) {
+             alert('Erro: ' + error.message);
+         } else {
+             alert('Logo atualizada com sucesso!');
+             updateLogo(editingItem.logo_url);
+         }
+         return;
+    }
 
-    const { error } = await supabase
-      .from(table)
-      .upsert(payload) // Cria ou Atualiza
-      .eq('id', editingItem.id);
+    // Lógica Padrão (Users/News/Products)
+    const table = activeSection === 'users' ? 'profiles' : activeSection;
+    const payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
 
-    if (error) {
-      alert('Erro: ' + error.message);
-    } else {
-      alert('Salvo com sucesso!');
+    const { error } = await supabase.from(table).upsert(payload).eq('id', editingItem.id);
+
+    if (error) alert('Erro: ' + error.message);
+    else {
+      alert('Salvo!');
       setEditingItem(null);
       fetchData();
     }
   };
+
+  // Deletar
+  const handleDelete = async (id) => {
+    if (!confirm('Tem certeza?')) return;
+    const table = activeSection === 'users' ? 'profiles' : activeSection;
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) alert('Erro: ' + error.message);
+    else fetchData();
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-6 gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-white flex items-center">
+            <Shield size={32} className="text-red-500 mr-3" /> Painel Admin
+          </h2>
+          <p className="text-gray-400">Controle total do sistema PromptLab.</p>
+        </div>
+        <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2">
+          <button onClick={() => setActiveSection('users')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Usuários</button>
+          <button onClick={() => setActiveSection('products')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'products' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Produtos</button>
+          <button onClick={() => setActiveSection('news')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'news' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Blog/News</button>
+          <button onClick={() => { setActiveSection('settings'); setEditingItem({ logo_url: currentLogo }) }} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap flex items-center ${activeSection === 'settings' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>
+             <Settings size={16} className="mr-2"/> Configurações
+          </button>
+        </div>
+      </div>
+
+      {/* Formulário de Edição */}
+      {(editingItem || activeSection === 'settings') && (
+        <div className="bg-gray-900 border border-blue-500/50 p-6 rounded-xl mb-8 shadow-2xl shadow-blue-900/10">
+          <h3 className="text-xl font-bold text-white mb-6 flex items-center">
+            <Edit3 size={20} className="mr-2 text-blue-400"/> Editor: {activeSection.toUpperCase()}
+          </h3>
+          
+          <form onSubmit={handleSave} className="grid grid-cols-1 gap-6">
+            
+            {/* FORM: Usuários */}
+            {activeSection === 'users' && (
+              <div>
+                 <label className="block text-gray-400 mb-2 font-bold">Plano de Acesso</label>
+                 <select 
+                    className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white focus:border-blue-500 outline-none"
+                    value={editingItem.plan || 'free'}
+                    onChange={e => setEditingItem({...editingItem, plan: e.target.value})}
+                 >
+                   <option value="free">FREE</option>
+                   <option value="pro">PRO</option>
+                   <option value="gold">GOLD</option>
+                   <option value="admin">ADMIN</option>
+                 </select>
+              </div>
+            )}
+
+            {/* FORM: Configurações (Logo) */}
+            {activeSection === 'settings' && (
+               <div className="space-y-6">
+                   <div>
+                       <label className="block text-gray-400 mb-2 font-bold">URL da Logo (PNG Transparente)</label>
+                       <div className="flex gap-4">
+                           <div className="relative flex-1">
+                               <LinkIcon className="absolute left-4 top-4 text-gray-500" size={18}/>
+                               <input 
+                                  type="text" 
+                                  className="w-full bg-black border border-gray-700 p-3 pl-12 rounded-xl text-white focus:border-blue-500 outline-none"
+                                  value={editingItem.logo_url}
+                                  onChange={e => setEditingItem({...editingItem, logo_url: e.target.value})}
+                                  placeholder="https://..."
+                               />
+                           </div>
+                       </div>
+                   </div>
+                   <div className="p-8 bg-black/50 rounded-xl border border-gray-800 flex flex-col items-center justify-center">
+                       <p className="text-gray-500 text-xs mb-4 uppercase tracking-widest">Pré-visualização no Site</p>
+                       {editingItem.logo_url ? (
+                           <img src={editingItem.logo_url} alt="Preview" className="h-16 object-contain"/>
+                       ) : <span className="text-gray-600">Sem imagem</span>}
+                   </div>
+               </div>
+            )}
+
+            {/* FORM: News/Produtos (Genérico + Campos Especiais) */}
+            {(activeSection === 'news' || activeSection === 'products') && Object.keys(editingItem).map(key => {
+                 if(key === 'id' || key === 'created_at') return null;
+                 
+                 // Campos longos (Conteúdo)
+                 if(key === 'content' || key === 'description') {
+                     return (
+                        <div key={key}>
+                             <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{key}</label>
+                             <textarea 
+                                className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white h-32 focus:border-blue-500 outline-none"
+                                value={editingItem[key] || ''}
+                                onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} 
+                             />
+                        </div>
+                     )
+                 }
+
+                 return (
+                   <div key={key}>
+                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{key} {key === 'image' && '(URL da Imagem)'}</label>
+                     <input 
+                       className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white focus:border-blue-500 outline-none"
+                       value={editingItem[key] || ''}
+                       onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} 
+                       placeholder={key === 'image' || key === 'cover' ? 'https://...' : ''}
+                     />
+                   </div>
+                 )
+            })}
+
+            <div className="flex justify-end gap-4 pt-4 border-t border-gray-800">
+               {activeSection !== 'settings' && <button type="button" onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-white font-bold px-4">Cancelar</button>}
+               <button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-500 font-bold shadow-lg flex items-center">
+                   <Save size={18} className="mr-2"/> Salvar
+               </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Lista de Itens (Não mostra em Settings) */}
+      {activeSection !== 'settings' && (
+          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/20">
+               <h3 className="font-bold text-white flex items-center"><List size={18} className="mr-2 text-gray-500"/> Registros: {activeSection}</h3>
+               {activeSection !== 'users' && (
+                 <button onClick={() => setEditingItem({})} className="bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all border border-blue-600/30"><Plus size={16} className="mr-1"/> Adicionar</button>
+               )}
+            </div>
+            
+            {loading ? <div className="p-12 text-center text-gray-500 flex justify-center"><Loader2 className="animate-spin"/></div> : (
+              <table className="w-full text-left text-sm text-gray-400">
+                <thead className="bg-black/50 text-xs uppercase font-bold text-gray-500">
+                  <tr>
+                    <th className="p-4">ID / Info Principal</th>
+                    <th className="p-4">Status / Detalhe</th>
+                    <th className="p-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                   {dataList.map(item => (
+                     <tr key={item.id} className="hover:bg-gray-800/30 transition-colors">
+                       <td className="p-4">
+                         {activeSection === 'users' ? (
+                            <div><span className="text-white font-bold">{item.name}</span><br/><span className="text-xs">{item.email}</span></div>
+                         ) : (
+                            <div className="flex items-center gap-3">
+                                {(item.cover || item.image) && <img src={item.cover || item.image} className="w-10 h-10 rounded bg-gray-800 object-cover"/>}
+                                <span className="text-white font-medium">{item.title || item.id}</span>
+                            </div>
+                         )}
+                       </td>
+                       <td className="p-4">
+                         {activeSection === 'users' ? (
+                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${item.plan === 'admin' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-gray-800 text-gray-300 border border-gray-700'}`}>
+                              {item.plan || 'FREE'}
+                            </span>
+                         ) : (item.price || item.date)}
+                       </td>
+                       <td className="p-4 text-right">
+                         <button onClick={() => setEditingItem(item)} className="bg-gray-800 hover:bg-blue-600 hover:text-white text-blue-400 p-2 rounded mr-2 transition-colors"><Edit3 size={16}/></button>
+                         {activeSection !== 'users' && (
+                           <button onClick={() => handleDelete(item.id)} className="bg-gray-800 hover:bg-red-600 hover:text-white text-red-500 p-2 rounded transition-colors"><Trash2 size={16}/></button>
+                         )}
+                       </td>
+                     </tr>
+                   ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+      )}
+    </div>
+  );
+}
 
   // Função Deletar
   const handleDelete = async (id) => {
@@ -460,26 +648,34 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false); 
-  const [favorites, setFavorites] = useState([901]); 
+  const [appSettings, setAppSettings] = useState({ logo_url: '' }); // Novo estado da Logo
 
+  // Dados
+  const [favorites, setFavorites] = useState([901]); 
   const [packs, setPacks] = useState([]);
   const [news, setNews] = useState(NEWS_DATA);
   const [tutorials, setTutorials] = useState(TUTORIALS_DATA);
 
-  // Busca dados dinâmicos
+  // Verifica se é Admin
+  const isAdmin = user.plan === 'admin';
+
+  // Busca dados ao carregar (Incluindo a Logo)
   useEffect(() => {
     const fetchData = async () => {
       const { data: packsRes } = await supabase.from('products').select();
-      const { data: newsRes } = await supabase.from('news').select();
+      const { data: newsRes } = await supabase.from('news').select().order('id', { ascending: false });
       const { data: tutsRes } = await supabase.from('tutorials').select();
+      const { data: settingsRes } = await supabase.from('app_settings').select().single(); // Pega a logo
       
       if (packsRes) setPacks(packsRes);
       if (newsRes && newsRes.length > 0) setNews(newsRes);
       if (tutsRes && tutsRes.length > 0) setTutorials(tutsRes);
+      if (settingsRes) setAppSettings(settingsRes);
     };
     fetchData();
   }, []);
 
+  // Função para favoritar
   const toggleFavorite = (id) => {
     if (favorites.includes(id)) {
       setFavorites(favorites.filter(favId => favId !== id));
@@ -488,18 +684,16 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
     }
   };
 
-// Dentro de MainApp...
-
-  // VERIFICAÇÃO DE ADMIN
-  const isAdmin = user.plan === 'admin';
+  // Função auxiliar para atualizar a logo instantaneamente
+  const updateLogo = (newUrl) => {
+      setAppSettings(prev => ({ ...prev, logo_url: newUrl }));
+  };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard news={news} changeTab={setActiveTab} user={user} />;
-      
-      // NOVO CASE DO ADMIN
-      case 'admin': return isAdmin ? <AdminPanel user={user} /> : <Dashboard news={news} changeTab={setActiveTab} user={user} />;
-      
+      case 'loja': return <StorePage packs={packs} user={user} onPurchase={onPurchase} />; // NOVA ABA LOJA
+      case 'admin': return isAdmin ? <AdminPanel user={user} updateLogo={updateLogo} currentLogo={appSettings.logo_url} /> : <Dashboard news={news} changeTab={setActiveTab} user={user} />;
       case 'prompts': return <PromptsArea packs={packs} freePrompts={FREE_PROMPTS} favorites={favorites} toggleFavorite={toggleFavorite} user={user} onPurchase={onPurchase} />;
       case 'favorites': return <Favorites packs={packs} freePrompts={FREE_PROMPTS} favorites={favorites} toggleFavorite={toggleFavorite} />;
       case 'generator': return <GeneratorsHub user={user} onPurchase={onPurchase} />;
@@ -530,14 +724,23 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
         transform transition-all duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
+        {/* CABEÇALHO DA SIDEBAR COM LOGO DINÂMICA */}
         <div className={`flex items-center ${sidebarMinimized ? 'justify-center' : 'justify-between'} p-8 border-b border-gray-800/50 transition-all`}>
            {!sidebarMinimized ? (
-             <div className="text-white font-bold text-2xl tracking-tighter flex items-center animate-fadeIn">
-                Prompt<span className="text-blue-500">Lab</span>
-                <Sparkles size={16} className="text-blue-400 ml-1" />
-              </div>
+             appSettings.logo_url && appSettings.logo_url.length > 10 ? (
+                 <img src={appSettings.logo_url} alt="Logo" className="h-10 object-contain" />
+             ) : (
+                 <div className="text-white font-bold text-2xl tracking-tighter flex items-center animate-fadeIn">
+                    Prompt<span className="text-blue-500">Lab</span>
+                    <Sparkles size={16} className="text-blue-400 ml-1" />
+                 </div>
+             )
            ) : (
-              <Sparkles size={24} className="text-blue-400 animate-fadeIn" />
+              appSettings.logo_url && appSettings.logo_url.length > 10 ? (
+                 <img src={appSettings.logo_url} alt="Logo" className="h-8 w-8 object-contain" />
+              ) : (
+                 <Sparkles size={24} className="text-blue-400 animate-fadeIn" />
+              )
            )}
            
            <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
@@ -560,6 +763,16 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
             onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} 
             minimized={sidebarMinimized}
           />
+          
+          {/* NOVO ITEM DE LOJA */}
+          <SidebarItem 
+            icon={ShoppingBag} 
+            label="Loja Oficial" 
+            active={activeTab === 'loja'} 
+            onClick={() => { setActiveTab('loja'); setSidebarOpen(false); }} 
+            minimized={sidebarMinimized}
+          />
+
           <SidebarItem 
             icon={Images} 
             label="Prompts" 
@@ -591,6 +804,19 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
           
           <div className="my-4 border-t border-gray-800/50 mx-2"></div>
           
+          {isAdmin && (
+             <>
+               <SidebarItem 
+                  icon={Shield} 
+                  label="Painel Admin" 
+                  active={activeTab === 'admin'} 
+                  onClick={() => { setActiveTab('admin'); setSidebarOpen(false); }} 
+                  minimized={sidebarMinimized}
+               />
+               <div className="my-4 border-t border-gray-800/50 mx-2"></div>
+             </>
+           )}
+          
           <SidebarItem 
             icon={User} 
             label="Meu Perfil" 
@@ -599,23 +825,6 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
             minimized={sidebarMinimized}
           />
           
-          {/* --- CÓDIGO A ADICIONAR NO MENU LATERAL --- */}
-          
-          {isAdmin && (
-             <>
-               <div className="my-4 border-t border-gray-800/50 mx-2"></div>
-               <SidebarItem 
-                  icon={Shield} 
-                  label="Painel Admin" 
-                  active={activeTab === 'admin'} 
-                  onClick={() => { setActiveTab('admin'); setSidebarOpen(false); }} 
-                  minimized={sidebarMinimized}
-               />
-             </>
-           )}
-
-          {/* --- FIM DO CÓDIGO A ADICIONAR --- */}
-
           <div className="pt-8">
             <button 
               onClick={onLogout}
@@ -649,101 +858,88 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
   );
 }
 
-function SidebarItem({ icon: Icon, label, active, onClick, minimized }) {
-  return (
-    <button
-      onClick={onClick}
-      title={minimized ? label : ""}
-      className={`flex items-center w-full px-4 py-3.5 rounded-xl transition-all duration-300 border border-transparent ${
-        active 
-          ? 'bg-blue-600/10 text-blue-400 border-blue-500/20 shadow-[0_0_20px_rgba(37,99,235,0.15)]' 
-          : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200 hover:border-gray-800'
-      } ${minimized ? 'justify-center' : ''}`}
-    >
-      <Icon size={20} className={`${minimized ? '' : 'mr-3'} ${active ? 'drop-shadow-[0_0_5px_rgba(59,130,246,0.8)]' : ''}`} />
-      {!minimized && <span className="font-medium tracking-wide animate-fadeIn">{label}</span>}
-    </button>
-  );
-}
-
 function Dashboard({ news, changeTab, user }) {
-  // Lógicas de Plano
   const isAdmin = user.plan === 'admin';
-  const isGold = user.plan === 'gold';
-  const isFree = !isAdmin && !isGold && (!user.access || user.access.length === 0);
 
   return (
-    <div className="space-y-8 animate-fadeIn max-w-6xl mx-auto">
+    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto">
+      {/* Cabeçalho */}
       <div className="flex justify-between items-end border-b border-gray-800 pb-6">
         <div>
           <h2 className="text-3xl font-bold text-white mb-2">Olá, {user.name.split(' ')[0]}</h2>
-          <p className="text-gray-400">Seu laboratório criativo está pronto.</p>
+          <p className="text-gray-400">Bem-vindo ao seu laboratório.</p>
         </div>
-        <div className="text-right hidden md:block">
-          <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Status da Conta</div>
-          
-          {/* BLOCO DE STATUS ATUALIZADO */}
-          {isAdmin ? (
-             <div className="text-red-500 font-bold flex items-center gap-2 justify-end drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">
-                <Shield size={18} className="fill-red-500 text-black" /> ADMINISTRADOR
-             </div>
-          ) : isGold ? (
-             <div className="text-yellow-400 font-bold flex items-center gap-2 justify-end drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]">
-                <Crown size={18} className="fill-yellow-400" /> MEMBRO GOLD
-             </div>
-          ) : (
-            <div className={`${isFree ? 'text-gray-500' : 'text-blue-400'} font-bold flex items-center gap-2 justify-end`}>
-                {!isFree ? (
-                    <><Sparkles size={16} /> MEMBRO PRO</>
-                ) : (
-                    <><User size={16} /> MEMBRO FREE</>
-                )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Atalhos Rápidos (Admin vê atalho para o painel) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
         {isAdmin && (
-            <div onClick={() => changeTab('admin')} className="bg-red-900/20 p-6 rounded-2xl border border-red-900/50 hover:border-red-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(239,68,68,0.2)] relative overflow-hidden">
-              <div className="bg-red-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-red-500 mb-4">
-                <Shield size={24} />
-              </div>
-              <p className="text-sm text-gray-400 uppercase tracking-wider font-semibold">Gerenciamento</p>
-              <p className="text-2xl font-bold text-white mt-1">Painel Admin</p>
+            <div className="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-2 rounded-lg flex items-center font-bold text-sm">
+                <Shield size={16} className="mr-2"/> MODO EDIÇÃO
             </div>
         )}
+      </div>
 
-        <div onClick={() => changeTab('prompts')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-blue-500/50 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(59,130,246,0.1)] relative overflow-hidden">
+      {/* GRID SUPERIOR: 3 ITENS (Prompts, Geradores, LOJA) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* 1. Prompts */}
+        <div onClick={() => changeTab('prompts')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-blue-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(59,130,246,0.1)]">
           <div className="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-blue-400 mb-4">
             <Images size={24} />
           </div>
-          <p className="text-sm text-gray-400 uppercase tracking-wider font-semibold">Prompts</p>
-          <p className="text-3xl font-bold text-white mt-1">Acessar</p>
+          <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Acervo</p>
+          <p className="text-3xl font-bold text-white mt-1">Prompts</p>
         </div>
 
-        <div onClick={() => changeTab('generator')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-yellow-500/50 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(234,179,8,0.1)] relative overflow-hidden">
+        {/* 2. Geradores */}
+        <div onClick={() => changeTab('generator')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-yellow-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(234,179,8,0.1)]">
           <div className="bg-yellow-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-yellow-400 mb-4">
             <Zap size={24} />
           </div>
-          <p className="text-sm text-gray-400 uppercase tracking-wider font-semibold">Geradores</p>
-          <p className="text-3xl font-bold text-white mt-1">Criar</p>
+          <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Ferramentas</p>
+          <p className="text-3xl font-bold text-white mt-1">Geradores</p>
+        </div>
+
+        {/* 3. LOJA (Novo Item) */}
+        <div onClick={() => changeTab('loja')} className="bg-gradient-to-br from-purple-900/40 to-black p-6 rounded-2xl border border-purple-500/30 hover:border-purple-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] relative overflow-hidden">
+           <div className="absolute top-0 right-0 bg-purple-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl">NOVO</div>
+           <div className="bg-purple-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-purple-400 mb-4">
+            <ShoppingBag size={24} />
+          </div>
+          <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Marketplace</p>
+          <p className="text-3xl font-bold text-white mt-1">Loja Oficial</p>
         </div>
       </div>
 
-      {/* Feed de Notícias */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-            <h3 className="text-xl font-bold text-white flex items-center"><Play size={20} className="mr-2 text-blue-500"/> Feed PromptLab</h3>
-            {news.map(item => (
-              <div key={item.id} className="bg-gray-900/30 border border-gray-800 p-6 rounded-xl flex items-start gap-4 hover:bg-gray-900/50 transition-colors">
-                 <div className="mt-1 min-w-[8px] h-[8px] rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
-                 <div>
-                    <h4 className="text-lg font-bold text-white">{item.title}</h4>
-                    <span className="text-xs text-blue-400 mb-2 block">{item.date}</span>
-                    <p className="text-gray-400 leading-relaxed">{item.content}</p>
+      {/* SEÇÃO DE BLOG / FEED GRANDE */}
+      <div>
+        <div className="flex items-center justify-between mb-6 mt-8">
+             <h3 className="text-2xl font-bold text-white flex items-center">
+                <span className="w-1.5 h-8 bg-blue-600 rounded-full mr-3"></span>
+                Últimas Novidades
+             </h3>
+             {isAdmin && <button onClick={() => changeTab('admin')} className="text-xs text-gray-500 hover:text-white underline">Editar Feed</button>}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {news.slice(0, 2).map(item => (
+              <div key={item.id} className="group bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-600 transition-all flex flex-col h-full">
+                 {/* Imagem da Notícia */}
+                 <div className="h-56 overflow-hidden relative bg-gray-800">
+                    {item.image ? (
+                        <img src={item.image} alt="Capa" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-700"><Images size={48} opacity={0.5}/></div>
+                    )}
+                    <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs text-white border border-white/10 font-bold shadow-lg">
+                        {item.date || 'Novidade'}
+                    </div>
+                 </div>
+                 
+                 {/* Texto da Notícia */}
+                 <div className="p-8 flex-1 flex flex-col">
+                    <h4 className="text-2xl font-bold text-white mb-4 leading-tight">{item.title}</h4>
+                    <p className="text-gray-400 leading-relaxed flex-1">{item.content}</p>
+                    
+                    <button className="mt-8 w-full py-3 rounded-xl border border-gray-700 text-gray-300 font-bold hover:bg-white hover:text-black transition-all flex items-center justify-center">
+                        Ler Artigo Completo <ArrowRight size={16} className="ml-2"/>
+                    </button>
                  </div>
               </div>
             ))}
@@ -751,6 +947,79 @@ function Dashboard({ news, changeTab, user }) {
       </div>
     </div>
   );
+}
+
+function StorePage({ packs, user, onPurchase }) {
+    return (
+        <div className="animate-fadeIn max-w-7xl mx-auto pb-20">
+            <div className="text-center mb-16">
+                <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">Loja <span className="text-blue-500">PromptLab</span></h2>
+                <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                    Explore nossos packs premium e ferramentas exclusivas para levar sua criatividade para o próximo nível.
+                </p>
+            </div>
+
+            {/* Destaque: Geradores */}
+            <div className="mb-16 transform hover:scale-[1.01] transition-all duration-500">
+                <div className="bg-gradient-to-r from-gray-900 to-black border border-yellow-500/30 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/10 blur-[100px] rounded-full pointer-events-none"></div>
+                    
+                    <div className="bg-gray-800/50 p-8 rounded-2xl border border-yellow-500/20 shadow-2xl">
+                        <Zap size={80} className="text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]"/>
+                    </div>
+                    
+                    <div className="flex-1 text-center md:text-left z-10">
+                        <h4 className="text-3xl font-bold text-white mb-4">Acesso Creator Vitalício</h4>
+                        <p className="text-gray-400 mb-6 text-lg leading-relaxed">
+                            Desbloqueie o poder total da plataforma. Acesso ilimitado ao Gerador de Prompts, Criador de Imagens e todas as futuras ferramentas de IA.
+                        </p>
+                        <div className="flex flex-wrap gap-3 justify-center md:justify-start mb-6">
+                            <span className="px-4 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-sm text-yellow-200 font-medium flex items-center"><Check size={14} className="mr-1"/> Acesso Ilimitado</span>
+                            <span className="px-4 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-sm text-yellow-200 font-medium flex items-center"><Check size={14} className="mr-1"/> Suporte Prioritário</span>
+                        </div>
+                    </div>
+                    
+                    <div className="text-center z-10 min-w-[200px]">
+                         <p className="text-sm text-gray-500 mb-1 line-through">R$ 97,00</p>
+                         <p className="text-4xl font-bold text-white mb-4">R$ 49,90</p>
+                         <button onClick={() => onPurchase('access-generators')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.3)] transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95">
+                            Comprar Agora
+                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Lista de Packs */}
+            <div className="flex items-center justify-between mb-8">
+                 <h3 className="text-2xl font-bold text-white flex items-center">
+                    <Images size={24} className="text-blue-500 mr-3"/> Packs Disponíveis
+                 </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {packs.map(pack => (
+                    <div key={pack.id} className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-blue-500/50 transition-all group flex flex-col hover:shadow-xl hover:shadow-blue-900/10">
+                        <div className="aspect-[4/3] relative overflow-hidden">
+                            <img src={pack.cover} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
+                            <div className="absolute bottom-4 left-4 right-4">
+                                <h4 className="text-xl font-bold text-white leading-tight drop-shadow-md">{pack.title}</h4>
+                            </div>
+                        </div>
+                        <div className="p-6 flex items-center justify-between mt-auto bg-gray-900">
+                            <div>
+                                <span className="text-xs text-gray-500 block uppercase tracking-wider mb-1">Preço Único</span>
+                                <span className="text-white font-bold text-2xl">{pack.price}</span>
+                            </div>
+                            <button onClick={() => onPurchase(pack.id)} className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-600/30">
+                                <ShoppingCart size={20} />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 function PromptsArea({ packs, freePrompts, favorites, toggleFavorite, user, onPurchase }) {
