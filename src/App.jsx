@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
   LayoutDashboard, Images, Star, Zap, BookOpen, User, LogOut, Menu, X, 
@@ -7,35 +7,16 @@ import {
   Trash2, Bold, Italic, Underline, Link as LinkIcon, List, AlignLeft, 
   Facebook, Instagram, Music, Key, ChevronLeft, ChevronRight, Crown,
   Shield, Save, Plus, Search, Users,
-  ShoppingBag,
-  Settings,
-  UploadCloud
+  ShoppingBag, Settings, UploadCloud,
+  Twitter, Linkedin, Globe, Github, HelpCircle, LayoutGrid, Monitor
 } from 'lucide-react';
 
-// --- CONEXÃO REAL COM SUPABASE ---
+// --- CONEXÃO COM SUPABASE ---
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- DADOS DE FALLBACK ---
-const NEWS_DATA = [
-  { id: 1, title: "PromptLab V2 no Ar", date: "Hoje", content: "Novo motor de gems atualizado." },
-  { id: 2, title: "Dica da Semana", date: "Ontem", content: "Use '--stylize 250' para resultados artísticos." },
-];
-
-const FREE_PROMPTS = [
-  { id: 901, url: "https://images.unsplash.com/photo-1635322966219-b75ed372eb01?auto=format&fit=crop&w=600&q=80", prompt: "Minimalist 3D render of blue sphere..." },
-  { id: 902, url: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=600&q=80", prompt: "Vaporwave aesthetic landscape..." },
-  { id: 903, url: "https://images.unsplash.com/photo-1614726365723-498aa67c5f7b?auto=format&fit=crop&w=600&q=80", prompt: "Abstract fluid art background..." },
-  { id: 904, url: "https://images.unsplash.com/photo-1618172193763-c511deb635ca?auto=format&fit=crop&w=600&q=80", prompt: "Neon lights in rainy street..." },
-];
-
-const TUTORIALS_DATA = [
-  { id: 1, title: "Começando do Zero", thumbnail: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=400&q=80" },
-  { id: 2, title: "Avançado: ControlNet", thumbnail: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?auto=format&fit=crop&w=400&q=80" },
-];
-
-// --- COMPONENTE PRINCIPAL APP ---
+// --- COMPONENTE PRINCIPAL ---
 export default function App() {
   const [user, setUser] = useState(null); 
   const [loading, setLoading] = useState(true);
@@ -54,34 +35,26 @@ export default function App() {
 
   const fetchProfileData = async (userId, email) => {
     try {
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-        
-        if (profileError && profileError.code !== 'PGRST116') console.error(profileError);
-
-        const { data: purchases, error: purchaseError } = await supabase
-            .from('user_purchases')
-            .select('product_id')
-            .eq('user_id', userId);
-
-        if (purchaseError) console.error(purchaseError);
-
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        const { data: purchases } = await supabase.from('user_purchases').select('product_id').eq('user_id', userId);
         const accessList = purchases ? purchases.map(p => p.product_id) : [];
+
+        // TRAVA DE SEGURANÇA ADMIN (Coloque seu email real abaixo)
+        const MEU_EMAIL = "seu.email.aqui@exemplo.com"; 
+        
+        const finalPlan = (email === MEU_EMAIL) ? 'admin' : (profile?.plan || 'free');
 
         setUser({
             ...profile,
             email: email,
             name: profile?.name || 'Usuário',
             access: accessList, 
-            plan: profile?.plan || 'free',
-            avatar: profile?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-            cover: profile?.cover || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80'
+            plan: finalPlan,
+            avatar: profile?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+            cover: profile?.cover || 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1000&q=80'
         });
     } catch (error) {
-        console.error("Erro ao carregar dados:", error);
+        console.error("Erro login:", error);
         setUser(null);
     } finally {
         setLoading(false);
@@ -93,25 +66,17 @@ export default function App() {
     try {
         let authResponse;
         if (isRegister) {
-            authResponse = await supabase.auth.signUp({
-                email,
-                password,
-                options: { data: { name } }
-            });
+            authResponse = await supabase.auth.signUp({ email, password, options: { data: { name } } });
         } else {
-            authResponse = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
+            authResponse = await supabase.auth.signInWithPassword({ email, password });
         }
-
         if (authResponse.error) throw authResponse.error;
-
+        
         if (authResponse.data.user) {
             setTimeout(() => fetchProfileData(authResponse.data.user.id, email), 1500);
-        } else if (isRegister) {
-            alert("Verifique seu email para confirmar o cadastro!");
-            setLoading(false);
+        } else if (isRegister) { 
+            alert("Verifique seu email para confirmar o cadastro!"); 
+            setLoading(false); 
         }
     } catch (error) {
         alert("Erro: " + error.message);
@@ -125,40 +90,62 @@ export default function App() {
   };
 
   const handlePurchase = async (productId) => {
-    if (window.confirm(`Confirmar compra deste item?`)) {
-      try {
-          const { error } = await supabase
-            .from('user_purchases')
-            .insert({ user_id: user.id, product_id: productId });
-          
-          if (error) throw error;
-
-          setUser(prev => ({
-            ...prev,
-            access: [...prev.access, productId]
-          }));
+    if (window.confirm(`Confirmar compra?`)) {
+      const { error } = await supabase.from('user_purchases').insert({ user_id: user.id, product_id: productId });
+      if (!error) {
+          setUser(prev => ({ ...prev, access: [...prev.access, productId] }));
           alert("Compra realizada com sucesso!");
-      } catch (error) {
-          console.error("Erro na compra:", error);
-          alert("Erro ao processar compra.");
       }
     }
   };
 
-  if (loading) {
-    return (
-      <div className="h-screen bg-black flex flex-col items-center justify-center text-blue-500">
-        <Loader2 size={48} className="animate-spin mb-4" />
-        <p className="text-gray-500 text-sm animate-pulse">Iniciando PromptLab...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthScreen onLogin={handleLogin} />;
-  }
+  if (loading) return <div className="h-screen bg-black flex items-center justify-center text-blue-600"><Loader2 size={48} className="animate-spin" /></div>;
+  if (!user) return <AuthScreen onLogin={handleLogin} />;
 
   return <MainApp user={user} setUser={setUser} onLogout={handleLogout} onPurchase={handlePurchase} />;
+}
+
+// --- COMPONENTE DE UPLOAD DE IMAGEM (NOVO) ---
+function ImageUploader({ currentImage, onUploadComplete, label, compact = false }) {
+  const [uploading, setUploading] = useState(false);
+
+  const uploadImage = async (event) => {
+    try {
+      setUploading(true);
+      if (!event.target.files || event.target.files.length === 0) throw new Error('Selecione uma imagem.');
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from('uploads').upload(filePath, file);
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('uploads').getPublicUrl(filePath);
+      onUploadComplete(data.publicUrl);
+    } catch (error) {
+      alert('Erro no upload: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className={`relative group ${compact ? '' : 'mb-4'}`}>
+      {!compact && <label className="text-gray-400 text-sm font-bold block mb-2">{label}</label>}
+      <div className="flex items-center gap-3">
+         {/* Botão Invisível sobreposto */}
+         <input type="file" accept="image/*" onChange={uploadImage} className="hidden" id={`file-${label}`} disabled={uploading}/>
+         <label htmlFor={`file-${label}`} className={`cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-lg transition-all flex items-center ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+             {uploading ? <Loader2 size={16} className="animate-spin mr-2"/> : <UploadCloud size={16} className="mr-2"/>}
+             {uploading ? 'Enviando...' : (compact ? 'Trocar' : 'Escolher Imagem')}
+         </label>
+         {/* Preview */}
+         {!compact && currentImage && <img src={currentImage} className="h-10 w-10 rounded object-cover border border-gray-700"/>}
+      </div>
+    </div>
+  );
 }
 
 // --- TELA DE LOGIN ---
@@ -167,744 +154,456 @@ function AuthScreen({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const canvasRef = useRef(null);
+  const [logoUrl, setLogoUrl] = useState('');
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    onLogin(email, password, name, isRegister);
-  };
+  useEffect(() => {
+      supabase.from('app_settings').select('logo_header_url').single().then(({data}) => {
+          if(data && data.logo_header_url) setLogoUrl(data.logo_header_url);
+      });
+  }, []);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width; canvas.height = height;
+    const isMobile = width < 768;
+    
+    let stars = [];
+    let player = { x: width / 2, y: height - 100 };
+    let bullets = [];
+    let enemies = [];
+    let mouseX = width / 2;
+
+    for(let i=0; i<100; i++) stars.push({x: Math.random()*width, y: Math.random()*height, z: Math.random()*2, speed: isMobile ? 15 : 2});
+
+    const handleMouseMove = (e) => { mouseX = e.clientX; };
+    const handleClick = () => { if(!isMobile) bullets.push({x: player.x, y: player.y, speed: 12}); };
+
+    if(!isMobile) {
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('click', handleClick);
+        setInterval(() => { if(Math.random() < 0.05) enemies.push({x: Math.random() * width, y: -50, size: 30, speed: 4}); }, 1000);
+    }
+
+    const render = () => {
+        ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = '#ffffff';
+        stars.forEach(star => {
+            star.y += star.speed; if(star.y > height) star.y = 0;
+            ctx.beginPath(); ctx.arc(star.x, star.y, isMobile ? 1 : 2, 0, Math.PI * 2); ctx.fill();
+        });
+
+        if (!isMobile) {
+            player.x += (mouseX - player.x) * 0.1;
+            ctx.fillStyle = '#2563eb'; ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(player.x - 15, player.y + 30); ctx.lineTo(player.x + 15, player.y + 30); ctx.fill();
+            ctx.fillStyle = '#60a5fa'; 
+            bullets.forEach((b, i) => { b.y -= b.speed; ctx.fillRect(b.x - 2, b.y, 4, 15); if(b.y < 0) bullets.splice(i, 1); });
+            ctx.fillStyle = '#ef4444'; 
+            enemies.forEach((e, i) => { e.y += e.speed; ctx.fillRect(e.x - e.size/2, e.y, e.size, e.size); 
+                bullets.forEach((b, bi) => { if(b.x > e.x - e.size/2 && b.x < e.x + e.size/2 && b.y < e.y + e.size && b.y > e.y) { enemies.splice(i, 1); bullets.splice(bi, 1); } });
+                if(e.y > height) enemies.splice(i, 1);
+            });
+        }
+        animationFrameId = requestAnimationFrame(render);
+    };
+    render();
+    return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('click', handleClick); cancelAnimationFrame(animationFrameId); };
+  }, []);
+  
   return (
-    <div className="min-h-screen bg-black text-white flex relative overflow-hidden">
-      <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[150px] animate-pulse"></div>
-      <div className="hidden lg:flex w-1/2 flex-col justify-center p-16 relative z-10">
-        <div className="mb-8">
-          <div className="text-5xl font-bold tracking-tighter flex items-center mb-4">
-            Prompt<span className="text-blue-500">Lab</span>
-            <Sparkles size={32} className="text-blue-400 ml-2" />
-          </div>
-          <p className="text-xl text-gray-400 max-w-md leading-relaxed">
-            Sua central definitiva de engenharia de prompts.
-          </p>
+    <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden font-sans select-none">
+      <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+      <div className="w-full max-w-md bg-gray-900/80 backdrop-blur-lg p-10 rounded-2xl border border-blue-900/30 relative z-10 transition-all duration-500 hover:scale-105 hover:shadow-[0_0_50px_rgba(37,99,235,0.4)] shadow-2xl group">
+        <div className="text-center mb-8">
+            {logoUrl ? <img src={logoUrl} className="h-20 mx-auto mb-4 object-contain drop-shadow-lg"/> : <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">Prompt<span className="text-blue-600">Lab</span></h2>}
+            <p className="text-blue-200/60 text-sm font-medium tracking-wide">{isRegister ? "Criar nova conta" : "Acessar o sistema"}</p>
         </div>
-      </div>
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative z-10">
-        <div className="w-full max-w-md bg-gray-900/60 backdrop-blur-xl p-8 rounded-2xl border border-gray-800 shadow-2xl">
-          <h2 className="text-2xl font-bold text-white mb-2 text-center">
-            {isRegister ? "Criar Conta" : "Acessar Plataforma"}
-          </h2>
-          <p className="text-gray-400 text-center mb-6 text-sm">
-            {isRegister ? "Preencha seus dados abaixo" : "Faça login para continuar"}
-          </p>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isRegister && (
-              <div className="relative">
-                  <User className="absolute left-3 top-3.5 text-gray-500" size={18} />
-                  <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none" placeholder="Seu nome" />
-              </div>
-            )}
-            <div className="relative">
-                <Mail className="absolute left-3 top-3.5 text-gray-500" size={18} />
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none" placeholder="seu@email.com" />
-            </div>
-            <div className="relative">
-                <Lock className="absolute left-3 top-3.5 text-gray-500" size={18} />
-                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-white focus:border-blue-500 focus:outline-none" placeholder="••••••••" />
-            </div>
-            <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center mt-6 shadow-lg">
-              {isLoading ? <Loader2 className="animate-spin" /> : (isRegister ? "Cadastrar" : "Entrar")}
-            </button>
-          </form>
-          <div className="mt-6 text-center border-t border-gray-800 pt-6">
-              <button onClick={() => setIsRegister(!isRegister)} className="text-blue-400 hover:text-blue-300 text-sm font-medium">
-                {isRegister ? "Já tenho conta? Fazer Login" : "Não tem conta? Criar nova conta"}
-              </button>
-          </div>
-        </div>
+        <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password, name, isRegister); }} className="space-y-5">
+          {isRegister && <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Nome completo" />}
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Seu e-mail" />
+          <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-600 outline-none transition-all focus:shadow-[0_0_15px_rgba(37,99,235,0.3)]" placeholder="Sua senha" />
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-600/40 active:scale-95 uppercase tracking-widest text-xs">{isRegister ? "Cadastrar" : "Entrar"}</button>
+        </form>
+        <button onClick={() => setIsRegister(!isRegister)} className="w-full text-center mt-6 text-sm text-gray-500 hover:text-blue-400 transition-colors">{isRegister ? "Já tenho conta? Login" : "Não tem conta? Cadastre-se"}</button>
       </div>
     </div>
   );
 }
 
-// --- APP LOGADO (MAIN) ---
+// --- APP PRINCIPAL ---
 function MainApp({ user, setUser, onLogout, onPurchase }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false); 
-  const [appSettings, setAppSettings] = useState({ logo_url: '' }); 
+  const [appSettings, setAppSettings] = useState({ logo_menu_url: '', banner_url: '', logo_header_url: '', logo_position: 'center' }); 
 
-  // Dados
-  const [favorites, setFavorites] = useState([901]); 
   const [packs, setPacks] = useState([]);
-  const [news, setNews] = useState(NEWS_DATA);
-  const [tutorials, setTutorials] = useState(TUTORIALS_DATA);
-
+  const [news, setNews] = useState([]);
   const isAdmin = user.plan === 'admin';
 
   useEffect(() => {
     const fetchData = async () => {
       const { data: packsRes } = await supabase.from('products').select();
       const { data: newsRes } = await supabase.from('news').select().order('id', { ascending: false });
-      const { data: tutsRes } = await supabase.from('tutorials').select();
       const { data: settingsRes } = await supabase.from('app_settings').select().single();
-      
       if (packsRes) setPacks(packsRes);
-      if (newsRes && newsRes.length > 0) setNews(newsRes);
-      if (tutsRes && tutsRes.length > 0) setTutorials(tutsRes);
+      if (newsRes) setNews(newsRes);
       if (settingsRes) setAppSettings(settingsRes);
     };
     fetchData();
   }, []);
 
-  const toggleFavorite = (id) => {
-    if (favorites.includes(id)) {
-      setFavorites(favorites.filter(favId => favId !== id));
-    } else {
-      setFavorites([...favorites, id]);
-    }
-  };
-
-  const updateLogo = (newUrl) => {
-      setAppSettings(prev => ({ ...prev, logo_url: newUrl }));
-  };
+  const updateSettings = (newSettings) => setAppSettings(prev => ({ ...prev, ...newSettings }));
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard news={news} changeTab={setActiveTab} user={user} />;
+      case 'dashboard': return <Dashboard news={news} changeTab={setActiveTab} user={user} settings={appSettings} />;
+      case 'prompts': return <PromptsGallery user={user} onPurchase={onPurchase} />;
+      case 'tutorials': return <TutorialsPage user={user} />;
       case 'loja': return <StorePage packs={packs} user={user} onPurchase={onPurchase} />;
-      case 'admin': return isAdmin ? <AdminPanel user={user} updateLogo={updateLogo} currentLogo={appSettings.logo_url} /> : <Dashboard news={news} changeTab={setActiveTab} user={user} />;
-      case 'prompts': return <PromptsArea packs={packs} freePrompts={FREE_PROMPTS} favorites={favorites} toggleFavorite={toggleFavorite} user={user} onPurchase={onPurchase} />;
-      case 'favorites': return <Favorites packs={packs} freePrompts={FREE_PROMPTS} favorites={favorites} toggleFavorite={toggleFavorite} />;
+      case 'favorites': return <Favorites user={user} />;
       case 'generator': return <GeneratorsHub user={user} onPurchase={onPurchase} />;
-      case 'tutorial': return <Tutorials videos={tutorials} />;
+      case 'admin': return isAdmin ? <AdminPanel user={user} updateSettings={updateSettings} settings={appSettings} /> : null;
       case 'profile': return <Profile user={user} setUser={setUser} />;
-      default: return <Dashboard news={news} changeTab={setActiveTab} user={user} />;
+      default: return <Dashboard news={news} changeTab={setActiveTab} user={user} settings={appSettings} />;
     }
   };
 
   return (
-    <div className="flex h-screen bg-black text-gray-100 font-sans overflow-hidden selection:bg-blue-500 selection:text-white animate-fadeIn">
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px]"></div>
-      </div>
-
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/80 z-40 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50 
-        ${sidebarMinimized ? 'lg:w-20' : 'lg:w-72'} 
-        w-72 bg-black/95 border-r border-gray-800 backdrop-blur-xl
-        transform transition-all duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        <div className={`flex items-center ${sidebarMinimized ? 'justify-center' : 'justify-between'} p-8 border-b border-gray-800/50 transition-all`}>
-           {!sidebarMinimized ? (
-             appSettings.logo_url && appSettings.logo_url.length > 10 ? (
-                 <img src={appSettings.logo_url} alt="Logo" className="h-10 object-contain" />
-             ) : (
-                 <div className="text-white font-bold text-2xl tracking-tighter flex items-center animate-fadeIn">
-                    Prompt<span className="text-blue-500">Lab</span>
-                    <Sparkles size={16} className="text-blue-400 ml-1" />
-                 </div>
-             )
-           ) : (
-              appSettings.logo_url && appSettings.logo_url.length > 10 ? (
-                 <img src={appSettings.logo_url} alt="Logo" className="h-8 w-8 object-contain" />
-              ) : (
-                 <Sparkles size={24} className="text-blue-400 animate-fadeIn" />
-              )
-           )}
-           
-           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white"><X size={24} /></button>
-
-           <button onClick={() => setSidebarMinimized(!sidebarMinimized)} className={`hidden lg:block text-gray-500 hover:text-white transition-colors ${sidebarMinimized ? 'absolute top-8 right-[-12px] bg-gray-800 rounded-full p-1 border border-gray-700' : ''}`}>
-             {sidebarMinimized ? <ChevronRight size={14} /> : <ChevronLeft size={20} />}
-           </button>
+    <div className="flex h-screen bg-black text-gray-100 font-sans overflow-hidden">
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 bg-black border-r border-gray-800 transform transition-all duration-300 ${sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'} ${sidebarMinimized ? 'lg:w-24' : 'lg:w-64'}`}>
+        <div className={`p-6 flex items-center ${sidebarMinimized ? 'justify-center' : 'justify-between'} transition-all border-b border-gray-800`}>
+           {!sidebarMinimized ? (appSettings.logo_menu_url ? <img src={appSettings.logo_menu_url} className="h-8 object-contain"/> : <span className="text-xl font-bold text-white">Prompt<span className="text-blue-600">Lab</span></span>) : (<Menu size={28} className="text-blue-600"/>)}
+           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white"><X/></button>
+           <button onClick={() => setSidebarMinimized(!sidebarMinimized)} className="hidden lg:block text-gray-400 hover:text-white focus:outline-none transition-transform hover:scale-110"><Menu size={24} /></button>
         </div>
-
-        <nav className="mt-8 px-4 space-y-2">
-          <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
-          <SidebarItem icon={ShoppingBag} label="Loja Oficial" active={activeTab === 'loja'} onClick={() => { setActiveTab('loja'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
-          <SidebarItem icon={Images} label="Prompts" active={activeTab === 'prompts'} onClick={() => { setActiveTab('prompts'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
-          <SidebarItem icon={Star} label="Favoritos" active={activeTab === 'favorites'} onClick={() => { setActiveTab('favorites'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
-          <SidebarItem icon={Zap} label="Geradores" active={activeTab === 'generator'} onClick={() => { setActiveTab('generator'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
-          <SidebarItem icon={BookOpen} label="Tutoriais" active={activeTab === 'tutorial'} onClick={() => { setActiveTab('tutorial'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
-          
-          <div className="my-4 border-t border-gray-800/50 mx-2"></div>
-          
-          {isAdmin && (
-             <>
-               <SidebarItem icon={Shield} label="Painel Admin" active={activeTab === 'admin'} onClick={() => { setActiveTab('admin'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
-               <div className="my-4 border-t border-gray-800/50 mx-2"></div>
-             </>
-           )}
-          
-          <SidebarItem icon={User} label="Meu Perfil" active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }} minimized={sidebarMinimized} />
-          
-          <div className="pt-8">
-            <button onClick={onLogout} className={`flex items-center w-full px-4 py-3 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors group ${sidebarMinimized ? 'justify-center' : ''}`} title={sidebarMinimized ? "Sair" : ""}>
-              <LogOut size={20} className={`${sidebarMinimized ? '' : 'mr-3'} group-hover:rotate-12 transition-transform`} />
-              {!sidebarMinimized && <span>Sair da Conta</span>}
-            </button>
-          </div>
+        <nav className={`space-y-2 mt-4 ${sidebarMinimized ? 'px-2' : 'px-4'}`}>
+          <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => {setActiveTab('dashboard'); setSidebarOpen(false)}} minimized={sidebarMinimized} />
+          <SidebarItem icon={ShoppingBag} label="Loja Oficial" active={activeTab === 'loja'} onClick={() => {setActiveTab('loja'); setSidebarOpen(false)}} minimized={sidebarMinimized} />
+          <SidebarItem icon={LayoutGrid} label="Prompts" active={activeTab === 'prompts'} onClick={() => {setActiveTab('prompts'); setSidebarOpen(false)}} minimized={sidebarMinimized} />
+          <SidebarItem icon={Play} label="Tutoriais" active={activeTab === 'tutorials'} onClick={() => {setActiveTab('tutorials'); setSidebarOpen(false)}} minimized={sidebarMinimized} />
+          <SidebarItem icon={Zap} label="Geradores" active={activeTab === 'generator'} onClick={() => {setActiveTab('generator'); setSidebarOpen(false)}} minimized={sidebarMinimized} />
+          <SidebarItem icon={Heart} label="Favoritos" active={activeTab === 'favorites'} onClick={() => {setActiveTab('favorites'); setSidebarOpen(false)}} minimized={sidebarMinimized} />
+          <div className="my-4 border-t border-gray-800 mx-2"></div>
+          {isAdmin && <SidebarItem icon={Shield} label="Painel Admin" active={activeTab === 'admin'} onClick={() => {setActiveTab('admin'); setSidebarOpen(false)}} minimized={sidebarMinimized} />}
+          <SidebarItem icon={User} label="Meu Perfil" active={activeTab === 'profile'} onClick={() => {setActiveTab('profile'); setSidebarOpen(false)}} minimized={sidebarMinimized} />
+          <div className="pt-4"><SidebarItem icon={LogOut} label="Sair" onClick={onLogout} minimized={sidebarMinimized} isLogout/></div>
         </nav>
       </aside>
-
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
-        <header className="lg:hidden flex items-center justify-center p-4 border-b border-gray-800 bg-black/80 backdrop-blur-md">
-          <div className="text-xl font-bold text-white">Prompt<span className="text-blue-500">Lab</span></div>
-        </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
-          {renderContent()}
-        </main>
-        <button onClick={() => setSidebarOpen(true)} className="fixed bottom-6 left-6 z-50 lg:hidden bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-500 flex items-center justify-center">
-          <Menu size={24} />
-        </button>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-black">
+        <header className="lg:hidden flex items-center p-4 border-b border-gray-800 bg-gray-900"><button onClick={() => setSidebarOpen(true)}><Menu/></button><span className="ml-4 font-bold">Menu</span></header>
+        <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800">{renderContent()}</main>
       </div>
     </div>
   );
 }
 
-function SidebarItem({ icon: Icon, label, active, onClick, minimized }) {
+function SidebarItem({ icon: Icon, label, active, onClick, minimized, isLogout }) {
   return (
-    <button onClick={onClick} title={minimized ? label : ""} className={`flex items-center w-full px-4 py-3.5 rounded-xl transition-all duration-300 border border-transparent ${active ? 'bg-blue-600/10 text-blue-400 border-blue-500/20 shadow-[0_0_20px_rgba(37,99,235,0.15)]' : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200 hover:border-gray-800'} ${minimized ? 'justify-center' : ''}`}>
-      <Icon size={20} className={`${minimized ? '' : 'mr-3'} ${active ? 'drop-shadow-[0_0_5px_rgba(59,130,246,0.8)]' : ''}`} />
-      {!minimized && <span className="font-medium tracking-wide animate-fadeIn">{label}</span>}
+    <button onClick={onClick} className={`flex items-center w-full rounded-xl transition-all duration-200 group font-medium ${minimized ? 'justify-center px-2 py-4' : 'px-4 py-3'} ${active && !isLogout ? 'text-blue-500 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-900'} ${active && !minimized && !isLogout ? 'border-l-4 border-blue-500 rounded-l-none' : ''} ${isLogout ? 'hover:text-red-400 hover:bg-red-500/10' : ''}`} title={minimized ? label : ''}>
+      <Icon size={minimized ? 28 : 20} className={`${minimized ? '' : 'mr-3'} transition-all ${active && !isLogout ? 'drop-shadow-[0_0_8px_rgba(37,99,235,0.5)]' : ''}`} />
+      {!minimized && <span className="truncate animate-fadeIn">{label}</span>}
     </button>
   );
 }
 
-// --- DASHBOARD ATUALIZADO ---
-function Dashboard({ news, changeTab, user }) {
+// --- DASHBOARD ---
+function Dashboard({ news, changeTab, user, settings }) {
   const isAdmin = user.plan === 'admin';
-
   return (
-    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto">
-      <div className="flex justify-between items-end border-b border-gray-800 pb-6">
-        <div>
-          <h2 className="text-3xl font-bold text-white mb-2">Olá, {user.name.split(' ')[0]}</h2>
-          <p className="text-gray-400">Bem-vindo ao seu laboratório.</p>
-        </div>
-        {isAdmin && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-2 rounded-lg flex items-center font-bold text-sm">
-                <Shield size={16} className="mr-2"/> MODO EDIÇÃO
-            </div>
-        )}
+    <div className="w-full animate-fadeIn">
+      <div className="relative w-full h-64 md:h-80 bg-gray-900 overflow-hidden">
+          {settings.banner_url && <img src={settings.banner_url} className="w-full h-full object-cover opacity-80" alt="Banner"/>}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black"></div>
+          <div className={`absolute inset-0 p-8 flex items-center ${settings.logo_position === 'flex-start' ? 'justify-start' : settings.logo_position === 'flex-end' ? 'justify-end' : 'justify-center'}`}>
+              {settings.logo_header_url && <img src={settings.logo_header_url} className="h-24 md:h-32 object-contain drop-shadow-2xl transform hover:scale-105 transition-transform duration-500"/>}
+          </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div onClick={() => changeTab('prompts')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-blue-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(59,130,246,0.1)]">
-          <div className="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-blue-400 mb-4"><Images size={24} /></div>
-          <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Acervo</p>
-          <p className="text-3xl font-bold text-white mt-1">Prompts</p>
-        </div>
-        <div onClick={() => changeTab('generator')} className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 hover:border-yellow-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(234,179,8,0.1)]">
-          <div className="bg-yellow-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-yellow-400 mb-4"><Zap size={24} /></div>
-          <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Ferramentas</p>
-          <p className="text-3xl font-bold text-white mt-1">Geradores</p>
-        </div>
-        <div onClick={() => changeTab('loja')} className="bg-gradient-to-br from-purple-900/40 to-black p-6 rounded-2xl border border-purple-500/30 hover:border-purple-500 transition-all cursor-pointer group hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] relative overflow-hidden">
-           <div className="absolute top-0 right-0 bg-purple-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl">NOVO</div>
-           <div className="bg-purple-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-purple-400 mb-4"><ShoppingBag size={24} /></div>
-          <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Marketplace</p>
-          <p className="text-3xl font-bold text-white mt-1">Loja Oficial</p>
-        </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-6 mt-8">
-             <h3 className="text-2xl font-bold text-white flex items-center">
-                <span className="w-1.5 h-8 bg-blue-600 rounded-full mr-3"></span>
-                Últimas Novidades
-             </h3>
-             {isAdmin && <button onClick={() => changeTab('admin')} className="text-xs text-gray-500 hover:text-white underline">Editar Feed</button>}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {news.slice(0, 2).map(item => (
-              <div key={item.id} className="group bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-600 transition-all flex flex-col h-full">
-                 <div className="h-56 overflow-hidden relative bg-gray-800">
-                    {item.image ? (
-                        <img src={item.image} alt="Capa" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-700"><Images size={48} opacity={0.5}/></div>
-                    )}
-                    <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs text-white border border-white/10 font-bold shadow-lg">
-                        {item.date || 'Novidade'}
-                    </div>
-                 </div>
-                 <div className="p-8 flex-1 flex flex-col">
-                    <h4 className="text-2xl font-bold text-white mb-4 leading-tight">{item.title}</h4>
-                    <p className="text-gray-400 leading-relaxed flex-1">{item.content}</p>
-                    <button className="mt-8 w-full py-3 rounded-xl border border-gray-700 text-gray-300 font-bold hover:bg-white hover:text-black transition-all flex items-center justify-center">
-                        Ler Artigo Completo <ArrowRight size={16} className="ml-2"/>
-                    </button>
-                 </div>
-              </div>
-            ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- LOJA (NOVO) ---
-function StorePage({ packs, user, onPurchase }) {
-    return (
-        <div className="animate-fadeIn max-w-7xl mx-auto pb-20">
-            <div className="text-center mb-16">
-                <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">Loja <span className="text-blue-500">PromptLab</span></h2>
-                <p className="text-gray-400 text-lg max-w-2xl mx-auto">Explore nossos packs premium e ferramentas exclusivas.</p>
-            </div>
-
-            <div className="mb-16 transform hover:scale-[1.01] transition-all duration-500">
-                <div className="bg-gradient-to-r from-gray-900 to-black border border-yellow-500/30 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-                    <div className="bg-gray-800/50 p-8 rounded-2xl border border-yellow-500/20 shadow-2xl">
-                        <Zap size={80} className="text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]"/>
-                    </div>
-                    <div className="flex-1 text-center md:text-left z-10">
-                        <h4 className="text-3xl font-bold text-white mb-4">Acesso Creator Vitalício</h4>
-                        <p className="text-gray-400 mb-6 text-lg leading-relaxed">Acesso ilimitado ao Gerador de Prompts e Criador de Imagens.</p>
-                        <div className="flex flex-wrap gap-3 justify-center md:justify-start mb-6">
-                            <span className="px-4 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-sm text-yellow-200 font-medium flex items-center"><Check size={14} className="mr-1"/> Acesso Ilimitado</span>
-                            <span className="px-4 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-sm text-yellow-200 font-medium flex items-center"><Check size={14} className="mr-1"/> Suporte Prioritário</span>
-                        </div>
-                    </div>
-                    <div className="text-center z-10 min-w-[200px]">
-                         <p className="text-sm text-gray-500 mb-1 line-through">R$ 97,00</p>
-                         <p className="text-4xl font-bold text-white mb-4">R$ 49,90</p>
-                         <button onClick={() => onPurchase('access-generators')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.3)] transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95">Comprar Agora</button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex items-center justify-between mb-8">
-                 <h3 className="text-2xl font-bold text-white flex items-center"><Images size={24} className="text-blue-500 mr-3"/> Packs Disponíveis</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {packs.map(pack => (
-                    <div key={pack.id} className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-blue-500/50 transition-all group flex flex-col hover:shadow-xl hover:shadow-blue-900/10">
-                        <div className="aspect-[4/3] relative overflow-hidden">
-                            <img src={pack.cover} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
-                            <div className="absolute bottom-4 left-4 right-4"><h4 className="text-xl font-bold text-white leading-tight drop-shadow-md">{pack.title}</h4></div>
-                        </div>
-                        <div className="p-6 flex items-center justify-between mt-auto bg-gray-900">
-                            <div><span className="text-xs text-gray-500 block uppercase tracking-wider mb-1">Preço Único</span><span className="text-white font-bold text-2xl">{pack.price}</span></div>
-                            <button onClick={() => onPurchase(pack.id)} className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-600/30"><ShoppingCart size={20} /></button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function PromptsArea({ packs, freePrompts, favorites, toggleFavorite, user, onPurchase }) {
-  const [selectedPack, setSelectedPack] = useState(null);
-  const [packItems, setPackItems] = useState([]);
-  const [loadingItems, setLoadingItems] = useState(false);
-  const [modalImage, setModalImage] = useState(null);
-  const [copied, setCopied] = useState(false);
-  
-  const userAccess = user.access;
-  const isGold = user.plan === 'gold'; 
-
-  const handleCopy = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const openPack = async (pack) => {
-    if (isGold || userAccess.includes(pack.id)) {
-      setSelectedPack(pack);
-      setLoadingItems(true);
-      const { data } = await supabase.from('pack_items').select('*').eq('pack_id', pack.id);
-      setPackItems(data || []); 
-      setLoadingItems(false);
-    }
-  };
-
-  const handlePurchaseClick = (e, packId) => {
-    e.stopPropagation();
-    onPurchase(packId);
-  };
-
-  if (selectedPack) {
-    return (
-      <div className="animate-fadeIn max-w-7xl mx-auto">
-        <button onClick={() => setSelectedPack(null)} className="mb-8 flex items-center text-gray-400 hover:text-white transition-colors group">
-          <div className="bg-gray-800 p-2 rounded-lg mr-3 group-hover:bg-gray-700 transition-colors"><Images size={20} /></div> Voltar para Biblioteca
-        </button>
-        <div className="flex justify-between items-end mb-8 pb-4 border-b border-gray-800">
+      <div className="max-w-7xl mx-auto px-6 -mt-8 relative z-10 space-y-8 pb-20">
+          <div className="flex justify-between items-end pb-4 border-b border-gray-800">
+            <div><h2 className="text-3xl font-bold text-white mb-1">Olá, {user.name.split(' ')[0]}</h2><p className="text-gray-400">Bem-vindo ao seu laboratório.</p></div>
+            {isAdmin && <span className="text-xs bg-blue-900 text-blue-200 px-3 py-1 rounded border border-blue-700 font-bold tracking-wider">ADMIN</span>}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div onClick={() => changeTab('prompts')} className="bg-gray-900 border border-gray-800 p-6 rounded-xl hover:border-blue-600 cursor-pointer transition-all hover:shadow-[0_0_20px_rgba(37,99,235,0.15)] group"><div className="mb-4 bg-blue-600/20 w-12 h-12 rounded-lg flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><Images size={24}/></div><h3 className="text-xl font-bold text-white">Prompts</h3><p className="text-sm text-gray-500">Acessar galeria</p></div>
+            <div onClick={() => changeTab('tutorials')} className="bg-gray-900 border border-gray-800 p-6 rounded-xl hover:border-blue-600 cursor-pointer transition-all hover:shadow-[0_0_20px_rgba(37,99,235,0.15)] group"><div className="mb-4 bg-purple-500/20 w-12 h-12 rounded-lg flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><Play size={24}/></div><h3 className="text-xl font-bold text-white">Tutoriais</h3><p className="text-sm text-gray-500">Aulas exclusivas</p></div>
+            <div onClick={() => changeTab('generator')} className="bg-gray-900 border border-gray-800 p-6 rounded-xl hover:border-blue-600 cursor-pointer transition-all hover:shadow-[0_0_20px_rgba(37,99,235,0.15)] group"><div className="mb-4 bg-green-500/20 w-12 h-12 rounded-lg flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform"><Zap size={24}/></div><h3 className="text-xl font-bold text-white">Geradores</h3><p className="text-sm text-gray-500">Criar com IA</p></div>
+          </div>
           <div>
-            <h2 className="text-3xl font-bold text-white mb-2">{selectedPack.title}</h2>
-            {isGold ? <p className="text-yellow-400 flex items-center font-bold drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]"><Crown size={14} className="mr-2 fill-yellow-400"/> Acesso Gold</p> : <p className="text-blue-400 flex items-center"><Unlock size={14} className="mr-2"/> Produto Adquirido</p>}
-          </div>
-        </div>
-        {loadingItems ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">{[1,2,3,4].map(i => <div key={i} className="aspect-[3/4] bg-gray-900/50 animate-pulse rounded-xl"></div>)}</div>
-        ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {packItems.map(item => (
-                <div key={item.id} onClick={() => setModalImage(item)} className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-blue-500 transition-all relative group hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]">
-                <img src={item.url} alt="Prompt" className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
-                    <div className="bg-blue-600/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 shadow-xl">
-                      <Copy size={18} className="text-white mr-2" /><span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
-                    </div>
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center"><span className="w-1.5 h-6 bg-blue-600 mr-3 rounded-full"></span>Feed de Novidades</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {news.map(item => (
+                <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col hover:border-gray-600 transition-all group">
+                    {item.image && <div className="h-48 w-full overflow-hidden"><img src={item.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/></div>}
+                    <div className="p-6"><span className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-2 block">{item.date}</span><h4 className="text-xl font-bold text-white mb-2">{item.title}</h4><p className="text-gray-400 text-sm leading-relaxed">{item.content}</p></div>
                 </div>
-                </div>
-            ))}
+              ))}
             </div>
-        )}
-        {modalImage && <PromptModal data={modalImage} close={() => setModalImage(null)} copy={handleCopy} copied={copied} toggleFav={toggleFavorite} isFav={favorites.includes(modalImage.id)} />}
-      </div>
-    );
-  }
-
-  return (
-    <div className="animate-fadeIn max-w-7xl mx-auto space-y-12">
-      <section>
-        <h2 className="text-2xl font-bold text-white mb-6 flex items-center"><Sparkles size={20} className="text-yellow-400 mr-2" /> Seus Packs & Loja</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {packs.map(pack => {
-            const isLocked = !isGold && !userAccess.includes(pack.id);
-            return (
-              <div key={pack.id} onClick={() => isLocked ? onPurchase(pack.id) : openPack(pack)} className={`aspect-[3/4] relative rounded-2xl overflow-hidden border transition-all duration-300 group cursor-pointer ${isLocked ? 'border-gray-800 opacity-90 hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] hover:border-blue-500' : isGold ? 'border-yellow-500/30 hover:border-yellow-400 hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' : 'border-blue-500/30 hover:border-blue-400 hover:shadow-[0_0_25px_rgba(59,130,246,0.2)]'}`}>
-                <img src={pack.cover} alt={pack.title} className={`w-full h-full object-cover transition-transform duration-700 ${isLocked ? 'grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-80' : 'group-hover:scale-110'}`} />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-4 z-20 text-center"><h3 className="text-white font-bold text-lg leading-tight drop-shadow-md">{pack.title}</h3></div>
-                {isLocked && (
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <Lock size={32} className="text-blue-400 mb-4 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
-                      <button onClick={(e) => handlePurchaseClick(e, pack.id)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg shadow-blue-900/50 transition-all transform hover:scale-105">Comprar {pack.price}</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-      <section>
-        <div className="flex items-center justify-between mb-6 border-t border-gray-800 pt-8">
-          <h2 className="text-2xl font-bold text-white flex items-center"><Zap size={20} className="text-blue-500 mr-2" /> Prompts Gratuitos</h2>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {freePrompts.map(item => (
-            <div key={item.id} onClick={() => setModalImage(item)} className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-blue-500 transition-all relative group">
-              <img src={item.url} alt="Free Prompt" className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
-                  <div className="bg-blue-600/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 shadow-xl">
-                    <Copy size={18} className="text-white mr-2" /><span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
-                  </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-      {modalImage && <PromptModal data={modalImage} close={() => setModalImage(null)} copy={handleCopy} copied={copied} toggleFav={toggleFavorite} isFav={favorites.includes(modalImage.id)} />}
-    </div>
-  );
-}
-
-function GeneratorsHub({ user, onPurchase }) {
-  const userAccess = user.access;
-  const isGold = user.plan === 'gold';
-  const hasAccess = isGold || userAccess.includes('access-generators');
-
-  if (!hasAccess) {
-    return (
-      <div className="animate-fadeIn max-w-4xl mx-auto text-center py-12">
-        <div className="inline-block p-6 rounded-full bg-gray-900 border border-gray-800 mb-6 relative">
-          <Zap size={64} className="text-gray-600" />
-          <div className="absolute -top-2 -right-2 bg-blue-500 p-2 rounded-full animate-bounce"><Lock size={20} className="text-white" /></div>
-        </div>
-        <h2 className="text-4xl font-bold text-white mb-4">Área Restrita: Creators Lab</h2>
-        <p className="text-xl text-gray-400 mb-8 max-w-xl mx-auto">Acesse nosso gerador de Gems exclusivo e as melhores ferramentas de IA do mercado.</p>
-        <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-8 max-w-md mx-auto hover:border-blue-500 transition-colors group">
-          <h3 className="text-2xl font-bold text-white mb-2">Plano Creator</h3>
-          <div className="text-3xl font-bold text-blue-400 mb-6">R$ 49,90 <span className="text-sm text-gray-500 font-normal">/ vitalício</span></div>
-          <button onClick={() => onPurchase('access-generators')} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20 group-hover:shadow-blue-500/40">Desbloquear Agora</button>
-        </div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="animate-fadeIn max-w-5xl mx-auto">
-      <h2 className="text-3xl font-bold text-white mb-8 flex items-center">
-          {isGold ? <Crown size={28} className="text-yellow-400 mr-3 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" /> : null} Central de Geradores
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className={`bg-gray-900 rounded-2xl border overflow-hidden group transition-all relative ${isGold ? 'border-yellow-500/30 hover:border-yellow-400' : 'border-gray-800 hover:border-blue-500'}`}>
-           <div className={`h-48 bg-gradient-to-br flex items-center justify-center ${isGold ? 'from-yellow-900/20 to-black' : 'from-blue-900/40 to-purple-900/40'}`}><Sparkles size={64} className={isGold ? "text-yellow-400" : "text-blue-400"} /></div>
-           <div className="p-8">
-             <h3 className="text-2xl font-bold text-white mb-2">Gerador de Prompts</h3>
-             <button className={`w-full py-3 border font-bold rounded-xl transition-all ${isGold ? 'border-yellow-500 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white'}`}><Play size={20} className="mr-2 inline" /> Iniciar App</button>
-           </div>
-        </div>
-        <div className={`bg-gray-900 rounded-2xl border overflow-hidden group transition-all relative ${isGold ? 'border-yellow-500/30 hover:border-purple-400' : 'border-gray-800 hover:border-purple-500'}`}>
-           <div className="h-48 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center relative"><Images size={64} className="text-white relative z-10" /></div>
-           <div className="p-8">
-             <h3 className="text-2xl font-bold text-white mb-2">Gerador de Imagens</h3>
-             <button className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-all">Acessar Ferramenta <ExternalLink size={20} className="ml-2 inline" /></button>
-           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PromptModal({ data, close, copy, copied, toggleFav, isFav }) {
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fadeIn" onClick={close}>
-      <div className="bg-gray-900 rounded-2xl max-w-5xl w-full flex flex-col md:flex-row overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-gray-800" onClick={e => e.stopPropagation()}>
-        <div className="md:w-1/2 bg-black flex items-center justify-center relative">
-          <img src={data.url} alt="Detail" className="max-h-[500px] md:max-h-[80vh] w-full object-contain" />
-          <button onClick={close} className="absolute top-4 left-4 md:hidden bg-black/50 p-2 rounded-full text-white"><X/></button>
-        </div>
-        <div className="md:w-1/2 p-8 flex flex-col border-l border-gray-800 bg-gray-900">
-          <div className="flex justify-between items-start mb-6">
-            <div><h3 className="text-2xl font-bold text-white">PromptLab Details</h3><p className="text-gray-500 text-sm font-mono mt-1">ID: #{data.id}</p></div>
-            <button onClick={close} className="text-gray-500 hover:text-white hidden md:block"><X size={28}/></button>
           </div>
-          <div className="flex-1 bg-black rounded-xl p-6 border border-gray-800 mb-8 overflow-y-auto custom-scrollbar"><p className="text-gray-300 font-mono text-sm leading-relaxed tracking-wide">{data.prompt}</p></div>
-          <div className="grid grid-cols-5 gap-4 mt-auto">
-            <button onClick={() => copy(data.prompt)} className={`col-span-4 flex items-center justify-center py-4 rounded-xl font-bold text-lg transition-all duration-300 ${copied ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>{copied ? <Check size={24} className="mr-2"/> : <Copy size={24} className="mr-2"/>} {copied ? "COPIADO" : "COPIAR PROMPT"}</button>
-            <button onClick={() => toggleFav(data.id)} className={`col-span-1 flex items-center justify-center rounded-xl border transition-all ${isFav ? 'bg-pink-500/10 border-pink-500 text-pink-500' : 'border-gray-700 text-gray-500 hover:border-pink-500 hover:text-pink-500'}`}><Heart size={24} className={isFav ? "fill-current" : ""} /></button>
-          </div>
-        </div>
       </div>
     </div>
   );
 }
 
-function Favorites({ packs, freePrompts, favorites, toggleFavorite }) {
-  const allItems = [...FREE_PROMPTS]; 
-  const favoriteItems = allItems.filter(item => favorites.includes(item.id));
-  const [modalImage, setModalImage] = useState(null);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="animate-fadeIn">
-      <h2 className="text-3xl font-bold text-white mb-8">Meus Favoritos</h2>
-      {favoriteItems.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {favoriteItems.map(item => (
-            <div key={item.id} onClick={() => setModalImage(item)} className="aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden cursor-pointer border border-gray-800 hover:border-pink-500 transition-all relative group">
-              <img src={item.url} alt="Favorite" className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:blur-sm" />
-              <div className="absolute top-2 right-2 bg-pink-500 text-white p-2 rounded-lg shadow-lg z-20"><Heart size={14} className="fill-current"/></div>
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
-                  <div className="bg-pink-600/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 shadow-xl">
-                    <Copy size={18} className="text-white mr-2" /><span className="text-white font-bold text-sm uppercase tracking-wide">Copiar</span>
-                  </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-20 opacity-30">
-          <Star size={64} className="mb-4"/><p>Nenhum favorito ainda.</p>
-        </div>
-      )}
-      {modalImage && <PromptModal data={modalImage} close={() => setModalImage(null)} copy={handleCopy} copied={copied} toggleFav={toggleFavorite} isFav={true} />}
-    </div>
-  );
-}
-
-function Tutorials({ videos }) {
-  return (
-    <div className="animate-fadeIn max-w-6xl mx-auto">
-      <h2 className="text-3xl font-bold text-white mb-8">Central de Aprendizado</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {videos.map(video => (
-          <div key={video.id} className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-blue-500 transition-all group cursor-pointer">
-            <div className="aspect-video relative overflow-hidden">
-              <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
-              <div className="absolute inset-0 flex items-center justify-center"><div className="bg-red-600 text-white rounded-full p-4 shadow-xl"><Play size={20} className="ml-1 fill-white" /></div></div>
-            </div>
-            <div className="p-5"><h3 className="font-bold text-white text-lg">{video.title}</h3></div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
+// --- PERFIL (COM UPLOAD) ---
 function Profile({ user, setUser }) {
   const [activeTab, setActiveTab] = useState('perfil');
-  const isGold = user.plan === 'gold';
-  const isFree = !isGold && user.access.length === 0;
-  
-  const [formData, setFormData] = useState({ firstName: user.name?.split(' ')[0] || '', lastName: user.name?.split(' ').slice(1).join(' ') || '', username: user.email, phone: user.phone || '', displayName: user.name, avatar: user.avatar, cover: user.cover, facebook: '', instagram: '', tiktok: '' });
-  const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
+  const [formData, setFormData] = useState({
+     firstName: user.name?.split(' ')[0] || '', lastName: user.name?.split(' ').slice(1).join(' ') || '',
+     phone: user.phone || '', avatar: user.avatar, cover: user.cover,
+     facebook: user.social_facebook || '', twitter: user.social_twitter || '', linkedin: user.social_linkedin || '', website: user.social_website || '', github: user.social_github || ''
+  });
 
-  const handleSave = () => {
-    setUser({ ...user, name: `${formData.firstName} ${formData.lastName}`, avatar: formData.avatar, cover: formData.cover });
-    alert("Perfil atualizado com sucesso!");
+  const handleSave = async () => {
+      const updates = {
+          name: `${formData.firstName} ${formData.lastName}`, phone: formData.phone, avatar: formData.avatar, cover: formData.cover,
+          social_facebook: formData.facebook, social_twitter: formData.twitter, social_linkedin: formData.linkedin, social_website: formData.website, social_github: formData.github
+      };
+      const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+      if(!error) { setUser({ ...user, ...updates }); alert("Perfil atualizado!"); } else { alert("Erro ao salvar."); }
   };
 
   return (
-    <div className="animate-fadeIn max-w-5xl mx-auto pb-20">
-      <div className="flex justify-between items-start mb-8">
-          <h2 className="text-3xl font-bold text-white">Configurações</h2>
-          <div className="flex flex-col items-end">
-              {isGold ? <span className="text-yellow-400 text-sm font-bold flex items-center border border-yellow-500/50 px-3 py-1 rounded-full bg-yellow-500/10 shadow-[0_0_15px_rgba(250,204,21,0.2)] mb-2"><Crown size={14} className="mr-2 fill-yellow-400" /> CONTA GOLD</span> : <div className={`${isFree ? 'text-red-500 border-red-500/30 bg-red-500/10' : 'text-blue-400 border-blue-500/30 bg-blue-500/10'} text-sm font-bold flex items-center border px-3 py-1 rounded-full mb-2`}>{!isFree ? <><Sparkles size={14} className="mr-2" /> MEMBRO PRO</> : <><User size={14} className="mr-2" /> MEMBRO FREE</>}</div>}
-          </div>
-      </div>
-      <div className="flex space-x-8 border-b border-gray-800 mb-8">
-        <button onClick={() => setActiveTab('perfil')} className={`pb-4 font-medium text-sm transition-colors relative ${activeTab === 'perfil' ? 'text-blue-500' : 'text-gray-400 hover:text-white'}`}>Perfil {activeTab === 'perfil' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-t-full"></div>}</button>
+    <div className="max-w-5xl mx-auto animate-fadeIn p-8">
+      <h2 className="text-3xl font-bold text-white mb-8">Configurações</h2>
+      <div className="flex space-x-8 border-b border-gray-800 mb-8 overflow-x-auto">
+         {['perfil', 'senha', 'social'].map(tab => (
+             <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 text-sm font-medium capitalize relative whitespace-nowrap ${activeTab === tab ? 'text-blue-600' : 'text-gray-500 hover:text-white'}`}>{tab === 'social' ? 'Perfil Social' : tab}{activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}</button>
+         ))}
       </div>
       {activeTab === 'perfil' && (
-        <div className="space-y-8">
-          <div className="relative mb-12">
-            <div className={`h-48 md:h-64 w-full rounded-t-xl relative overflow-hidden bg-gray-800 border group ${isGold ? 'border-yellow-500/30' : 'border-gray-700'}`}>
-              <img src={formData.cover} alt="Capa" className="w-full h-full object-cover opacity-80" />
-              <button onClick={() => alert('Alterar capa')} className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold flex items-center shadow-lg transition-all"><Camera size={16} className="mr-2" /> Alterar Capa</button>
+         <div className="mb-10">
+            <div className="h-48 w-full rounded-t-xl bg-gray-800 relative overflow-hidden group">
+                <img src={formData.cover} className="w-full h-full object-cover opacity-80"/>
+                <div className="absolute bottom-4 right-4"><ImageUploader compact label="Capa" onUploadComplete={(url) => setFormData({...formData, cover: url})} /></div>
             </div>
-            <div className="absolute -bottom-16 left-8 md:left-12">
-              <div className="relative group">
-                <div className={`w-32 h-32 rounded-full border-[6px] overflow-hidden bg-gray-700 ${isGold ? 'border-yellow-500 shadow-[0_0_20px_rgba(250,204,21,0.4)]' : 'border-black'}`}><img src={formData.avatar} alt="Avatar" className="w-full h-full object-cover" /></div>
-                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity border-[6px] border-transparent"><Camera size={24} className="text-white" /></div>
-              </div>
+            <div className="px-8 relative">
+                <div className="w-32 h-32 rounded-full border-4 border-black bg-gray-700 -mt-16 overflow-hidden relative group">
+                    <img src={formData.avatar} className="w-full h-full object-cover"/>
+                    <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center"><ImageUploader compact label="Avatar" onUploadComplete={(url) => setFormData({...formData, avatar: url})} /></div>
+                </div>
             </div>
+         </div>
+      )}
+      {activeTab === 'perfil' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div><label className="text-white text-sm font-bold mb-2 block">Nome</label><input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none"/></div>
+             <div><label className="text-white text-sm font-bold mb-2 block">Último nome</label><input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none"/></div>
+             <div className="col-span-2"><label className="text-white text-sm font-bold mb-2 block">Telefone</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none" placeholder="(00) 00000-0000"/></div>
+             <div className="col-span-2 mt-4"><button onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition-colors">Atualizar Perfil</button></div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-20">
-            <div className="space-y-2"><label className="text-sm font-bold text-white">Nome</label><input type="text" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none" /></div>
-            <div className="space-y-2"><label className="text-sm font-bold text-white">Último nome</label><input type="text" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-gray-200 focus:border-blue-500 focus:outline-none" /></div>
+      )}
+      {activeTab === 'senha' && (
+          <div className="max-w-2xl space-y-6">
+              <div><label className="text-white text-sm font-bold mb-2 block">Senha atual</label><input type="password" className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none" placeholder="Senha atual"/></div>
+              <div><label className="text-white text-sm font-bold mb-2 block">Nova Senha</label><input type="password" className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none" placeholder="Digite a senha"/></div>
+              <div><label className="text-white text-sm font-bold mb-2 block">Redigite a nova senha</label><input type="password" className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none" placeholder="Digite a senha"/></div>
+              <button className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg mt-4">Redefinir senha</button>
           </div>
-          <div><button onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all">Atualizar Perfil</button></div>
-        </div>
+      )}
+      {activeTab === 'social' && (
+          <div className="space-y-6">
+              {[ { l: 'Facebook', i: Facebook, k: 'facebook' }, { l: 'Twitter', i: Twitter, k: 'twitter' }, { l: 'Linkedin', i: Linkedin, k: 'linkedin' }, { l: 'Site', i: Globe, k: 'website' }, { l: 'Github', i: Github, k: 'github' } ].map(s => (
+                  <div key={s.k} className="flex items-center"><div className="w-32 flex items-center text-white"><s.i size={18} className="mr-2"/> {s.l}</div><input type="text" value={formData[s.k]} onChange={e => setFormData({...formData, [s.k]: e.target.value})} className="flex-1 bg-gray-900 border border-gray-800 rounded-lg p-3 text-gray-400 focus:text-white focus:border-blue-600 outline-none" placeholder={`Link do ${s.l}`}/></div>
+              ))}
+              <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg mt-4">Atualizar Perfil</button>
+          </div>
       )}
     </div>
   );
 }
 
-// --- PAINEL ADMIN (NOVO) ---
-function AdminPanel({ user, updateLogo, currentLogo }) {
+// --- ADMIN PANEL (COM UPLOAD INTEGRADO) ---
+function AdminPanel({ user, updateSettings, settings }) {
   const [activeSection, setActiveSection] = useState('users');
   const [dataList, setDataList] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [selectedPackForAlbum, setSelectedPackForAlbum] = useState(null); 
+  const [packItems, setPackItems] = useState([]); 
 
   const fetchData = async () => {
-    setLoading(true);
     let query;
     if (activeSection === 'users') query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    if (activeSection === 'products') query = supabase.from('products').select('*').order('id', { ascending: true });
+    if (activeSection === 'prompts') query = supabase.from('products').select('*').order('id', { ascending: true });
+    if (activeSection === 'tutorials') query = supabase.from('tutorials_videos').select('*').order('id', { ascending: true });
     if (activeSection === 'news') query = supabase.from('news').select('*').order('id', { ascending: false });
-    if (activeSection !== 'settings') {
-        const { data, error } = await query;
-        if (!error) setDataList(data);
-    }
-    setLoading(false);
+    if (query) { const { data } = await query; setDataList(data || []); }
   };
 
-  useEffect(() => {
-    fetchData();
-    setEditingItem(null);
-  }, [activeSection]);
+  const fetchPackItems = async (packId) => {
+      const { data } = await supabase.from('pack_items').select('*').eq('pack_id', packId);
+      setPackItems(data || []);
+  };
+
+  useEffect(() => { fetchData(); setSelectedPackForAlbum(null); }, [activeSection]);
 
   const handleSave = async (e) => {
-    e.preventDefault();
-    if (activeSection === 'settings') {
-         const { error } = await supabase.from('app_settings').update({ logo_url: editingItem.logo_url }).gt('id', 0);
-         if (error) alert('Erro: ' + error.message);
-         else { alert('Logo atualizada!'); updateLogo(editingItem.logo_url); }
-         return;
-    }
-    const table = activeSection === 'users' ? 'profiles' : activeSection;
-    const payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
-    const { error } = await supabase.from(table).upsert(payload).eq('id', editingItem.id);
-    if (error) alert('Erro: ' + error.message);
-    else { alert('Salvo!'); setEditingItem(null); fetchData(); }
+      e.preventDefault();
+      if (activeSection === 'settings') {
+          await supabase.from('app_settings').update(editingItem).gt('id', 0);
+          updateSettings(editingItem); alert('Configurações salvas!'); return;
+      }
+      if (selectedPackForAlbum && activeSection === 'prompts') {
+          const { error } = await supabase.from('pack_items').upsert({ ...editingItem, pack_id: selectedPackForAlbum.id }).eq('id', editingItem.id || 0);
+          if (!error) { alert('Item salvo!'); setEditingItem(null); fetchPackItems(selectedPackForAlbum.id); } return;
+      }
+      let table = activeSection === 'users' ? 'profiles' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
+      let payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
+      const { error } = await supabase.from(table).upsert(payload).eq('id', editingItem.id || 0);
+      if(!error) { alert('Salvo!'); setEditingItem(null); fetchData(); }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Tem certeza?')) return;
-    const table = activeSection === 'users' ? 'profiles' : activeSection;
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if (error) alert('Erro: ' + error.message);
-    else fetchData();
+  const handleDelete = async (id, isPackItem = false) => {
+      if(!confirm('Tem certeza?')) return;
+      let table = isPackItem ? 'pack_items' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
+      await supabase.from(table).delete().eq('id', id);
+      if(isPackItem) fetchPackItems(selectedPackForAlbum.id); else fetchData();
   };
 
   return (
-    <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-6 gap-4">
-        <div><h2 className="text-3xl font-bold text-white flex items-center"><Shield size={32} className="text-red-500 mr-3" /> Painel Admin</h2><p className="text-gray-400">Controle total do sistema.</p></div>
-        <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2">
-          <button onClick={() => setActiveSection('users')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Usuários</button>
-          <button onClick={() => setActiveSection('products')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'products' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Produtos</button>
-          <button onClick={() => setActiveSection('news')} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap ${activeSection === 'news' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>Blog/News</button>
-          <button onClick={() => { setActiveSection('settings'); setEditingItem({ logo_url: currentLogo }) }} className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap flex items-center ${activeSection === 'settings' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}><Settings size={16} className="mr-2"/> Configurações</button>
-        </div>
+    <div className="max-w-7xl mx-auto pb-20 animate-fadeIn px-6">
+      <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-4 gap-4">
+          <div><h2 className="text-3xl font-bold text-white"><Shield className="inline text-blue-600 mr-2"/> Painel Admin</h2><p className="text-gray-400">Controle total do sistema</p></div>
+          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">{['users', 'prompts', 'tutorials', 'news', 'settings'].map(sec => (<button key={sec} onClick={() => {setActiveSection(sec); setEditingItem(sec === 'settings' ? settings : null)}} className={`px-4 py-2 rounded capitalize font-bold whitespace-nowrap ${activeSection === sec ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{sec === 'prompts' ? 'Prompts (Packs)' : sec}</button>))}</div>
       </div>
 
-      {(editingItem || activeSection === 'settings') && (
-        <div className="bg-gray-900 border border-blue-500/50 p-6 rounded-xl mb-8 shadow-2xl shadow-blue-900/10">
-          <h3 className="text-xl font-bold text-white mb-6 flex items-center"><Edit3 size={20} className="mr-2 text-blue-400"/> Editor: {activeSection.toUpperCase()}</h3>
-          <form onSubmit={handleSave} className="grid grid-cols-1 gap-6">
-            {activeSection === 'users' && (
-              <div><label className="block text-gray-400 mb-2 font-bold">Plano de Acesso</label>
-                 <select className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}>
-                   <option value="free">FREE</option><option value="pro">PRO</option><option value="gold">GOLD</option><option value="admin">ADMIN</option>
-                 </select>
+      {activeSection === 'settings' && editingItem && (
+          <div className="bg-gray-900 p-8 rounded-xl border border-gray-800 grid grid-cols-1 gap-6">
+              <h3 className="text-white font-bold text-xl">Configurações Visuais</h3>
+              <div><ImageUploader label="Logo Menu (Simples)" currentImage={editingItem.logo_menu_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_menu_url: url})} /></div>
+              <div><ImageUploader label="Banner Dashboard" currentImage={editingItem.banner_url} onUploadComplete={(url) => setEditingItem({...editingItem, banner_url: url})} /></div>
+              <div><ImageUploader label="Logo Header (Slogan)" currentImage={editingItem.logo_header_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_header_url: url})} /></div>
+              <div>
+                  <label className="text-gray-400 block mb-2">Posição da Logo no Banner</label>
+                  <div className="flex gap-4">{['flex-start', 'center', 'flex-end'].map(pos => (<button key={pos} onClick={() => setEditingItem({...editingItem, logo_position: pos})} className={`px-4 py-2 rounded border ${editingItem.logo_position === pos ? 'bg-blue-600 border-blue-600 text-white' : 'bg-black border-gray-700 text-gray-400'}`}>{pos === 'flex-start' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}</button>))}</div>
               </div>
-            )}
-            {activeSection === 'settings' && (
-               <div className="space-y-6">
-                   <div><label className="block text-gray-400 mb-2 font-bold">URL da Logo</label><input type="text" className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white" value={editingItem.logo_url} onChange={e => setEditingItem({...editingItem, logo_url: e.target.value})} placeholder="https://..." /></div>
-                   {editingItem.logo_url && <div className="p-4 bg-black rounded border border-gray-800 flex justify-center"><img src={editingItem.logo_url} alt="Preview" className="h-16 object-contain"/></div>}
-               </div>
-            )}
-            {(activeSection === 'news' || activeSection === 'products') && Object.keys(editingItem).map(key => {
-                 if(key === 'id' || key === 'created_at') return null;
-                 if(key === 'content' || key === 'description') return <div key={key}><label className="block text-xs font-bold text-gray-500 uppercase mb-2">{key}</label><textarea className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white h-32" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} /></div>
-                 return <div key={key}><label className="block text-xs font-bold text-gray-500 uppercase mb-2">{key}</label><input className="w-full bg-black border border-gray-700 p-3 rounded-xl text-white" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})} /></div>
-            })}
-            <div className="flex justify-end gap-4 pt-4 border-t border-gray-800">
-               {activeSection !== 'settings' && <button type="button" onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-white font-bold px-4">Cancelar</button>}
-               <button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-500 font-bold shadow-lg flex items-center"><Save size={18} className="mr-2"/> Salvar</button>
-            </div>
-          </form>
-        </div>
+              <button onClick={handleSave} className="bg-green-600 text-white px-8 py-3 rounded font-bold w-full md:w-auto">Salvar Alterações</button>
+          </div>
       )}
-      {activeSection !== 'settings' && (
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/20">
-               <h3 className="font-bold text-white flex items-center">Registros: {activeSection}</h3>
-               {activeSection !== 'users' && <button onClick={() => setEditingItem({})} className="bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all"><Plus size={16} className="mr-1"/> Adicionar</button>}
-            </div>
-            {loading ? <div className="p-12 text-center text-gray-500"><Loader2 className="animate-spin inline"/></div> : (
-              <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-black/50 text-xs uppercase font-bold text-gray-500"><tr><th className="p-4">ID / Info</th><th className="p-4">Status</th><th className="p-4 text-right">Ações</th></tr></thead>
-                <tbody className="divide-y divide-gray-800">
-                   {dataList.map(item => (
-                     <tr key={item.id} className="hover:bg-gray-800/30">
-                       <td className="p-4">{activeSection === 'users' ? <div><span className="text-white font-bold">{item.name}</span><br/>{item.email}</div> : (item.title || item.id)}</td>
-                       <td className="p-4">{activeSection === 'users' ? item.plan : (item.price || item.date)}</td>
-                       <td className="p-4 text-right"><button onClick={() => setEditingItem(item)} className="text-blue-400 mr-3"><Edit3 size={16}/></button>{activeSection !== 'users' && <button onClick={() => handleDelete(item.id)} className="text-red-500"><Trash2 size={16}/></button>}</td>
-                     </tr>
-                   ))}
-                </tbody>
-              </table>
+
+      {activeSection === 'prompts' && selectedPackForAlbum && (
+          <div className="mb-8 animate-fadeIn">
+              <button onClick={() => setSelectedPackForAlbum(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold"><ChevronLeft/> Voltar para Packs</button>
+              <div className="bg-gray-900 p-6 rounded-xl border border-blue-500/30">
+                  <div className="flex justify-between items-center mb-6"><h3 className="text-2xl font-bold text-white">Álbum: {selectedPackForAlbum.title}</h3><button onClick={() => setEditingItem({})} className="bg-blue-600 text-white px-4 py-2 rounded font-bold flex items-center"><Plus size={16} className="mr-2"/> Nova Imagem</button></div>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      {packItems.map(item => (
+                          <div key={item.id} className="relative group aspect-[3/4] bg-black rounded-lg overflow-hidden border border-gray-800">
+                              <img src={item.url} className="w-full h-full object-cover"/>
+                              <div className="absolute inset-0 bg-black/80 hidden group-hover:flex flex-col items-center justify-center gap-2"><button onClick={() => setEditingItem(item)} className="text-blue-400 hover:text-white bg-gray-800 p-2 rounded"><Edit3/></button><button onClick={() => handleDelete(item.id, true)} className="text-red-500 hover:text-white bg-gray-800 p-2 rounded"><Trash2/></button></div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {(!selectedPackForAlbum || activeSection !== 'prompts') && activeSection !== 'settings' && (
+          <div className="animate-fadeIn">
+            {activeSection !== 'users' && <div className="mb-4 flex justify-end"><button onClick={() => setEditingItem({})} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold flex items-center"><Plus size={16} className="mr-2"/> Adicionar Novo</button></div>}
+            {editingItem && !selectedPackForAlbum && (
+                <div className="bg-gray-900 p-6 rounded-xl border border-blue-500 mb-8">
+                    <h3 className="text-white font-bold mb-4">Editor</h3>
+                    <form onSubmit={handleSave} className="grid grid-cols-1 gap-4">
+                        {activeSection === 'users' && <select className="bg-black border border-gray-700 p-3 rounded text-white" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}><option value="free">Free</option><option value="pro">Pro</option><option value="gold">Gold</option><option value="admin">Admin</option></select>}
+                        {(activeSection === 'prompts' || activeSection === 'tutorials' || activeSection === 'news' || selectedPackForAlbum) && (
+                            Object.keys(editingItem).map(key => {
+                                if(key === 'id' || key === 'created_at' || key === 'pack_id') return null;
+                                if(key === 'cover' || key === 'image' || key === 'thumbnail' || key === 'url') return <div key={key}><ImageUploader label={key} currentImage={editingItem[key]} onUploadComplete={(url) => setEditingItem({...editingItem, [key]: url})} /></div>
+                                return <div key={key}><label className="text-gray-500 text-xs uppercase font-bold mb-1 block">{key}</label><input type="text" className="bg-black border border-gray-700 p-3 rounded text-white w-full" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
+                            })
+                        )}
+                        <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setEditingItem(null)} className="text-gray-500 font-bold">Cancelar</button><button type="submit" className="bg-green-600 text-white px-6 py-2 rounded font-bold">Salvar</button></div>
+                    </form>
+                </div>
             )}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+                <table className="w-full text-left text-sm text-gray-400">
+                    <thead className="bg-black text-xs uppercase font-bold"><tr><th className="p-4">Info Principal</th><th className="p-4">Detalhes</th><th className="p-4 text-right">Ações</th></tr></thead>
+                    <tbody className="divide-y divide-gray-800">
+                        {dataList.map(item => (
+                            <tr key={item.id} className="hover:bg-gray-800/50">
+                                <td className="p-4">{activeSection === 'users' ? <div><span className="text-white font-bold">{item.name}</span><br/>{item.email}</div> : (item.title || item.id)}</td>
+                                <td className="p-4">{activeSection === 'users' ? <div><span className="block text-white font-mono text-xs mb-1">{item.phone || 'Sem telefone'}</span><span className={`text-xs uppercase font-bold px-2 py-1 rounded ${item.plan === 'admin' ? 'bg-blue-900 text-blue-200' : 'bg-gray-700'}`}>{item.plan}</span></div> : (item.video_url || item.date || item.price)}</td>
+                                <td className="p-4 text-right"><button onClick={() => setEditingItem(item)} className="text-blue-400 mr-3"><Edit3 size={16}/></button>{activeSection !== 'users' && <button onClick={() => handleDelete(item.id)} className="text-red-500"><Trash2 size={16}/></button>}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
           </div>
       )}
     </div>
   );
 }
+
+function TutorialsPage({ user }) {
+    const [tutorials, setTutorials] = useState([]);
+    useEffect(() => { supabase.from('tutorials_videos').select('*').order('id', { ascending: true }).then(({ data }) => setTutorials(data || [])); }, []);
+    return (
+        <div className="max-w-3xl mx-auto pb-20 animate-fadeIn px-6">
+             <div className="text-center mb-12 mt-8">
+                 <h2 className="text-5xl font-black text-white mb-2 tracking-tighter">TUTORIAIS</h2>
+                 <p className="text-blue-600 font-bold tracking-[0.2em] text-sm uppercase mb-8">Ferramentas de Criação</p>
+             </div>
+             <div className="space-y-12">
+                 {tutorials.map(video => (
+                     <div key={video.id} className="bg-black border border-gray-800 rounded-2xl overflow-hidden shadow-2xl hover:border-blue-900 transition-all">
+                         <div className="p-4 flex items-center border-b border-gray-900"><div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div><h3 className="text-white font-bold text-lg">{video.title}</h3></div>
+                         <div className="relative aspect-video group cursor-pointer overflow-hidden">
+                             <img src={video.thumbnail} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500 group-hover:scale-105"/>
+                             <div className="absolute inset-0 flex items-center justify-center"><div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform"><Play className="ml-1 text-white fill-white w-8 h-8"/></div></div>
+                             <a href={video.video_url} target="_blank" className="absolute inset-0 z-10"></a>
+                         </div>
+                         <div className="p-6 text-center bg-gray-900"><a href={video.link_action || '#'} target="_blank" className="text-blue-500 hover:text-white font-bold text-sm uppercase tracking-wider border-b-2 border-blue-500/30 pb-1 hover:border-white transition-colors">{video.link_label || 'Acessar Recurso'}</a></div>
+                     </div>
+                 ))}
+             </div>
+        </div>
+    );
+}
+
+function StorePage({ packs, onPurchase }) {
+    return (
+        <div className="max-w-7xl mx-auto animate-fadeIn px-6">
+             <h2 className="text-3xl font-bold text-white mb-8">Loja Oficial</h2>
+             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                 {packs.map(pack => (
+                     <div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-blue-600 transition-all cursor-pointer group shadow-lg">
+                         <div className="aspect-square relative overflow-hidden">
+                             <img src={pack.cover} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                             <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/90 to-transparent"><h4 className="text-white font-bold text-sm md:text-base leading-tight">{pack.title}</h4><p className="text-blue-500 font-bold text-xs mt-1">{pack.price}</p></div>
+                         </div>
+                         <button onClick={() => onPurchase(pack.id)} className="w-full bg-blue-600 text-white font-bold py-2 text-sm hover:bg-blue-500 transition-colors">COMPRAR</button>
+                     </div>
+                 ))}
+             </div>
+        </div>
+    );
+}
+
+function PromptsGallery({ user }) {
+    const [prompts, setPrompts] = useState([]);
+    useEffect(() => { supabase.from('pack_items').select('*').limit(50).then(({data}) => setPrompts(data || [])); }, []);
+    return (
+        <div className="max-w-7xl mx-auto animate-fadeIn px-6 pb-20">
+             <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-bold text-white">Galeria de Prompts</h2></div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {prompts.map(item => (
+                     <div key={item.id} className="aspect-[3/4] bg-gray-900 rounded-2xl overflow-hidden relative group hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:border-2 border-blue-500 transition-all duration-300 border border-gray-800">
+                         <img src={item.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>
+                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0"><button className="bg-black/60 backdrop-blur-md text-white p-3 rounded-full hover:bg-blue-600 hover:text-white transition-colors shadow-xl border border-white/10"><Heart size={22}/></button></div>
+                         <div className="absolute bottom-8 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0"><button onClick={() => navigator.clipboard.writeText(item.prompt)} className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-2xl hover:scale-105 hover:bg-blue-500 transition-transform flex items-center border border-blue-400"><Copy size={18} className="mr-2"/> COPIAR PROMPT</button></div>
+                     </div>
+                 ))}
+             </div>
+        </div>
+    );
+}
+
+function GeneratorsHub() { return <div className="text-white text-center py-20 text-xl font-bold animate-pulse">⚡ Geradores em Manutenção</div>; }
+function Favorites() { return <div className="text-white text-center py-20 text-gray-500">Você ainda não favoritou nada.</div>; }
