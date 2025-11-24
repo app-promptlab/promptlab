@@ -8,7 +8,8 @@ import {
   Facebook, Instagram, Music, Key, ChevronLeft, ChevronRight, Crown,
   Shield, Save, Plus, Search, Users,
   ShoppingBag, Settings, UploadCloud,
-  Twitter, Linkedin, Globe, Github, HelpCircle, LayoutGrid, Monitor, Home
+  Twitter, Linkedin, Globe, Github, HelpCircle, LayoutGrid, Monitor, Home,
+  Gamepad2, Trophy, FileText
 } from 'lucide-react';
 
 // --- CONEXÃO COM SUPABASE ---
@@ -23,9 +24,8 @@ const ToastContext = React.createContext();
 export default function App() {
   const [user, setUser] = useState(null); 
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null); // Estado da notificação
+  const [toast, setToast] = useState(null); 
 
-  // Função para mostrar notificação
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -59,7 +59,7 @@ export default function App() {
             name: profile?.name || 'Usuário',
             access: accessList, 
             plan: finalPlan,
-            avatar: profile?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+            avatar: profile?.avatar || 'https://egeomuvpkfjpvllzrugc.supabase.co/storage/v1/object/public/promptlab/logossemslogan.png',
             cover: profile?.cover || 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1000&q=80'
         });
     } catch (error) {
@@ -114,7 +114,6 @@ export default function App() {
   return (
     <ToastContext.Provider value={{ showToast }}>
         <MainApp user={user} setUser={setUser} onLogout={handleLogout} onPurchase={handlePurchase} />
-        {/* Componente Toast Flutuante */}
         {toast && (
             <div className="fixed top-4 right-4 z-[100] bg-gray-900/90 backdrop-blur-md border border-blue-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center animate-fadeIn">
                 <div className="bg-blue-500 rounded-full p-1 mr-3"><Check size={14} /></div>
@@ -161,7 +160,7 @@ function ImageUploader({ currentImage, onUploadComplete, label, compact = false 
   );
 }
 
-// --- TELA DE LOGIN (WARP SPEED + GLASSMORPHISM) ---
+// --- TELA DE LOGIN ---
 function AuthScreen({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -176,6 +175,7 @@ function AuthScreen({ onLogin }) {
       });
   }, []);
 
+  // Efeito Warp Speed
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -224,7 +224,7 @@ function AuthScreen({ onLogin }) {
   );
 }
 
-// --- APP PRINCIPAL (COM MOBILE BOTTOM BAR) ---
+// --- APP PRINCIPAL ---
 function MainApp({ user, setUser, onLogout, onPurchase }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -265,10 +265,9 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
 
   return (
     <div className="flex h-screen bg-black text-gray-100 font-sans overflow-hidden">
-      
-      {/* SIDEBAR (DESKTOP ONLY - HIDDEN ON MOBILE) */}
+      {/* Sidebar Desktop */}
       <aside className={`hidden md:flex flex-col fixed inset-y-0 left-0 z-50 bg-black border-r border-gray-800 transition-all duration-300 ${sidebarMinimized ? 'w-24' : 'w-64'}`}>
-        <div className={`p-6 flex items-center ${sidebarMinimized ? 'justify-center' : 'justify-between'} border-b border-gray-800 h-20`}>
+        <div className={`p-6 flex items-center ${sidebarMinimized ? 'justify-center' : 'justify-between'} transition-all border-b border-gray-800 h-20`}>
            {!sidebarMinimized ? (appSettings.logo_menu_url ? <img src={appSettings.logo_menu_url} className="h-8 object-contain"/> : <span className="text-xl font-bold text-white">Prompt<span className="text-blue-600">Lab</span></span>) : (<Menu size={28} className="text-blue-600"/>)}
            <button onClick={() => setSidebarMinimized(!sidebarMinimized)} className="text-gray-400 hover:text-white focus:outline-none transition-transform hover:scale-110"><Menu size={24} /></button>
         </div>
@@ -286,7 +285,7 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
         <div className="p-4 border-t border-gray-800"><SidebarItem icon={LogOut} label="Sair" onClick={onLogout} minimized={sidebarMinimized} isLogout/></div>
       </aside>
 
-      {/* BOTTOM NAVIGATION BAR (MOBILE ONLY) */}
+      {/* Mobile Bottom Bar */}
       <div className="md:hidden fixed bottom-0 w-full bg-gray-900 border-t border-gray-800 z-50 flex justify-around items-center p-3 pb-5 safe-area-bottom">
           <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center ${activeTab === 'dashboard' ? 'text-blue-500' : 'text-gray-500'}`}><Home size={24}/><span className="text-[10px] mt-1">Home</span></button>
           <button onClick={() => setActiveTab('loja')} className={`flex flex-col items-center ${activeTab === 'loja' ? 'text-blue-500' : 'text-gray-500'}`}><ShoppingBag size={24}/><span className="text-[10px] mt-1">Loja</span></button>
@@ -295,7 +294,6 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
           <button onClick={() => setActiveTab(isAdmin ? 'admin' : 'profile')} className={`flex flex-col items-center ${activeTab === 'profile' || activeTab === 'admin' ? 'text-blue-500' : 'text-gray-500'}`}><User size={24}/><span className="text-[10px] mt-1">Perfil</span></button>
       </div>
 
-      {/* MAIN CONTENT AREA */}
       <div className={`flex-1 flex flex-col min-w-0 overflow-hidden bg-black transition-all duration-300 ${sidebarMinimized ? 'md:ml-24' : 'md:ml-64'}`}>
         <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 pb-24 md:pb-0">{renderContent()}</main>
       </div>
@@ -399,19 +397,33 @@ function Profile({ user, setUser }) {
              <div className="col-span-2 mt-4"><button onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition-colors">Atualizar Perfil</button></div>
           </div>
       )}
-      {/* (Senha e Social mantêm o padrão) */}
-      {activeTab === 'social' && <div className="space-y-6">{[{k:'facebook',l:'Facebook',i:Facebook},{k:'twitter',l:'Twitter',i:Twitter},{k:'linkedin',l:'Linkedin',i:Linkedin}].map(s=><div key={s.k} className="flex items-center"><div className="w-32 flex items-center text-white"><s.i size={18} className="mr-2"/> {s.l}</div><input type="text" value={formData[s.k]} onChange={e=>setFormData({...formData,[s.k]:e.target.value})} className="flex-1 bg-gray-900 border border-gray-800 p-3 rounded-lg text-white outline-none focus:border-blue-600"/></div>)}<button onClick={handleSave} className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold mt-4">Salvar Social</button></div>}
+      {activeTab === 'senha' && (
+          <div className="max-w-2xl space-y-6">
+              <div><label className="text-white text-sm font-bold mb-2 block">Senha atual</label><input type="password" className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none" placeholder="Senha atual"/></div>
+              <div><label className="text-white text-sm font-bold mb-2 block">Nova Senha</label><input type="password" className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none" placeholder="Digite a senha"/></div>
+              <div><label className="text-white text-sm font-bold mb-2 block">Redigite a nova senha</label><input type="password" className="w-full bg-gray-900 border border-gray-800 rounded-lg p-3 text-white focus:border-blue-600 outline-none" placeholder="Digite a senha"/></div>
+              <button className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg mt-4">Redefinir senha</button>
+          </div>
+      )}
+      {activeTab === 'social' && (
+          <div className="space-y-6">
+              {[ { l: 'Facebook', i: Facebook, k: 'facebook' }, { l: 'Twitter', i: Twitter, k: 'twitter' }, { l: 'Linkedin', i: Linkedin, k: 'linkedin' }, { l: 'Site', i: Globe, k: 'website' }, { l: 'Github', i: Github, k: 'github' } ].map(s => (
+                  <div key={s.k} className="flex items-center"><div className="w-32 flex items-center text-white"><s.i size={18} className="mr-2"/> {s.l}</div><input type="text" value={formData[s.k]} onChange={e => setFormData({...formData, [s.k]: e.target.value})} className="flex-1 bg-gray-900 border border-gray-800 rounded-lg p-3 text-gray-400 focus:text-white focus:border-blue-600 outline-none" placeholder={`Link do ${s.l}`}/></div>
+              ))}
+              <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg mt-4">Atualizar Perfil</button>
+          </div>
+      )}
     </div>
   );
 }
 
-// --- ADMIN PANEL ---
+// --- ADMIN PANEL (ATUALIZADO COM ÁLBUNS) ---
 function AdminPanel({ user, updateSettings, settings }) {
-  const [activeSection, setActiveSection] = useState('users');
+  const [activeSection, setActiveSection] = useState('prompts');
   const [dataList, setDataList] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
-  const [selectedPackForAlbum, setSelectedPackForAlbum] = useState(null); 
-  const [packItems, setPackItems] = useState([]); 
+  const [selectedPack, setSelectedPack] = useState(null); 
+  const [packPrompts, setPackPrompts] = useState([]); 
   const { showToast } = React.useContext(ToastContext) || { showToast: alert };
 
   const fetchData = async () => {
@@ -420,105 +432,264 @@ function AdminPanel({ user, updateSettings, settings }) {
     if (activeSection === 'prompts') query = supabase.from('products').select('*').order('id', { ascending: true });
     if (activeSection === 'tutorials') query = supabase.from('tutorials_videos').select('*').order('id', { ascending: true });
     if (activeSection === 'news') query = supabase.from('news').select('*').order('id', { ascending: false });
-    if (query) { const { data } = await query; setDataList(data || []); }
+    
+    if (query) { 
+        const { data } = await query; 
+        setDataList(data || []); 
+    }
   };
 
-  const fetchPackItems = async (packId) => {
-      const { data } = await supabase.from('pack_items').select('*').eq('pack_id', packId);
-      setPackItems(data || []);
+  const fetchPackPrompts = async (packId) => {
+      const { data } = await supabase.from('pack_items').select('*').eq('pack_id', packId).order('created_at', { ascending: false });
+      setPackPrompts(data || []);
   };
 
-  useEffect(() => { fetchData(); setSelectedPackForAlbum(null); }, [activeSection]);
+  useEffect(() => { fetchData(); setSelectedPack(null); }, [activeSection]);
 
   const handleSave = async (e) => {
       e.preventDefault();
+      
       if (activeSection === 'settings') {
           await supabase.from('app_settings').update(editingItem).gt('id', 0);
-          updateSettings(editingItem); showToast('Configurações salvas!'); return;
+          updateSettings(editingItem); 
+          showToast('Configurações salvas!'); 
+          return;
       }
-      if (selectedPackForAlbum && activeSection === 'prompts') {
-          const { error } = await supabase.from('pack_items').upsert({ ...editingItem, pack_id: selectedPackForAlbum.id }).eq('id', editingItem.id || 0);
-          if (!error) { showToast('Item salvo!'); setEditingItem(null); fetchPackItems(selectedPackForAlbum.id); } return;
+
+      if (selectedPack && activeSection === 'prompts') {
+          const { error } = await supabase.from('pack_items').upsert({ 
+              ...editingItem, 
+              pack_id: selectedPack.id 
+          }).eq('id', editingItem.id || 0);
+
+          if (!error) { 
+              showToast('Prompt salvo com sucesso!'); 
+              setEditingItem(null); 
+              fetchPackPrompts(selectedPack.id); 
+          } else {
+              alert("Erro ao salvar prompt: " + error.message);
+          }
+          return;
       }
+
       let table = activeSection === 'users' ? 'profiles' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
       let payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
+      
       const { error } = await supabase.from(table).upsert(payload).eq('id', editingItem.id || 0);
-      if(!error) { showToast('Salvo!'); setEditingItem(null); fetchData(); }
+      
+      if(!error) { 
+          showToast('Item salvo!'); 
+          setEditingItem(null); 
+          fetchData(); 
+      } else {
+          alert("Erro: " + error.message);
+      }
   };
 
-  const handleDelete = async (id, isPackItem = false) => {
-      if(!confirm('Tem certeza?')) return;
-      let table = isPackItem ? 'pack_items' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
+  const handleDelete = async (id, isPrompt = false) => {
+      if(!confirm('Tem certeza absoluta?')) return;
+      let table = isPrompt ? 'pack_items' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
+      
       await supabase.from(table).delete().eq('id', id);
-      if(isPackItem) fetchPackItems(selectedPackForAlbum.id); else fetchData();
+      
+      if(isPrompt && selectedPack) fetchPackPrompts(selectedPack.id);
+      else fetchData();
   };
 
   return (
     <div className="max-w-7xl mx-auto pb-20 animate-fadeIn px-6">
+      
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-4 gap-4">
-          <div><h2 className="text-3xl font-bold text-white"><Shield className="inline text-blue-600 mr-2"/> Painel Admin</h2><p className="text-gray-400">Controle total do sistema</p></div>
-          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">{['users', 'prompts', 'tutorials', 'news', 'settings'].map(sec => (<button key={sec} onClick={() => {setActiveSection(sec); setEditingItem(sec === 'settings' ? settings : null)}} className={`px-4 py-2 rounded capitalize font-bold whitespace-nowrap ${activeSection === sec ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{sec === 'prompts' ? 'Prompts (Packs)' : sec}</button>))}</div>
+          <div>
+              <h2 className="text-3xl font-bold text-white flex items-center">
+                  <Shield className="text-blue-600 mr-3" size={32}/> 
+                  Estúdio de Criação
+              </h2>
+              <p className="text-gray-400">Gerencie todo o conteúdo da plataforma.</p>
+          </div>
+          
+          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">
+              {[
+                  { id: 'prompts', label: 'Packs & Prompts', icon: LayoutGrid },
+                  { id: 'tutorials', label: 'Tutoriais', icon: Play },
+                  { id: 'users', label: 'Usuários', icon: Users },
+                  { id: 'news', label: 'Blog/News', icon: FileText },
+                  { id: 'settings', label: 'Configurações', icon: Settings }
+              ].map(menu => (
+                  <button 
+                    key={menu.id} 
+                    onClick={() => { setActiveSection(menu.id); setEditingItem(menu.id === 'settings' ? settings : null); setSelectedPack(null); }} 
+                    className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap flex items-center transition-all ${activeSection === menu.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                  >
+                      <menu.icon size={16} className="mr-2"/> {menu.label}
+                  </button>
+              ))}
+          </div>
       </div>
 
       {activeSection === 'settings' && editingItem && (
-          <div className="bg-gray-900 p-8 rounded-xl border border-gray-800 grid grid-cols-1 gap-6">
-              <h3 className="text-white font-bold text-xl">Configurações Visuais</h3>
-              <div><ImageUploader label="Logo Menu (Simples)" currentImage={editingItem.logo_menu_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_menu_url: url})} /></div>
-              <div><ImageUploader label="Banner Dashboard" currentImage={editingItem.banner_url} onUploadComplete={(url) => setEditingItem({...editingItem, banner_url: url})} /></div>
-              <div><ImageUploader label="Logo Header (Slogan)" currentImage={editingItem.logo_header_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_header_url: url})} /></div>
-              <div>
-                  <label className="text-gray-400 block mb-2">Posição da Logo no Banner</label>
-                  <div className="flex gap-4">{['flex-start', 'center', 'flex-end'].map(pos => (<button key={pos} onClick={() => setEditingItem({...editingItem, logo_position: pos})} className={`px-4 py-2 rounded border ${editingItem.logo_position === pos ? 'bg-blue-600 border-blue-600 text-white' : 'bg-black border-gray-700 text-gray-400'}`}>{pos === 'flex-start' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}</button>))}</div>
+          <div className="bg-gray-900 p-8 rounded-2xl border border-gray-800 grid grid-cols-1 gap-8">
+              <h3 className="text-white font-bold text-xl border-l-4 border-blue-600 pl-3">Identidade Visual</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div><ImageUploader label="Logo do Menu (Pequena)" currentImage={editingItem.logo_menu_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_menu_url: url})} /></div>
+                  <div><ImageUploader label="Banner do Dashboard (Topo)" currentImage={editingItem.banner_url} onUploadComplete={(url) => setEditingItem({...editingItem, banner_url: url})} /></div>
+                  <div><ImageUploader label="Logo Principal (Com Slogan)" currentImage={editingItem.logo_header_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_header_url: url})} /></div>
               </div>
-              <button onClick={handleSave} className="bg-green-600 text-white px-8 py-3 rounded font-bold w-full md:w-auto">Salvar Alterações</button>
-          </div>
-      )}
-
-      {activeSection === 'prompts' && selectedPackForAlbum && (
-          <div className="mb-8 animate-fadeIn">
-              <button onClick={() => setSelectedPackForAlbum(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold"><ChevronLeft/> Voltar para Packs</button>
-              <div className="bg-gray-900 p-6 rounded-xl border border-blue-500/30">
-                  <div className="flex justify-between items-center mb-6"><h3 className="text-2xl font-bold text-white">Álbum: {selectedPackForAlbum.title}</h3><button onClick={() => setEditingItem({})} className="bg-blue-600 text-white px-4 py-2 rounded font-bold flex items-center"><Plus size={16} className="mr-2"/> Nova Imagem</button></div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      {packItems.map(item => (
-                          <div key={item.id} className="relative group aspect-[3/4] bg-black rounded-lg overflow-hidden border border-gray-800">
-                              <img src={item.url} className="w-full h-full object-cover"/>
-                              <div className="absolute inset-0 bg-black/80 hidden group-hover:flex flex-col items-center justify-center gap-2"><button onClick={() => setEditingItem(item)} className="text-blue-400 hover:text-white bg-gray-800 p-2 rounded"><Edit3/></button><button onClick={() => handleDelete(item.id, true)} className="text-red-500 hover:text-white bg-gray-800 p-2 rounded"><Trash2/></button></div>
-                          </div>
+              <div className="border-t border-gray-800 pt-6">
+                  <label className="text-gray-400 block mb-3 font-bold">Posição da Logo no Banner</label>
+                  <div className="flex gap-4">
+                      {['flex-start', 'center', 'flex-end'].map(pos => (
+                          <button key={pos} onClick={() => setEditingItem({...editingItem, logo_position: pos})} className={`px-6 py-3 rounded-lg border-2 font-bold transition-all ${editingItem.logo_position === pos ? 'bg-blue-600 border-blue-600 text-white' : 'bg-transparent border-gray-700 text-gray-500 hover:border-gray-500'}`}>
+                              {pos === 'flex-start' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}
+                          </button>
                       ))}
                   </div>
               </div>
+              <button onClick={handleSave} className="bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-xl font-bold text-lg w-full md:w-auto self-end shadow-lg">Salvar Alterações</button>
           </div>
       )}
 
-      {(!selectedPackForAlbum || activeSection !== 'prompts') && activeSection !== 'settings' && (
+      {activeSection === 'prompts' && (
+          selectedPack ? (
+              <div className="animate-fadeIn">
+                  <button onClick={() => setSelectedPack(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold text-lg group">
+                      <ChevronLeft className="mr-2 group-hover:-translate-x-1 transition-transform"/> Voltar para Catálogo
+                  </button>
+                  
+                  <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+                      <div className="relative h-48 bg-gray-800">
+                          <img src={selectedPack.cover} className="w-full h-full object-cover opacity-40"/>
+                          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+                          <div className="absolute bottom-6 left-8 flex justify-between items-end right-8">
+                              <div>
+                                  <span className="text-blue-500 font-bold tracking-widest text-xs uppercase mb-2 block">SÉRIE SELECIONADA</span>
+                                  <h2 className="text-4xl font-bold text-white">{selectedPack.title}</h2>
+                              </div>
+                              <button 
+                                onClick={() => setEditingItem({ title: '', prompt: '', url: '' })} 
+                                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg hover:scale-105 transition-transform"
+                              >
+                                  <Plus size={20} className="mr-2"/> Adicionar Episódio (Prompt)
+                              </button>
+                          </div>
+                      </div>
+
+                      <div className="p-8">
+                          {packPrompts.length === 0 ? (
+                              <div className="text-center py-20 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl">
+                                  <Images size={48} className="mx-auto mb-4 opacity-20"/>
+                                  <p>Nenhum prompt adicionado nesta série ainda.</p>
+                              </div>
+                          ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                  {packPrompts.map(prompt => (
+                                      <div key={prompt.id} className="bg-black border border-gray-800 rounded-xl overflow-hidden group hover:border-blue-600 transition-all">
+                                          <div className="aspect-square relative">
+                                              <img src={prompt.url} className="w-full h-full object-cover"/>
+                                              <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+                                                  <button onClick={() => setEditingItem(prompt)} className="bg-blue-600 text-white p-2 rounded-full hover:scale-110 transition-transform"><Edit3 size={18}/></button>
+                                                  <button onClick={() => handleDelete(prompt.id, true)} className="bg-red-600 text-white p-2 rounded-full hover:scale-110 transition-transform"><Trash2 size={18}/></button>
+                                              </div>
+                                          </div>
+                                          <div className="p-4">
+                                              <h4 className="text-white font-bold truncate">{prompt.title || 'Sem Título'}</h4>
+                                              <p className="text-gray-500 text-xs truncate mt-1">{prompt.prompt}</p>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  </div>
+              </div>
+          ) : (
+              <div className="animate-fadeIn">
+                 <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl text-white font-bold">Suas Séries (Packs)</h3>
+                    <button 
+                        onClick={() => setEditingItem({ title: '', description: '', price: 'R$ 0,00', cover: '' })} 
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg hover:shadow-blue-900/40 transition-all"
+                    >
+                        <Plus size={20} className="mr-2"/> Nova Série
+                    </button>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                     {dataList.map(pack => (
+                         <div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:shadow-2xl hover:shadow-blue-900/20 transition-all group relative">
+                             <div className="aspect-[2/3] relative cursor-pointer" onClick={() => { setSelectedPack(pack); fetchPackPrompts(pack.id); }}>
+                                 <img src={pack.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+                                 <div className="absolute bottom-4 left-4 right-4">
+                                     <h4 className="text-white font-bold leading-tight mb-1">{pack.title}</h4>
+                                     <p className="text-blue-400 text-xs font-bold">{pack.price}</p>
+                                 </div>
+                                 <div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
+                                     <span className="bg-white text-black px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wide">Gerenciar Episódios</span>
+                                 </div>
+                             </div>
+                             
+                             <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <button onClick={(e) => {e.stopPropagation(); setEditingItem(pack);}} className="bg-black/80 text-blue-400 p-2 rounded-lg hover:text-white"><Edit3 size={16}/></button>
+                                 <button onClick={(e) => {e.stopPropagation(); handleDelete(pack.id);}} className="bg-black/80 text-red-500 p-2 rounded-lg hover:text-white"><Trash2 size={16}/></button>
+                             </div>
+                         </div>
+                     ))}
+                 </div>
+              </div>
+          )
+      )}
+
+      {activeSection !== 'settings' && activeSection !== 'prompts' && (
           <div className="animate-fadeIn">
-            {activeSection !== 'users' && <div className="mb-4 flex justify-end"><button onClick={() => setEditingItem({})} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold flex items-center"><Plus size={16} className="mr-2"/> Adicionar Novo</button></div>}
-            {editingItem && !selectedPackForAlbum && (
-                <div className="bg-gray-900 p-6 rounded-xl border border-blue-500 mb-8">
-                    <h3 className="text-white font-bold mb-4">Editor</h3>
-                    <form onSubmit={handleSave} className="grid grid-cols-1 gap-4">
-                        {activeSection === 'users' && <select className="bg-black border border-gray-700 p-3 rounded text-white" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}><option value="free">Free</option><option value="pro">Pro</option><option value="gold">Gold</option><option value="admin">Admin</option></select>}
-                        {(activeSection === 'prompts' || activeSection === 'tutorials' || activeSection === 'news' || selectedPackForAlbum) && (
-                            Object.keys(editingItem).map(key => {
-                                if(key === 'id' || key === 'created_at' || key === 'pack_id') return null;
-                                if(key === 'cover' || key === 'image' || key === 'thumbnail' || key === 'url') return <div key={key}><ImageUploader label={key} currentImage={editingItem[key]} onUploadComplete={(url) => setEditingItem({...editingItem, [key]: url})} /></div>
-                                return <div key={key}><label className="text-gray-500 text-xs uppercase font-bold mb-1 block">{key}</label><input type="text" className="bg-black border border-gray-700 p-3 rounded text-white w-full" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
-                            })
-                        )}
-                        <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setEditingItem(null)} className="text-gray-500 font-bold">Cancelar</button><button type="submit" className="bg-green-600 text-white px-6 py-2 rounded font-bold">Salvar</button></div>
-                    </form>
+            {activeSection !== 'users' && (
+                <div className="mb-6 flex justify-end">
+                    <button 
+                        onClick={() => setEditingItem({})} 
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg"
+                    >
+                        <Plus size={20} className="mr-2"/> Adicionar Novo
+                    </button>
                 </div>
             )}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+
+            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden shadow-xl">
                 <table className="w-full text-left text-sm text-gray-400">
-                    <thead className="bg-black text-xs uppercase font-bold"><tr><th className="p-4">Info Principal</th><th className="p-4">Detalhes</th><th className="p-4 text-right">Ações</th></tr></thead>
+                    <thead className="bg-black text-xs uppercase font-bold tracking-wider text-gray-500">
+                        <tr><th className="p-6">Item / Informação</th><th className="p-6">Detalhes</th><th className="p-6 text-right">Ações</th></tr>
+                    </thead>
                     <tbody className="divide-y divide-gray-800">
                         {dataList.map(item => (
-                            <tr key={item.id} className="hover:bg-gray-800/50">
-                                <td className="p-4">{activeSection === 'users' ? <div><span className="text-white font-bold">{item.name}</span><br/>{item.email}</div> : (item.title || item.id)}</td>
-                                <td className="p-4">{activeSection === 'users' ? <div><span className="block text-white font-mono text-xs mb-1">{item.phone || 'Sem telefone'}</span><span className={`text-xs uppercase font-bold px-2 py-1 rounded ${item.plan === 'admin' ? 'bg-blue-900 text-blue-200' : 'bg-gray-700'}`}>{item.plan}</span></div> : (item.video_url || item.date || item.price)}</td>
-                                <td className="p-4 text-right"><button onClick={() => setEditingItem(item)} className="text-blue-400 mr-3"><Edit3 size={16}/></button>{activeSection !== 'users' && <button onClick={() => handleDelete(item.id)} className="text-red-500"><Trash2 size={16}/></button>}</td>
+                            <tr key={item.id} className="hover:bg-gray-800/50 transition-colors">
+                                <td className="p-6">
+                                    {activeSection === 'users' ? (
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-blue-900/50 flex items-center justify-center text-blue-400 font-bold">{item.name?.charAt(0)}</div>
+                                            <div><span className="text-white font-bold block">{item.name}</span><span className="text-xs">{item.email}</span></div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-4">
+                                            {(item.thumbnail || item.image) && <img src={item.thumbnail || item.image} className="w-16 h-10 object-cover rounded bg-black"/>}
+                                            <span className="text-white font-medium">{item.title || item.id}</span>
+                                        </div>
+                                    )}
+                                </td>
+                                <td className="p-6">
+                                    {activeSection === 'users' ? (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
+                                                <Monitor size={12}/> {item.phone || 'Sem telefone'}
+                                            </div>
+                                            <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${item.plan === 'admin' ? 'bg-red-900/30 border-red-500/50 text-red-400' : 'bg-green-900/30 border-green-500/50 text-green-400'}`}>
+                                                {item.plan}
+                                            </span>
+                                        </div>
+                                    ) : (item.video_url || item.date)}
+                                </td>
+                                <td className="p-6 text-right">
+                                    <button onClick={() => setEditingItem(item)} className="text-blue-500 hover:text-white bg-blue-500/10 p-2 rounded-lg mr-2 transition-colors"><Edit3 size={18}/></button>
+                                    {activeSection !== 'users' && <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-white bg-red-500/10 p-2 rounded-lg transition-colors"><Trash2 size={18}/></button>}
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -526,11 +697,67 @@ function AdminPanel({ user, updateSettings, settings }) {
             </div>
           </div>
       )}
+
+      {editingItem && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+              <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden">
+                  <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-800/50">
+                      <h3 className="text-xl font-bold text-white">
+                          {activeSection === 'prompts' && selectedPack ? 'Editar Prompt' : activeSection === 'prompts' ? 'Editar Série (Pack)' : 'Editar Registro'}
+                      </h3>
+                      <button onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-white"><X/></button>
+                  </div>
+                  
+                  <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                      <form onSubmit={handleSave} className="space-y-6">
+                          
+                          {activeSection === 'users' && (
+                              <div>
+                                  <label className="block text-gray-400 text-sm font-bold mb-2">Plano de Acesso</label>
+                                  <select className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white focus:border-blue-600 outline-none" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}>
+                                      <option value="free">Free</option><option value="pro">Pro</option><option value="gold">Gold</option><option value="admin">Admin</option>
+                                  </select>
+                              </div>
+                          )}
+
+                          {activeSection === 'prompts' && !selectedPack && (
+                              <>
+                                  <ImageUploader label="Capa da Série (Poster)" currentImage={editingItem.cover} onUploadComplete={(url) => setEditingItem({...editingItem, cover: url})} />
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Título da Série</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} placeholder="Ex: Cyberpunk Girls"/></div>
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Preço</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})} placeholder="Ex: R$ 29,90"/></div>
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Descrição</label><textarea className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white h-24" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div>
+                              </>
+                          )}
+
+                          {activeSection === 'prompts' && selectedPack && (
+                              <>
+                                  <ImageUploader label="Imagem Gerada (Thumbnail)" currentImage={editingItem.url} onUploadComplete={(url) => setEditingItem({...editingItem, url: url})} />
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Título do Episódio (Prompt)</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} placeholder="Ex: Retrato Neon"/></div>
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">O Prompt (Texto)</label><textarea className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white h-40 font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})} placeholder="/imagine..."/></div>
+                              </>
+                          )}
+
+                          {(activeSection === 'tutorials' || activeSection === 'news') && (
+                              Object.keys(editingItem).map(key => {
+                                  if(['id','created_at','pack_id'].includes(key)) return null;
+                                  if(['thumbnail','image','cover'].includes(key)) return <ImageUploader key={key} label={key.toUpperCase()} currentImage={editingItem[key]} onUploadComplete={(url) => setEditingItem({...editingItem, [key]: url})} />;
+                                  return <div key={key}><label className="block text-gray-400 text-sm font-bold mb-2 uppercase">{key}</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
+                              })
+                          )}
+
+                          <div className="flex justify-end gap-4 pt-4">
+                              <button type="button" onClick={() => setEditingItem(null)} className="px-6 py-3 rounded-xl font-bold text-gray-400 hover:bg-gray-800">Cancelar</button>
+                              <button type="submit" className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg">Salvar Tudo</button>
+                          </div>
+                      </form>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 }
 
-// --- TUTORIAIS ---
 function TutorialsPage({ user }) {
     const [tutorials, setTutorials] = useState([]);
     useEffect(() => { supabase.from('tutorials_videos').select('*').order('id', { ascending: true }).then(({ data }) => setTutorials(data || [])); }, []);
