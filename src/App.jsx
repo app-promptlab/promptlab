@@ -11,15 +11,15 @@ import {
   Twitter, Linkedin, Globe, Github, HelpCircle, LayoutGrid, Monitor, Home, FileText
 } from 'lucide-react';
 
-// --- CONEXÃO ---
+// --- CONEXÃO COM SUPABASE ---
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- CONTEXTO TOAST ---
+// --- CONTEXTO DE TOAST ---
 const ToastContext = React.createContext();
 
-// --- APP ---
+// --- COMPONENTE PRINCIPAL ---
 export default function App() {
   const [user, setUser] = useState(null); 
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,6 @@ export default function App() {
         const { data: purchases } = await supabase.from('user_purchases').select('product_id').eq('user_id', userId);
         const accessList = purchases ? purchases.map(p => p.product_id) : [];
         
-        // Trava de segurança no código também
         const MEU_EMAIL = "app.promptlab@gmail.com"; 
         const finalPlan = (email === MEU_EMAIL || profile?.plan === 'admin') ? 'admin' : (profile?.plan || 'free');
 
@@ -76,12 +75,16 @@ export default function App() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); };
 
-  const handlePurchase = async (productId) => {
-    if (window.confirm(`Confirmar compra?`)) {
+  const handlePurchase = async (productId, checkoutUrl) => {
+    if(checkoutUrl) {
+        window.open(checkoutUrl, '_blank');
+        return;
+    }
+    if (window.confirm(`Confirmar compra manual?`)) {
       const { error } = await supabase.from('user_purchases').insert({ user_id: user.id, product_id: productId });
       if (!error) {
           setUser(prev => ({ ...prev, access: [...prev.access, productId] }));
-          showToast("Compra realizada com sucesso!");
+          showToast("Compra registrada!");
       }
     }
   };
@@ -93,7 +96,7 @@ export default function App() {
     <ToastContext.Provider value={{ showToast }}>
         <MainApp user={user} setUser={setUser} onLogout={handleLogout} onPurchase={handlePurchase} />
         {toast && (
-            <div className="fixed top-4 right-4 z-[100] bg-gray-900/90 backdrop-blur-md border border-blue-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center animate-fadeIn">
+            <div className="fixed top-4 right-4 z-[200] bg-gray-900/90 backdrop-blur-md border border-blue-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center animate-fadeIn">
                 <div className="bg-blue-500 rounded-full p-1 mr-3"><Check size={14} /></div><span className="font-medium">{toast.message}</span>
             </div>
         )}
@@ -134,11 +137,14 @@ function ImageUploader({ currentImage, onUploadComplete, label, compact = false 
   );
 }
 
-// --- LOGIN WARP SPEED ---
+// --- TELA DE LOGIN (WARP SPEED) ---
 function AuthScreen({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [name, setName] = useState('');
-  const canvasRef = useRef(null); const [logoUrl, setLogoUrl] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const canvasRef = useRef(null);
+  const [logoUrl, setLogoUrl] = useState('');
 
   useEffect(() => { supabase.from('app_settings').select('logo_header_url').single().then(({data}) => { if(data) setLogoUrl(data.logo_header_url); }); }, []);
 
@@ -150,9 +156,8 @@ function AuthScreen({ onLogin }) {
         ctx.fillStyle = 'black'; ctx.fillRect(0, 0, width, height); ctx.fillStyle = 'white';
         stars.forEach(star => {
             star.z -= 2; if(star.z <= 0) { star.z = width; star.x = (Math.random()-0.5)*width; star.y = (Math.random()-0.5)*height; }
-            const x = (star.x / star.z) * width + width/2; const y = (star.y / star.z) * height + height/2;
-            const size = (1 - star.z / width) * 3;
-            if(x>0 && x<width && y>0 && y<height) { ctx.globalAlpha = (1 - star.z / width); ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI*2); ctx.fill(); }
+            const x = (star.x / star.z) * width + width/2; const y = (star.y / star.z) * height + height/2; const size = (1 - star.z / width) * 3;
+            if(x>0 && x<width && y>0 && y<height) { ctx.globalAlpha = (1 - star.z / width); ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1; }
         });
         requestAnimationFrame(render);
     };
@@ -168,34 +173,28 @@ function AuthScreen({ onLogin }) {
             <p className="text-gray-400 text-sm font-medium tracking-widest uppercase">{isRegister ? "Junte-se à revolução" : "Acesse o Futuro"}</p>
         </div>
         <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password, name, isRegister); }} className="space-y-6">
-          {isRegister && <div className="group/input"><input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none" placeholder="Nome completo" /></div>}
-          <div className="group/input"><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none" placeholder="Seu e-mail" /></div>
-          <div className="group/input"><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none" placeholder="Sua senha" /></div>
+          {isRegister && <div className="group/input"><input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Nome completo" /></div>}
+          <div className="group/input"><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Seu e-mail" /></div>
+          <div className="group/input"><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Sua senha" /></div>
           <button type="submit" className="w-full bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 uppercase tracking-widest text-xs mt-4">{isRegister ? "Iniciar Jornada" : "Entrar na Plataforma"}</button>
         </form>
-        <button onClick={() => setIsRegister(!isRegister)} className="w-full text-center mt-8 text-xs text-gray-500 hover:text-white transition-colors">{isRegister ? "Já possui conta? Login" : "Criar conta"}</button>
+        <button onClick={() => setIsRegister(!isRegister)} className="w-full text-center mt-8 text-xs text-gray-500 hover:text-white transition-colors">{isRegister ? "Já possui conta? Login" : "Ainda não tem conta? Criar agora"}</button>
       </div>
     </div>
   );
 }
 
-// --- APP SHELL ---
+// --- APP PRINCIPAL ---
 function MainApp({ user, setUser, onLogout, onPurchase }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false); 
   const [appSettings, setAppSettings] = useState({ logo_menu_url: '', banner_url: '', logo_header_url: '', logo_position: 'center' }); 
-  const [packs, setPacks] = useState([]);
-  const [news, setNews] = useState([]);
   const isAdmin = user.plan === 'admin';
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: packsRes } = await supabase.from('products').select();
-      const { data: newsRes } = await supabase.from('news').select().order('id', { ascending: false });
       const { data: settingsRes } = await supabase.from('app_settings').select().single();
-      if (packsRes) setPacks(packsRes);
-      if (newsRes) setNews(newsRes);
       if (settingsRes) setAppSettings(settingsRes);
     };
     fetchData();
@@ -205,15 +204,15 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard news={news} changeTab={setActiveTab} user={user} settings={appSettings} />;
-      case 'prompts': return <PromptsGallery user={user} />;
-      case 'tutorials': return <TutorialsPage user={user} />;
-      case 'loja': return <StorePage packs={packs} onPurchase={onPurchase} />;
+      case 'dashboard': return <Dashboard changeTab={setActiveTab} user={user} settings={appSettings} />;
+      case 'prompts': return <PromptsGallery user={user} onPurchase={onPurchase} />;
+      case 'tutorials': return <TutorialsPage />;
+      case 'loja': return <StorePage onPurchase={onPurchase} />;
       case 'favorites': return <Favorites />;
       case 'generator': return <GeneratorsHub />;
       case 'admin': return isAdmin ? <AdminPanel user={user} updateSettings={updateSettings} settings={appSettings} /> : null;
       case 'profile': return <Profile user={user} setUser={setUser} />;
-      default: return <Dashboard news={news} changeTab={setActiveTab} user={user} settings={appSettings} />;
+      default: return <Dashboard changeTab={setActiveTab} user={user} settings={appSettings} />;
     }
   };
 
@@ -262,15 +261,17 @@ function SidebarItem({ icon: Icon, label, active, onClick, minimized, isLogout }
   );
 }
 
-// --- DASHBOARD COM CARROSSEL ---
-function Dashboard({ news, changeTab, user, settings }) {
+// --- DASHBOARD (NETFLIX STYLE CAROUSELS) ---
+function Dashboard({ changeTab, user, settings }) {
   const [featuredPrompts, setFeaturedPrompts] = useState([]);
   const [featuredTutorials, setFeaturedTutorials] = useState([]);
+  const [news, setNews] = useState([]);
+  const isAdmin = user.plan === 'admin';
 
   useEffect(() => {
-      // Busca destaques
       supabase.from('pack_items').select('*').eq('is_featured', true).limit(10).then(({data}) => setFeaturedPrompts(data || []));
       supabase.from('tutorials_videos').select('*').eq('is_featured', true).limit(10).then(({data}) => setFeaturedTutorials(data || []));
+      supabase.from('news').select('*').limit(2).order('id', {ascending:false}).then(({data}) => setNews(data || []));
   }, []);
 
   return (
@@ -285,30 +286,31 @@ function Dashboard({ news, changeTab, user, settings }) {
       <div className="max-w-full mx-auto px-6 -mt-8 relative z-10 space-y-12 pb-20">
           <div className="flex justify-between items-end pb-4 border-b border-gray-800">
             <div><h2 className="text-3xl font-bold text-white mb-1">Olá, {user.name.split(' ')[0]}</h2><p className="text-gray-400">O que vamos criar hoje?</p></div>
+            {isAdmin && <span className="text-xs bg-blue-900 text-blue-200 px-3 py-1 rounded border border-blue-700 font-bold tracking-wider">ADMIN</span>}
           </div>
 
-          {/* CARROSSEL DE PROMPTS DESTAQUE */}
+          {/* CARROSSEL DESTAQUES PROMPTS */}
           {featuredPrompts.length > 0 && (
               <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center"><Images className="mr-2 text-blue-500"/> Destaques da Semana</h3>
                   <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-700">
                       {featuredPrompts.map(p => (
-                          <div key={p.id} className="min-w-[200px] aspect-[3/4] bg-gray-800 rounded-xl overflow-hidden relative group cursor-pointer border border-gray-700 hover:border-blue-500 transition-all">
+                          <div key={p.id} className="min-w-[200px] aspect-[3/4] bg-gray-800 rounded-xl overflow-hidden relative group cursor-pointer border border-gray-700 hover:border-blue-500 transition-all hover:shadow-lg hover:shadow-blue-900/20">
                               <img src={p.url} className="w-full h-full object-cover"/>
-                              <div className="absolute bottom-0 inset-x-0 bg-black/80 p-2 text-xs text-white truncate">{p.title || 'Sem título'}</div>
+                              <div className="absolute bottom-0 inset-x-0 bg-black/80 p-3 text-sm text-white truncate font-medium">{p.title || 'Sem título'}</div>
                           </div>
                       ))}
                   </div>
               </div>
           )}
 
-          {/* CARROSSEL DE TUTORIAIS DESTAQUE */}
+          {/* CARROSSEL DESTAQUES TUTORIAIS */}
           {featuredTutorials.length > 0 && (
               <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center"><Play className="mr-2 text-purple-500"/> Aulas Recomendadas</h3>
                   <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-700">
                       {featuredTutorials.map(t => (
-                          <div key={t.id} className="min-w-[280px] aspect-video bg-gray-800 rounded-xl overflow-hidden relative group cursor-pointer border border-gray-700 hover:border-purple-500 transition-all">
+                          <div key={t.id} className="min-w-[280px] aspect-video bg-gray-800 rounded-xl overflow-hidden relative group cursor-pointer border border-gray-700 hover:border-purple-500 transition-all hover:shadow-lg">
                               <img src={t.thumbnail} className="w-full h-full object-cover opacity-80 group-hover:opacity-100"/>
                               <div className="absolute inset-0 flex items-center justify-center"><Play className="text-white fill-white w-10 h-10 drop-shadow-lg"/></div>
                               <div className="absolute bottom-0 inset-x-0 bg-black/80 p-3 text-sm font-bold text-white truncate">{t.title}</div>
@@ -318,29 +320,31 @@ function Dashboard({ news, changeTab, user, settings }) {
               </div>
           )}
 
-          {/* ATALHOS DE GERADORES */}
+          {/* ATALHOS RÁPIDOS */}
           <div>
               <h3 className="text-xl font-bold text-white mb-4 flex items-center"><Zap className="mr-2 text-green-500"/> Ferramentas Rápidas</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <button onClick={() => changeTab('generator')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all"><Zap className="text-green-500"/> <span className="text-white font-bold text-sm">Gerador de Texto</span></button>
-                  <button onClick={() => changeTab('generator')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all"><Images className="text-blue-500"/> <span className="text-white font-bold text-sm">Criar Imagem</span></button>
-                  <button onClick={() => changeTab('prompts')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all"><Search className="text-purple-500"/> <span className="text-white font-bold text-sm">Buscar Prompt</span></button>
-                  <button onClick={() => changeTab('loja')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all"><ShoppingBag className="text-orange-500"/> <span className="text-white font-bold text-sm">Comprar Packs</span></button>
+                  <button onClick={() => changeTab('generator')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:border-green-500"><Zap className="text-green-500"/> <span className="text-white font-bold text-sm">Gerador de Texto</span></button>
+                  <button onClick={() => changeTab('generator')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:border-blue-500"><Images className="text-blue-500"/> <span className="text-white font-bold text-sm">Criar Imagem</span></button>
+                  <button onClick={() => changeTab('prompts')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:border-purple-500"><Search className="text-purple-500"/> <span className="text-white font-bold text-sm">Buscar Prompt</span></button>
+                  <button onClick={() => changeTab('loja')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:border-orange-500"><ShoppingBag className="text-orange-500"/> <span className="text-white font-bold text-sm">Comprar Packs</span></button>
               </div>
           </div>
 
-          {/* BLOG / NEWS */}
-          <div>
-            <h3 className="text-xl font-bold text-white mb-4 flex items-center"><FileText className="mr-2 text-gray-400"/> Novidades</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {news.map(item => (
-                <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col hover:border-gray-600 transition-all group">
-                    {item.image && <div className="h-48 w-full overflow-hidden"><img src={item.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/></div>}
-                    <div className="p-6"><span className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-2 block">{item.date}</span><h4 className="text-xl font-bold text-white mb-2">{item.title}</h4><p className="text-gray-400 text-sm leading-relaxed">{item.content}</p></div>
-                </div>
-              ))}
+          {/* FEED NOTÍCIAS */}
+          {news.length > 0 && (
+            <div>
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center"><FileText className="mr-2 text-gray-400"/> Novidades</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {news.map(item => (
+                  <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col hover:border-gray-600 transition-all group">
+                      {item.image && <div className="h-48 w-full overflow-hidden"><img src={item.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/></div>}
+                      <div className="p-6"><span className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-2 block">{item.date}</span><h4 className="text-xl font-bold text-white mb-2">{item.title}</h4><p className="text-gray-400 text-sm leading-relaxed">{item.content}</p></div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
       </div>
     </div>
   );
@@ -384,7 +388,7 @@ function Profile({ user, setUser }) {
   );
 }
 
-// --- ADMIN (NETFLIX STYLE + FEATURED) ---
+// --- ADMIN PANEL (NETFLIX STYLE) ---
 function AdminPanel({ user, updateSettings, settings }) {
   const [activeSection, setActiveSection] = useState('prompts');
   const [dataList, setDataList] = useState([]);
@@ -430,12 +434,13 @@ function AdminPanel({ user, updateSettings, settings }) {
   return (
     <div className="max-w-7xl mx-auto pb-20 animate-fadeIn px-6">
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-4 gap-4">
-          <div><h2 className="text-3xl font-bold text-white flex items-center"><Shield className="text-blue-600 mr-3"/> Estúdio de Criação</h2></div>
+          <div><h2 className="text-3xl font-bold text-white"><Shield className="inline text-blue-600 mr-2"/> Painel Admin</h2><p className="text-gray-400">Gerencie seu conteúdo estilo estúdio.</p></div>
           <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">{['prompts', 'tutorials', 'users', 'news', 'settings'].map(id => (<button key={id} onClick={() => { setActiveSection(id); setEditingItem(id === 'settings' ? settings : null); setSelectedPack(null); }} className={`px-4 py-2 rounded-lg font-bold capitalize whitespace-nowrap ${activeSection === id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{id}</button>))}</div>
       </div>
 
       {activeSection === 'settings' && editingItem && (
           <div className="bg-gray-900 p-8 rounded-2xl border border-gray-800 grid grid-cols-1 gap-6">
+              <h3 className="text-white font-bold text-xl">Configurações Visuais</h3>
               <div><ImageUploader label="Logo Menu" currentImage={editingItem.logo_menu_url} onUploadComplete={url=>setEditingItem({...editingItem,logo_menu_url:url})}/></div>
               <div><ImageUploader label="Banner" currentImage={editingItem.banner_url} onUploadComplete={url=>setEditingItem({...editingItem,banner_url:url})}/></div>
               <div><ImageUploader label="Logo Header" currentImage={editingItem.logo_header_url} onUploadComplete={url=>setEditingItem({...editingItem,logo_header_url:url})}/></div>
@@ -447,9 +452,9 @@ function AdminPanel({ user, updateSettings, settings }) {
       {activeSection === 'prompts' && (
           selectedPack ? (
               <div className="animate-fadeIn">
-                  <button onClick={() => setSelectedPack(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold"><ChevronLeft className="mr-2"/> Voltar</button>
+                  <button onClick={() => setSelectedPack(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold"><ChevronLeft className="mr-2"/> Voltar para Packs</button>
                   <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-                      <div className="relative h-48 bg-gray-800"><img src={selectedPack.cover} className="w-full h-full object-cover opacity-40"/><div className="absolute bottom-6 left-8 right-8 flex justify-between items-end"><div><span className="text-blue-500 font-bold text-xs uppercase">SÉRIE</span><h2 className="text-4xl font-bold text-white">{selectedPack.title}</h2></div><button onClick={() => setEditingItem({ title: '', prompt: '', url: '', is_featured: false })} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center"><Plus size={20} className="mr-2"/> Adicionar Prompt</button></div></div>
+                      <div className="relative h-48 bg-gray-800"><img src={selectedPack.cover} className="w-full h-full object-cover opacity-40"/><div className="absolute bottom-6 left-8 right-8 flex justify-between items-end"><div><span className="text-blue-500 font-bold text-xs uppercase">SÉRIE</span><h2 className="text-4xl font-bold text-white">{selectedPack.title}</h2></div><button onClick={() => setEditingItem({ title: '', prompt: '', url: '', is_featured: false })} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center"><Plus size={20} className="mr-2"/> Adicionar Episódio</button></div></div>
                       <div className="p-8 grid grid-cols-1 md:grid-cols-4 gap-6">
                           {packPrompts.map(prompt => (
                               <div key={prompt.id} className="bg-black border border-gray-800 rounded-xl overflow-hidden group relative">
@@ -493,17 +498,15 @@ function AdminPanel({ user, updateSettings, settings }) {
                   <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
                       <form onSubmit={handleSave} className="space-y-6">
                           {activeSection === 'users' && <div><label className="block text-gray-400 text-sm font-bold mb-2">Plano</label><select className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}><option value="free">Free</option><option value="pro">Pro</option><option value="gold">Gold</option><option value="admin">Admin</option></select></div>}
-                          {/* CAMPOS DE DESTAQUE */}
+                          {/* CHECKBOX DESTAQUE */}
                           {(activeSection === 'prompts' && selectedPack || activeSection === 'tutorials') && (
-                              <label className="flex items-center gap-3 p-4 bg-black/30 rounded-xl border border-gray-700 cursor-pointer">
-                                  <input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})} className="w-5 h-5 accent-blue-600"/>
-                                  <span className="text-white font-bold">Destacar no Dashboard (Carrossel)</span>
-                              </label>
+                              <label className="flex items-center gap-3 p-4 bg-black/30 rounded-xl border border-gray-700 cursor-pointer"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})} className="w-5 h-5 accent-blue-600"/><span className="text-white font-bold">Destacar no Dashboard</span></label>
                           )}
                           {/* CAMPOS DINÂMICOS */}
                           {Object.keys(editingItem).map(key => {
                               if(['id','created_at','pack_id','is_featured'].includes(key)) return null;
                               if(['cover','url','thumbnail','image'].includes(key)) return <ImageUploader key={key} label={key.toUpperCase()} currentImage={editingItem[key]} onUploadComplete={(url) => setEditingItem({...editingItem, [key]: url})} />;
+                              if(key === 'prompt' || key === 'content' || key === 'description') return <div key={key}><label className="block text-gray-400 text-sm font-bold mb-2 uppercase">{key}</label><textarea className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white h-32" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
                               return <div key={key}><label className="block text-gray-400 text-sm font-bold mb-2 uppercase">{key}</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
                           })}
                           <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={() => setEditingItem(null)} className="px-6 py-3 rounded-xl font-bold text-gray-400">Cancelar</button><button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg">Salvar</button></div>
@@ -528,49 +531,60 @@ function TutorialsPage() {
     );
 }
 
-// --- LOJA ---
+// --- LOJA (COM LINK EXTERNO) ---
 function StorePage({ packs, onPurchase }) {
     return (
-        <div className="max-w-7xl mx-auto animate-fadeIn px-6"><h2 className="text-3xl font-bold text-white mb-8">Loja Oficial</h2><div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">{packs.map(pack => (<div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-blue-600 transition-all cursor-pointer group shadow-lg"><div className="aspect-square relative overflow-hidden"><img src={pack.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/><div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/90 to-transparent"><h4 className="text-white font-bold text-sm md:text-base leading-tight">{pack.title}</h4><p className="text-blue-500 font-bold text-xs mt-1">{pack.price}</p></div></div><button onClick={() => onPurchase(pack.id)} className="w-full bg-blue-600 text-white font-bold py-2 text-sm hover:bg-blue-500 transition-colors">COMPRAR</button></div>))}</div></div>
+        <div className="max-w-7xl mx-auto animate-fadeIn px-6"><h2 className="text-3xl font-bold text-white mb-8">Loja Oficial</h2><div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">{packs.map(pack => (<div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-blue-600 transition-all cursor-pointer group shadow-lg"><div className="aspect-square relative overflow-hidden"><img src={pack.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/><div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/90 to-transparent"><h4 className="text-white font-bold text-sm md:text-base leading-tight">{pack.title}</h4><p className="text-blue-500 font-bold text-xs mt-1">{pack.price}</p></div></div><button onClick={() => onPurchase(pack.id, pack.checkout_url)} className="w-full bg-blue-600 text-white font-bold py-2 text-sm hover:bg-blue-500 transition-colors">COMPRAR</button></div>))}</div></div>
     );
 }
 
-// --- PROMPTS (MISTO: PACKS EM CIMA + FREE EM BAIXO) ---
+// --- PROMPTS (ESTRUTURA DE PRATELEIRAS) ---
 function PromptsGallery() {
-    const [prompts, setPrompts] = useState([]);
     const [packs, setPacks] = useState([]);
-    const { showToast } = React.useContext(ToastContext) || { showToast: alert };
+    const [allItems, setAllItems] = useState([]);
     const [modalItem, setModalItem] = useState(null);
+    const { showToast } = React.useContext(ToastContext) || { showToast: alert };
 
+    // Busca Packs e seus Itens
     useEffect(() => { 
-        supabase.from('products').select('*').limit(10).then(({data}) => setPacks(data || []));
-        supabase.from('pack_items').select('*').limit(50).then(({data}) => setPrompts(data || [])); 
+        supabase.from('products').select('*').then(({data}) => setPacks(data || []));
+        supabase.from('pack_items').select('*').then(({data}) => setAllItems(data || [])); 
     }, []);
 
     return (
         <div className="max-w-7xl mx-auto animate-fadeIn px-6 pb-20">
-             
-             {/* ANDAR DE CIMA: PACKS */}
-             <div className="mb-12">
-                 <h2 className="text-xl font-bold text-gray-400 uppercase tracking-widest mb-6 border-l-4 border-blue-600 pl-3">Nossas Séries</h2>
-                 <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
-                     {packs.map(pack => (
-                         <div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer">
-                             <img src={pack.cover} className="aspect-[2/3] w-full object-cover"/>
+             {/* 1. CARROSSÉIS DOS PACKS (PRATELEIRAS) */}
+             {packs.map(pack => {
+                 const items = allItems.filter(i => i.pack_id === pack.id);
+                 if (items.length === 0) return null;
+                 return (
+                     <div key={pack.id} className="mb-12">
+                         <div className="flex items-center justify-between mb-4 border-l-4 border-blue-600 pl-4">
+                             <h2 className="text-2xl font-bold text-white">{pack.title}</h2>
+                             <button className="text-gray-400 hover:text-white text-sm flex items-center">Ver Pack <ChevronRight size={16}/></button>
                          </div>
-                     ))}
-                 </div>
-             </div>
+                         <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-gray-800">
+                             {items.map(item => (
+                                 <div key={item.id} onClick={() => setModalItem(item)} className="min-w-[220px] aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden relative group cursor-pointer hover:scale-105 transition-transform border border-gray-800 hover:border-blue-500">
+                                     <img src={item.url} className="w-full h-full object-cover"/>
+                                     <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-3">
+                                         <p className="text-white font-bold text-sm truncate">{item.title}</p>
+                                     </div>
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+                 )
+             })}
 
-             {/* ANDAR DE BAIXO: PROMPTS FREE */}
-             <div>
-                 <h2 className="text-3xl font-bold text-white mb-8">Feed de Prompts</h2>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                     {prompts.map(item => (
+             {/* 2. PROMPTS FREE (AVULSOS - SEM PACK) */}
+             <div className="mt-16">
+                 <h2 className="text-3xl font-bold text-white mb-8 flex items-center"><Sparkles className="mr-2 text-yellow-500"/> Prompts Gratuitos</h2>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     {allItems.filter(i => !i.pack_id).map(item => (
                          <div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] bg-gray-900 rounded-2xl overflow-hidden relative group hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:border-2 border-blue-500 transition-all duration-300 border border-gray-800 cursor-pointer">
                              <img src={item.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>
-                             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0"><button className="bg-black/60 backdrop-blur-md text-white p-3 rounded-full hover:bg-blue-600 hover:text-white transition-colors shadow-xl border border-white/10"><Heart size={22}/></button></div>
-                             <div className="absolute bottom-8 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0"><button className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-2xl hover:scale-105 hover:bg-blue-500 transition-transform flex items-center border border-blue-400"><Copy size={18} className="mr-2"/> VER DETALHES</button></div>
+                             <div className="absolute bottom-8 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0"><button className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-2xl hover:scale-105 hover:bg-blue-500 transition-transform flex items-center border border-blue-400"><Copy size={18} className="mr-2"/> DETALHES</button></div>
                          </div>
                      ))}
                  </div>
@@ -580,15 +594,10 @@ function PromptsGallery() {
              {modalItem && (
                  <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn" onClick={() => setModalItem(null)}>
                      <div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-blue-500/50 shadow-2xl overflow-hidden flex flex-col md:flex-row" onClick={e => e.stopPropagation()}>
-                         <div className="md:w-1/2 bg-black"><img src={modalItem.url} className="w-full h-full object-contain max-h-[60vh] md:max-h-[80vh]"/></div>
+                         <div className="md:w-1/2 bg-black flex items-center justify-center"><img src={modalItem.url} className="w-full h-full object-contain max-h-[50vh] md:max-h-[80vh]"/></div>
                          <div className="md:w-1/2 p-8 flex flex-col">
-                             <div className="flex justify-between items-start mb-6">
-                                 <h3 className="text-2xl font-bold text-white">{modalItem.title || 'Prompt Sem Título'}</h3>
-                                 <button onClick={() => setModalItem(null)} className="text-gray-400 hover:text-white"><X size={28}/></button>
-                             </div>
-                             <div className="bg-black border border-gray-800 p-6 rounded-xl flex-1 overflow-y-auto custom-scrollbar mb-6">
-                                 <p className="text-gray-300 font-mono text-sm leading-relaxed">{modalItem.prompt}</p>
-                             </div>
+                             <div className="flex justify-between items-start mb-6"><h3 className="text-2xl font-bold text-white">{modalItem.title || 'Prompt'}</h3><button onClick={() => setModalItem(null)} className="text-gray-400 hover:text-white"><X size={28}/></button></div>
+                             <div className="bg-black border border-gray-800 p-6 rounded-xl flex-1 overflow-y-auto custom-scrollbar mb-6"><p className="text-gray-300 font-mono text-sm leading-relaxed">{modalItem.prompt}</p></div>
                              <button onClick={() => {navigator.clipboard.writeText(modalItem.prompt); showToast("Copiado!");}} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-600/40 transition-all flex items-center justify-center mb-3"><Copy className="mr-2"/> COPIAR PROMPT</button>
                              <button className="w-full border border-gray-700 text-gray-400 font-bold py-3 rounded-xl hover:bg-gray-800 hover:text-white transition-all flex items-center justify-center"><Heart className="mr-2"/> ADICIONAR AOS FAVORITOS</button>
                          </div>
