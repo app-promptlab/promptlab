@@ -8,7 +8,8 @@ import {
   Facebook, Instagram, Music, Key, ChevronLeft, ChevronRight, Crown,
   Shield, Save, Plus, Search, Users,
   ShoppingBag, Settings, UploadCloud,
-  Twitter, Linkedin, Globe, Github, HelpCircle, LayoutGrid, Monitor, Home, FileText
+  Twitter, Linkedin, Globe, Github, HelpCircle, LayoutGrid, Monitor, Home,
+  FileText, Film
 } from 'lucide-react';
 
 // --- CONEXÃO COM SUPABASE ---
@@ -33,8 +34,11 @@ export default function App() {
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) await fetchProfileData(session.user.id, session.user.email);
-      else setLoading(false);
+      if (session) {
+        await fetchProfileData(session.user.id, session.user.email);
+      } else {
+        setLoading(false);
+      }
     };
     checkSession();
   }, []);
@@ -44,9 +48,11 @@ export default function App() {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
         const { data: purchases } = await supabase.from('user_purchases').select('product_id').eq('user_id', userId);
         const accessList = purchases ? purchases.map(p => p.product_id) : [];
-        
+
+        // TRAVA DE SEGURANÇA ADMIN (Seu email)
         const MEU_EMAIL = "app.promptlab@gmail.com"; 
-        const finalPlan = (email === MEU_EMAIL || profile?.plan === 'admin') ? 'admin' : (profile?.plan || 'free');
+        
+        const finalPlan = (email === MEU_EMAIL) ? 'admin' : (profile?.plan || 'free');
 
         setUser({
             ...profile,
@@ -57,34 +63,54 @@ export default function App() {
             avatar: profile?.avatar || 'https://egeomuvpkfjpvllzrugc.supabase.co/storage/v1/object/public/promptlab/logossemslogan.png',
             cover: profile?.cover || 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1000&q=80'
         });
-    } catch (error) { console.error(error); setUser(null); } finally { setLoading(false); }
+    } catch (error) {
+        console.error("Erro login:", error);
+        setUser(null);
+    } finally {
+        setLoading(false);
+    }
   };
 
   const handleLogin = async (email, password, name, isRegister) => {
     setLoading(true);
     try {
-        let authResponse = isRegister ? 
-            await supabase.auth.signUp({ email, password, options: { data: { name } } }) : 
-            await supabase.auth.signInWithPassword({ email, password });
-        
+        let authResponse;
+        if (isRegister) {
+            authResponse = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+        } else {
+            authResponse = await supabase.auth.signInWithPassword({ email, password });
+        }
         if (authResponse.error) throw authResponse.error;
-        if (authResponse.data.user) setTimeout(() => fetchProfileData(authResponse.data.user.id, email), 1500);
-        else { alert("Verifique seu email!"); setLoading(false); }
-    } catch (error) { alert("Erro: " + error.message); setLoading(false); }
+        
+        if (authResponse.data.user) {
+            setTimeout(() => fetchProfileData(authResponse.data.user.id, email), 1500);
+        } else if (isRegister) { 
+            alert("Verifique seu email para confirmar o cadastro!"); 
+            setLoading(false); 
+        }
+    } catch (error) {
+        alert("Erro: " + error.message);
+        setLoading(false);
+    }
   };
 
-  const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); };
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   const handlePurchase = async (productId, checkoutUrl) => {
-    if(checkoutUrl) {
+    // Se tiver link externo, abre ele
+    if (checkoutUrl) {
         window.open(checkoutUrl, '_blank');
         return;
     }
-    if (window.confirm(`Confirmar compra manual?`)) {
+    // Fallback para compra simulada
+    if (window.confirm(`Confirmar compra?`)) {
       const { error } = await supabase.from('user_purchases').insert({ user_id: user.id, product_id: productId });
       if (!error) {
           setUser(prev => ({ ...prev, access: [...prev.access, productId] }));
-          showToast("Compra registrada!");
+          showToast("Compra realizada com sucesso!");
       }
     }
   };
@@ -97,13 +123,15 @@ export default function App() {
         <MainApp user={user} setUser={setUser} onLogout={handleLogout} onPurchase={handlePurchase} />
         {toast && (
             <div className="fixed top-4 right-4 z-[200] bg-gray-900/90 backdrop-blur-md border border-blue-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center animate-fadeIn">
-                <div className="bg-blue-500 rounded-full p-1 mr-3"><Check size={14} /></div><span className="font-medium">{toast.message}</span>
+                <div className="bg-blue-500 rounded-full p-1 mr-3"><Check size={14} /></div>
+                <span className="font-medium">{toast.message}</span>
             </div>
         )}
     </ToastContext.Provider>
   );
 }
 
+// --- UPLOAD ---
 function ImageUploader({ currentImage, onUploadComplete, label, compact = false }) {
   const [uploading, setUploading] = useState(false);
   const { showToast } = React.useContext(ToastContext) || { showToast: alert };
@@ -137,7 +165,7 @@ function ImageUploader({ currentImage, onUploadComplete, label, compact = false 
   );
 }
 
-// --- TELA DE LOGIN (WARP SPEED) ---
+// --- LOGIN (WARP) ---
 function AuthScreen({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -176,9 +204,9 @@ function AuthScreen({ onLogin }) {
           {isRegister && <div className="group/input"><input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Nome completo" /></div>}
           <div className="group/input"><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Seu e-mail" /></div>
           <div className="group/input"><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Sua senha" /></div>
-          <button type="submit" className="w-full bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 uppercase tracking-widest text-xs mt-4">{isRegister ? "Iniciar Jornada" : "Entrar na Plataforma"}</button>
+          <button type="submit" className="w-full bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:shadow-blue-500/50 active:scale-95 uppercase tracking-widest text-xs mt-4">{isRegister ? "Iniciar Jornada" : "Entrar na Plataforma"}</button>
         </form>
-        <button onClick={() => setIsRegister(!isRegister)} className="w-full text-center mt-8 text-xs text-gray-500 hover:text-white transition-colors">{isRegister ? "Já possui conta? Login" : "Ainda não tem conta? Criar agora"}</button>
+        <button onClick={() => setIsRegister(!isRegister)} className="w-full text-center mt-8 text-xs text-gray-500 hover:text-white transition-colors">{isRegister ? "Já possui conta? Fazer Login" : "Ainda não tem conta? Criar agora"}</button>
       </div>
     </div>
   );
@@ -206,10 +234,10 @@ function MainApp({ user, setUser, onLogout, onPurchase }) {
     switch (activeTab) {
       case 'dashboard': return <Dashboard changeTab={setActiveTab} user={user} settings={appSettings} />;
       case 'prompts': return <PromptsGallery user={user} onPurchase={onPurchase} />;
-      case 'tutorials': return <TutorialsPage />;
-      case 'loja': return <StorePage onPurchase={onPurchase} />;
-      case 'favorites': return <Favorites />;
-      case 'generator': return <GeneratorsHub />;
+      case 'tutorials': return <TutorialsPage user={user} />;
+      case 'loja': return <StorePage user={user} onPurchase={onPurchase} />;
+      case 'favorites': return <Favorites user={user} />;
+      case 'generator': return <GeneratorsHub user={user} onPurchase={onPurchase} />;
       case 'admin': return isAdmin ? <AdminPanel user={user} updateSettings={updateSettings} settings={appSettings} /> : null;
       case 'profile': return <Profile user={user} setUser={setUser} />;
       default: return <Dashboard changeTab={setActiveTab} user={user} settings={appSettings} />;
@@ -261,7 +289,7 @@ function SidebarItem({ icon: Icon, label, active, onClick, minimized, isLogout }
   );
 }
 
-// --- DASHBOARD (NETFLIX STYLE CAROUSELS) ---
+// --- DASHBOARD ---
 function Dashboard({ changeTab, user, settings }) {
   const [featuredPrompts, setFeaturedPrompts] = useState([]);
   const [featuredTutorials, setFeaturedTutorials] = useState([]);
@@ -289,38 +317,14 @@ function Dashboard({ changeTab, user, settings }) {
             {isAdmin && <span className="text-xs bg-blue-900 text-blue-200 px-3 py-1 rounded border border-blue-700 font-bold tracking-wider">ADMIN</span>}
           </div>
 
-          {/* CARROSSEL DESTAQUES PROMPTS */}
           {featuredPrompts.length > 0 && (
-              <div>
-                  <h3 className="text-xl font-bold text-white mb-4 flex items-center"><Images className="mr-2 text-blue-500"/> Destaques da Semana</h3>
-                  <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-700">
-                      {featuredPrompts.map(p => (
-                          <div key={p.id} className="min-w-[200px] aspect-[3/4] bg-gray-800 rounded-xl overflow-hidden relative group cursor-pointer border border-gray-700 hover:border-blue-500 transition-all hover:shadow-lg hover:shadow-blue-900/20">
-                              <img src={p.url} className="w-full h-full object-cover"/>
-                              <div className="absolute bottom-0 inset-x-0 bg-black/80 p-3 text-sm text-white truncate font-medium">{p.title || 'Sem título'}</div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
+              <div><h3 className="text-xl font-bold text-white mb-4 flex items-center"><Images className="mr-2 text-blue-500"/> Destaques da Semana</h3><div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-700">{featuredPrompts.map(p => (<div key={p.id} className="min-w-[200px] aspect-[3/4] bg-gray-800 rounded-xl overflow-hidden relative group cursor-pointer border border-gray-700 hover:border-blue-500 transition-all"><img src={p.url} className="w-full h-full object-cover"/><div className="absolute bottom-0 inset-x-0 bg-black/80 p-2 text-xs text-white truncate">{p.title || 'Sem título'}</div></div>))}</div></div>
           )}
 
-          {/* CARROSSEL DESTAQUES TUTORIAIS */}
           {featuredTutorials.length > 0 && (
-              <div>
-                  <h3 className="text-xl font-bold text-white mb-4 flex items-center"><Play className="mr-2 text-purple-500"/> Aulas Recomendadas</h3>
-                  <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-700">
-                      {featuredTutorials.map(t => (
-                          <div key={t.id} className="min-w-[280px] aspect-video bg-gray-800 rounded-xl overflow-hidden relative group cursor-pointer border border-gray-700 hover:border-purple-500 transition-all hover:shadow-lg">
-                              <img src={t.thumbnail} className="w-full h-full object-cover opacity-80 group-hover:opacity-100"/>
-                              <div className="absolute inset-0 flex items-center justify-center"><Play className="text-white fill-white w-10 h-10 drop-shadow-lg"/></div>
-                              <div className="absolute bottom-0 inset-x-0 bg-black/80 p-3 text-sm font-bold text-white truncate">{t.title}</div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
+              <div><h3 className="text-xl font-bold text-white mb-4 flex items-center"><Play className="mr-2 text-purple-500"/> Aulas Recomendadas</h3><div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-700">{featuredTutorials.map(t => (<div key={t.id} className="min-w-[280px] aspect-video bg-gray-800 rounded-xl overflow-hidden relative group cursor-pointer border border-gray-700 hover:border-purple-500 transition-all"><img src={t.thumbnail} className="w-full h-full object-cover opacity-80 group-hover:opacity-100"/><div className="absolute inset-0 flex items-center justify-center"><Play className="text-white fill-white w-10 h-10 drop-shadow-lg"/></div><div className="absolute bottom-0 inset-x-0 bg-black/80 p-3 text-sm font-bold text-white truncate">{t.title}</div></div>))}</div></div>
           )}
 
-          {/* ATALHOS RÁPIDOS */}
           <div>
               <h3 className="text-xl font-bold text-white mb-4 flex items-center"><Zap className="mr-2 text-green-500"/> Ferramentas Rápidas</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -331,19 +335,8 @@ function Dashboard({ changeTab, user, settings }) {
               </div>
           </div>
 
-          {/* FEED NOTÍCIAS */}
           {news.length > 0 && (
-            <div>
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center"><FileText className="mr-2 text-gray-400"/> Novidades</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {news.map(item => (
-                  <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col hover:border-gray-600 transition-all group">
-                      {item.image && <div className="h-48 w-full overflow-hidden"><img src={item.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/></div>}
-                      <div className="p-6"><span className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-2 block">{item.date}</span><h4 className="text-xl font-bold text-white mb-2">{item.title}</h4><p className="text-gray-400 text-sm leading-relaxed">{item.content}</p></div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <div><h3 className="text-xl font-bold text-white mb-4 flex items-center"><FileText className="mr-2 text-gray-400"/> Novidades</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{news.map(item => (<div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col hover:border-gray-600 transition-all group">{item.image && <div className="h-48 w-full overflow-hidden"><img src={item.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/></div>}<div className="p-6"><span className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-2 block">{item.date}</span><h4 className="text-xl font-bold text-white mb-2">{item.title}</h4><p className="text-gray-400 text-sm leading-relaxed">{item.content}</p></div></div>))}</div></div>
           )}
       </div>
     </div>
@@ -388,9 +381,9 @@ function Profile({ user, setUser }) {
   );
 }
 
-// --- ADMIN PANEL (NETFLIX STYLE) ---
+// --- ADMIN PANEL (NETFLIX STUDIO STYLE - FIXED) ---
 function AdminPanel({ user, updateSettings, settings }) {
-  const [activeSection, setActiveSection] = useState('prompts');
+  const [activeSection, setActiveSection] = useState('prompts'); // Start at prompts
   const [dataList, setDataList] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedPack, setSelectedPack] = useState(null); 
@@ -403,6 +396,7 @@ function AdminPanel({ user, updateSettings, settings }) {
     if (activeSection === 'prompts') query = supabase.from('products').select('*').order('id', { ascending: true });
     if (activeSection === 'tutorials') query = supabase.from('tutorials_videos').select('*').order('id', { ascending: true });
     if (activeSection === 'news') query = supabase.from('news').select('*').order('id', { ascending: false });
+    
     if (query) { const { data } = await query; setDataList(data || []); }
   };
 
@@ -415,17 +409,31 @@ function AdminPanel({ user, updateSettings, settings }) {
 
   const handleSave = async (e) => {
       e.preventDefault();
-      if (activeSection === 'settings') { await supabase.from('app_settings').update(editingItem).gt('id', 0); updateSettings(editingItem); showToast('Configurações salvas!'); return; }
-      if (selectedPack && activeSection === 'prompts') { const { error } = await supabase.from('pack_items').upsert({ ...editingItem, pack_id: selectedPack.id }).eq('id', editingItem.id || 0); if (!error) { showToast('Prompt salvo!'); setEditingItem(null); fetchPackPrompts(selectedPack.id); } return; }
-      
+      // 1. Configurações
+      if (activeSection === 'settings') {
+          await supabase.from('app_settings').update(editingItem).gt('id', 0);
+          updateSettings(editingItem); showToast('Configurações salvas!'); return;
+      }
+      // 2. Episódios (Prompts dentro do Pack)
+      if (selectedPack && activeSection === 'prompts') {
+          const { error } = await supabase.from('pack_items').upsert({ ...editingItem, pack_id: selectedPack.id }).eq('id', editingItem.id || 0);
+          if (!error) { showToast('Episódio salvo!'); setEditingItem(null); fetchPackPrompts(selectedPack.id); } 
+          else { alert(error.message); }
+          return;
+      }
+      // 3. Genéricos (Packs, Users, etc)
       let table = activeSection === 'users' ? 'profiles' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
       let payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
+      
+      // Upsert inteligente: Se não tem ID, cria. Se tem, atualiza.
       const { error } = await supabase.from(table).upsert(payload).eq('id', editingItem.id || 0);
-      if(!error) { showToast('Salvo!'); setEditingItem(null); fetchData(); }
+      
+      if(!error) { showToast('Item salvo!'); setEditingItem(null); fetchData(); }
+      else { alert("Erro: " + error.message); }
   };
 
   const handleDelete = async (id, isPrompt = false) => {
-      if(!confirm('Tem certeza?')) return;
+      if(!confirm('Tem certeza absoluta?')) return;
       let table = isPrompt ? 'pack_items' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
       await supabase.from(table).delete().eq('id', id);
       if(isPrompt && selectedPack) fetchPackPrompts(selectedPack.id); else fetchData();
@@ -434,45 +442,53 @@ function AdminPanel({ user, updateSettings, settings }) {
   return (
     <div className="max-w-7xl mx-auto pb-20 animate-fadeIn px-6">
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-4 gap-4">
-          <div><h2 className="text-3xl font-bold text-white"><Shield className="inline text-blue-600 mr-2"/> Painel Admin</h2><p className="text-gray-400">Gerencie seu conteúdo estilo estúdio.</p></div>
-          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">{['prompts', 'tutorials', 'users', 'news', 'settings'].map(id => (<button key={id} onClick={() => { setActiveSection(id); setEditingItem(id === 'settings' ? settings : null); setSelectedPack(null); }} className={`px-4 py-2 rounded-lg font-bold capitalize whitespace-nowrap ${activeSection === id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{id}</button>))}</div>
+          <div><h2 className="text-3xl font-bold text-white flex items-center"><Shield className="text-blue-600 mr-3"/> Estúdio de Criação</h2><p className="text-gray-400">Gerencie todo o conteúdo da plataforma.</p></div>
+          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">{['prompts', 'tutorials', 'users', 'news', 'settings'].map(id => (<button key={id} onClick={() => { setActiveSection(id); setEditingItem(id === 'settings' ? settings : null); setSelectedPack(null); }} className={`px-4 py-2 rounded-lg font-bold capitalize whitespace-nowrap ${activeSection === id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{id === 'prompts' ? 'Séries (Packs)' : id}</button>))}</div>
       </div>
 
+      {/* CONFIGURAÇÕES */}
       {activeSection === 'settings' && editingItem && (
           <div className="bg-gray-900 p-8 rounded-2xl border border-gray-800 grid grid-cols-1 gap-6">
-              <h3 className="text-white font-bold text-xl">Configurações Visuais</h3>
-              <div><ImageUploader label="Logo Menu" currentImage={editingItem.logo_menu_url} onUploadComplete={url=>setEditingItem({...editingItem,logo_menu_url:url})}/></div>
-              <div><ImageUploader label="Banner" currentImage={editingItem.banner_url} onUploadComplete={url=>setEditingItem({...editingItem,banner_url:url})}/></div>
-              <div><ImageUploader label="Logo Header" currentImage={editingItem.logo_header_url} onUploadComplete={url=>setEditingItem({...editingItem,logo_header_url:url})}/></div>
-              <div><label className="text-gray-400 block mb-2">Posição</label><div className="flex gap-4">{['flex-start','center','flex-end'].map(pos=><button key={pos} onClick={()=>setEditingItem({...editingItem,logo_position:pos})} className={`px-4 py-2 rounded border ${editingItem.logo_position===pos?'bg-blue-600 border-blue-600 text-white':'bg-black border-gray-700 text-gray-400'}`}>{pos}</button>)}</div></div>
-              <button onClick={handleSave} className="bg-green-600 text-white px-8 py-3 rounded font-bold w-full">Salvar</button>
+              <h3 className="text-white font-bold text-xl border-l-4 border-blue-600 pl-3">Identidade Visual</h3>
+              <div><ImageUploader label="Logo Menu (Pequena)" currentImage={editingItem.logo_menu_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_menu_url: url})} /></div>
+              <div><ImageUploader label="Banner Dashboard" currentImage={editingItem.banner_url} onUploadComplete={(url) => setEditingItem({...editingItem, banner_url: url})} /></div>
+              <div><ImageUploader label="Logo Header (Slogan)" currentImage={editingItem.logo_header_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_header_url: url})} /></div>
+              <button onClick={handleSave} className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded font-bold w-full">Salvar Alterações</button>
           </div>
       )}
 
+      {/* PROMPTS (PACKS & EPISÓDIOS) */}
       {activeSection === 'prompts' && (
           selectedPack ? (
+              // DENTRO DA SÉRIE (EPISÓDIOS)
               <div className="animate-fadeIn">
-                  <button onClick={() => setSelectedPack(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold"><ChevronLeft className="mr-2"/> Voltar para Packs</button>
+                  <button onClick={() => setSelectedPack(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold text-lg group"><ChevronLeft className="mr-2"/> Voltar para Catálogo</button>
                   <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-                      <div className="relative h-48 bg-gray-800"><img src={selectedPack.cover} className="w-full h-full object-cover opacity-40"/><div className="absolute bottom-6 left-8 right-8 flex justify-between items-end"><div><span className="text-blue-500 font-bold text-xs uppercase">SÉRIE</span><h2 className="text-4xl font-bold text-white">{selectedPack.title}</h2></div><button onClick={() => setEditingItem({ title: '', prompt: '', url: '', is_featured: false })} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center"><Plus size={20} className="mr-2"/> Adicionar Episódio</button></div></div>
-                      <div className="p-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-                          {packPrompts.map(prompt => (
-                              <div key={prompt.id} className="bg-black border border-gray-800 rounded-xl overflow-hidden group relative">
-                                  <div className="aspect-square relative"><img src={prompt.url} className="w-full h-full object-cover"/><div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity"><button onClick={()=>setEditingItem(prompt)} className="bg-blue-600 p-2 rounded-full text-white"><Edit3 size={18}/></button><button onClick={()=>handleDelete(prompt.id, true)} className="bg-red-600 p-2 rounded-full text-white"><Trash2 size={18}/></button></div></div>
-                                  <div className="p-4"><h4 className="text-white font-bold truncate">{prompt.title}</h4>{prompt.is_featured && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded mt-1 inline-block">DESTAQUE</span>}</div>
+                      <div className="relative h-64 bg-gray-800"><img src={selectedPack.cover} className="w-full h-full object-cover opacity-50"/><div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div><div className="absolute bottom-8 left-8"><span className="text-blue-500 font-bold tracking-widest text-xs uppercase mb-2 block">EDITANDO SÉRIE</span><h2 className="text-5xl font-black text-white">{selectedPack.title}</h2></div><div className="absolute bottom-8 right-8"><button onClick={() => setEditingItem({ title: '', prompt: '', url: '', is_featured: false })} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg"><Plus size={20} className="mr-2"/> Adicionar Episódio</button></div></div>
+                      <div className="p-8">
+                          {packPrompts.length === 0 ? <div className="text-center py-20 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl"><Film size={48} className="mx-auto mb-4 opacity-20"/><p>Nenhum episódio adicionado ainda.</p></div> : (
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                  {packPrompts.map(prompt => (
+                                      <div key={prompt.id} className="bg-black border border-gray-800 rounded-xl overflow-hidden group hover:border-blue-600 transition-all relative">
+                                          <div className="aspect-video"><img src={prompt.url} className="w-full h-full object-cover"/></div>
+                                          <div className="p-4"><h4 className="text-white font-bold truncate">{prompt.title}</h4></div>
+                                          <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditingItem(prompt)} className="bg-blue-600 p-2 rounded text-white"><Edit3 size={16}/></button><button onClick={() => handleDelete(prompt.id, true)} className="bg-red-600 p-2 rounded text-white"><Trash2 size={16}/></button></div>
+                                      </div>
+                                  ))}
                               </div>
-                          ))}
+                          )}
                       </div>
                   </div>
               </div>
           ) : (
+              // CATÁLOGO DE SÉRIES (PACKS)
               <div className="animate-fadeIn">
-                 <div className="flex justify-between items-center mb-6"><h3 className="text-xl text-white font-bold">Suas Séries (Packs)</h3><button onClick={() => setEditingItem({})} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center"><Plus size={20} className="mr-2"/> Nova Série</button></div>
+                 <div className="flex justify-between items-center mb-6"><h3 className="text-xl text-white font-bold">Catálogo de Séries</h3><button onClick={() => setEditingItem({ title: '', description: '', price: 'R$ 0,00', cover: '', checkout_url: '' })} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg"><Plus size={20} className="mr-2"/> Nova Série</button></div>
                  <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                      {dataList.map(pack => (
-                         <div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:shadow-lg transition-all group relative cursor-pointer" onClick={() => { setSelectedPack(pack); fetchPackPrompts(pack.id); }}>
-                             <div className="aspect-[2/3] relative"><img src={pack.cover} className="w-full h-full object-cover"/><div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]"><span className="bg-white text-black px-4 py-2 rounded-full font-bold text-xs">Gerenciar</span></div></div>
-                             <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100"><button onClick={(e)=>{e.stopPropagation();setEditingItem(pack)}} className="bg-black/80 text-blue-400 p-2 rounded"><Edit3 size={16}/></button><button onClick={(e)=>{e.stopPropagation();handleDelete(pack.id)}} className="bg-black/80 text-red-500 p-2 rounded"><Trash2 size={16}/></button></div>
+                         <div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:shadow-2xl hover:shadow-blue-900/20 transition-all group relative cursor-pointer" onClick={() => { setSelectedPack(pack); fetchPackPrompts(pack.id); }}>
+                             <div className="aspect-[2/3] relative"><img src={pack.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/><div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div><div className="absolute bottom-4 left-4 right-4"><h4 className="text-white font-bold leading-tight mb-1">{pack.title}</h4><p className="text-blue-400 text-xs font-bold">{pack.price}</p></div></div>
+                             <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e) => {e.stopPropagation(); setEditingItem(pack);}} className="bg-black/80 text-blue-400 p-2 rounded-lg hover:text-white"><Edit3 size={16}/></button><button onClick={(e) => {e.stopPropagation(); handleDelete(pack.id);}} className="bg-black/80 text-red-500 p-2 rounded-lg hover:text-white"><Trash2 size={16}/></button></div>
                          </div>
                      ))}
                  </div>
@@ -480,36 +496,60 @@ function AdminPanel({ user, updateSettings, settings }) {
           )
       )}
 
+      {/* LISTAS GENÉRICAS (USUÁRIOS, TUTORIAIS, NEWS) */}
       {activeSection !== 'settings' && activeSection !== 'prompts' && (
           <div className="animate-fadeIn">
-            {activeSection !== 'users' && <div className="mb-6 flex justify-end"><button onClick={() => setEditingItem({})} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center"><Plus size={20} className="mr-2"/> Novo</button></div>}
+            {activeSection !== 'users' && <div className="mb-6 flex justify-end"><button onClick={() => setEditingItem({})} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg"><Plus size={20} className="mr-2"/> Adicionar Novo</button></div>}
             <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden shadow-xl">
-                <table className="w-full text-left text-sm text-gray-400"><thead className="bg-black text-xs uppercase font-bold"><tr><th className="p-6">Item</th><th className="p-6">Detalhes</th><th className="p-6 text-right">Ações</th></tr></thead>
-                    <tbody className="divide-y divide-gray-800">{dataList.map(item => (<tr key={item.id} className="hover:bg-gray-800/50"><td className="p-6">{activeSection === 'users' ? item.name : item.title}</td><td className="p-6">{activeSection === 'users' ? item.plan : (item.is_featured ? '⭐ Destaque' : '-')}</td><td className="p-6 text-right"><button onClick={() => setEditingItem(item)} className="text-blue-500 mr-2"><Edit3 size={18}/></button><button onClick={() => handleDelete(item.id)} className="text-red-500"><Trash2 size={18}/></button></td></tr>))}</tbody>
+                <table className="w-full text-left text-sm text-gray-400"><thead className="bg-black text-xs uppercase font-bold text-gray-500"><tr><th className="p-6">Item</th><th className="p-6">Detalhes</th><th className="p-6 text-right">Ações</th></tr></thead>
+                    <tbody className="divide-y divide-gray-800">{dataList.map(item => (<tr key={item.id} className="hover:bg-gray-800/50"><td className="p-6">{activeSection === 'users' ? item.name : item.title}</td><td className="p-6">{activeSection === 'users' ? item.plan : (item.video_url || item.date)}</td><td className="p-6 text-right"><button onClick={() => setEditingItem(item)} className="text-blue-500 hover:text-white mr-2"><Edit3 size={18}/></button>{activeSection !== 'users' && <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-white"><Trash2 size={18}/></button>}</td></tr>))}</tbody>
                 </table>
             </div>
           </div>
       )}
 
+      {/* MODAL EDITOR (OVERLAY) */}
       {editingItem && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
               <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden">
-                  <div className="p-6 border-b border-gray-800 flex justify-between items-center"><h3 className="text-xl font-bold text-white">Editor</h3><button onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-white"><X/></button></div>
+                  <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-800/50"><h3 className="text-xl font-bold text-white">Editor de Conteúdo</h3><button onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-white"><X/></button></div>
                   <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
                       <form onSubmit={handleSave} className="space-y-6">
                           {activeSection === 'users' && <div><label className="block text-gray-400 text-sm font-bold mb-2">Plano</label><select className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}><option value="free">Free</option><option value="pro">Pro</option><option value="gold">Gold</option><option value="admin">Admin</option></select></div>}
-                          {/* CHECKBOX DESTAQUE */}
-                          {(activeSection === 'prompts' && selectedPack || activeSection === 'tutorials') && (
-                              <label className="flex items-center gap-3 p-4 bg-black/30 rounded-xl border border-gray-700 cursor-pointer"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})} className="w-5 h-5 accent-blue-600"/><span className="text-white font-bold">Destacar no Dashboard</span></label>
+                          
+                          {/* FORM SÉRIE (PACK) */}
+                          {activeSection === 'prompts' && !selectedPack && (
+                              <>
+                                  <ImageUploader label="Capa (Poster)" currentImage={editingItem.cover} onUploadComplete={(url) => setEditingItem({...editingItem, cover: url})}/>
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Título da Série</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} placeholder="Ex: Cyberpunk"/></div>
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Preço</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})} placeholder="R$ 29,90"/></div>
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Link de Checkout</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})} placeholder="https://kiwify..."/></div>
+                              </>
                           )}
-                          {/* CAMPOS DINÂMICOS */}
-                          {Object.keys(editingItem).map(key => {
-                              if(['id','created_at','pack_id','is_featured'].includes(key)) return null;
-                              if(['cover','url','thumbnail','image'].includes(key)) return <ImageUploader key={key} label={key.toUpperCase()} currentImage={editingItem[key]} onUploadComplete={(url) => setEditingItem({...editingItem, [key]: url})} />;
-                              if(key === 'prompt' || key === 'content' || key === 'description') return <div key={key}><label className="block text-gray-400 text-sm font-bold mb-2 uppercase">{key}</label><textarea className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white h-32" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
-                              return <div key={key}><label className="block text-gray-400 text-sm font-bold mb-2 uppercase">{key}</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
-                          })}
-                          <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={() => setEditingItem(null)} className="px-6 py-3 rounded-xl font-bold text-gray-400">Cancelar</button><button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg">Salvar</button></div>
+
+                          {/* FORM EPISÓDIO (PROMPT) */}
+                          {activeSection === 'prompts' && selectedPack && (
+                              <>
+                                  <ImageUploader label="Imagem do Episódio" currentImage={editingItem.url} onUploadComplete={(url) => setEditingItem({...editingItem, url: url})}/>
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Título do Episódio</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} placeholder="Ex: Cena 1"/></div>
+                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">O Prompt (Script)</label><textarea className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white h-40 font-mono" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})} placeholder="/imagine..."/></div>
+                                  <label className="flex items-center gap-3 p-4 bg-black/30 rounded-xl border border-gray-700 cursor-pointer"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})} className="w-5 h-5 accent-blue-600"/><span className="text-white font-bold">Destacar no Dashboard</span></label>
+                              </>
+                          )}
+
+                          {/* FORM GENÉRICO (NEWS/TUTORIAIS) */}
+                          {(activeSection === 'tutorials' || activeSection === 'news') && (
+                              Object.keys(editingItem).map(key => {
+                                  if(['id','created_at','pack_id','is_featured'].includes(key)) return null;
+                                  if(['thumbnail','image','cover'].includes(key)) return <ImageUploader key={key} label={key.toUpperCase()} currentImage={editingItem[key]} onUploadComplete={(url) => setEditingItem({...editingItem, [key]: url})} />;
+                                  return <div key={key}><label className="block text-gray-400 text-sm font-bold mb-2 uppercase">{key}</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
+                              })
+                          )}
+
+                          <div className="flex justify-end gap-4 pt-4">
+                              <button type="button" onClick={() => setEditingItem(null)} className="px-6 py-3 rounded-xl font-bold text-gray-400 hover:bg-gray-800">Cancelar</button>
+                              <button type="submit" className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg">Salvar</button>
+                          </div>
                       </form>
                   </div>
               </div>
@@ -520,7 +560,7 @@ function AdminPanel({ user, updateSettings, settings }) {
 }
 
 // --- TUTORIAIS ---
-function TutorialsPage() {
+function TutorialsPage({ user }) {
     const [tutorials, setTutorials] = useState([]);
     useEffect(() => { supabase.from('tutorials_videos').select('*').order('id', { ascending: true }).then(({ data }) => setTutorials(data || [])); }, []);
     return (
@@ -531,79 +571,35 @@ function TutorialsPage() {
     );
 }
 
-// --- LOJA (COM LINK EXTERNO) ---
+// --- LOJA ---
 function StorePage({ packs, onPurchase }) {
     return (
         <div className="max-w-7xl mx-auto animate-fadeIn px-6"><h2 className="text-3xl font-bold text-white mb-8">Loja Oficial</h2><div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">{packs.map(pack => (<div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-blue-600 transition-all cursor-pointer group shadow-lg"><div className="aspect-square relative overflow-hidden"><img src={pack.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/><div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/90 to-transparent"><h4 className="text-white font-bold text-sm md:text-base leading-tight">{pack.title}</h4><p className="text-blue-500 font-bold text-xs mt-1">{pack.price}</p></div></div><button onClick={() => onPurchase(pack.id, pack.checkout_url)} className="w-full bg-blue-600 text-white font-bold py-2 text-sm hover:bg-blue-500 transition-colors">COMPRAR</button></div>))}</div></div>
     );
 }
 
-// --- PROMPTS (ESTRUTURA DE PRATELEIRAS) ---
-function PromptsGallery() {
+// --- PROMPTS ---
+function PromptsGallery({ user }) {
+    const [prompts, setPrompts] = useState([]);
     const [packs, setPacks] = useState([]);
-    const [allItems, setAllItems] = useState([]);
     const [modalItem, setModalItem] = useState(null);
     const { showToast } = React.useContext(ToastContext) || { showToast: alert };
 
-    // Busca Packs e seus Itens
     useEffect(() => { 
-        supabase.from('products').select('*').then(({data}) => setPacks(data || []));
-        supabase.from('pack_items').select('*').then(({data}) => setAllItems(data || [])); 
+        supabase.from('products').select('*').limit(10).then(({data}) => setPacks(data || []));
+        supabase.from('pack_items').select('*').limit(50).then(({data}) => setPrompts(data || [])); 
     }, []);
 
     return (
         <div className="max-w-7xl mx-auto animate-fadeIn px-6 pb-20">
-             {/* 1. CARROSSÉIS DOS PACKS (PRATELEIRAS) */}
-             {packs.map(pack => {
-                 const items = allItems.filter(i => i.pack_id === pack.id);
-                 if (items.length === 0) return null;
-                 return (
-                     <div key={pack.id} className="mb-12">
-                         <div className="flex items-center justify-between mb-4 border-l-4 border-blue-600 pl-4">
-                             <h2 className="text-2xl font-bold text-white">{pack.title}</h2>
-                             <button className="text-gray-400 hover:text-white text-sm flex items-center">Ver Pack <ChevronRight size={16}/></button>
-                         </div>
-                         <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-gray-800">
-                             {items.map(item => (
-                                 <div key={item.id} onClick={() => setModalItem(item)} className="min-w-[220px] aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden relative group cursor-pointer hover:scale-105 transition-transform border border-gray-800 hover:border-blue-500">
-                                     <img src={item.url} className="w-full h-full object-cover"/>
-                                     <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-3">
-                                         <p className="text-white font-bold text-sm truncate">{item.title}</p>
-                                     </div>
-                                 </div>
-                             ))}
-                         </div>
-                     </div>
-                 )
-             })}
+             {/* PACKS */}
+             <div className="mb-12"><h2 className="text-xl font-bold text-gray-400 uppercase tracking-widest mb-6 border-l-4 border-blue-600 pl-3">Nossas Séries</h2><div className="grid grid-cols-3 md:grid-cols-6 gap-4">{packs.map(pack => (<div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden hover:scale-105 transition-transform cursor-pointer"><img src={pack.cover} className="aspect-[2/3] w-full object-cover"/></div>))}</div></div>
 
-             {/* 2. PROMPTS FREE (AVULSOS - SEM PACK) */}
-             <div className="mt-16">
-                 <h2 className="text-3xl font-bold text-white mb-8 flex items-center"><Sparkles className="mr-2 text-yellow-500"/> Prompts Gratuitos</h2>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                     {allItems.filter(i => !i.pack_id).map(item => (
-                         <div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] bg-gray-900 rounded-2xl overflow-hidden relative group hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:border-2 border-blue-500 transition-all duration-300 border border-gray-800 cursor-pointer">
-                             <img src={item.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>
-                             <div className="absolute bottom-8 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0"><button className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-2xl hover:scale-105 hover:bg-blue-500 transition-transform flex items-center border border-blue-400"><Copy size={18} className="mr-2"/> DETALHES</button></div>
-                         </div>
-                     ))}
-                 </div>
-             </div>
+             {/* PROMPTS FREE */}
+             <div><h2 className="text-3xl font-bold text-white mb-8 flex items-center"><Sparkles className="mr-2 text-yellow-500"/> Prompts Gratuitos</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-6">{prompts.filter(i => !i.pack_id).map(item => (<div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] bg-gray-900 rounded-2xl overflow-hidden relative group hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:border-2 border-blue-500 transition-all duration-300 border border-gray-800 cursor-pointer"><img src={item.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/><div className="absolute bottom-8 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0"><button className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-2xl hover:scale-105 hover:bg-blue-500 transition-transform flex items-center border border-blue-400"><Copy size={18} className="mr-2"/> DETALHES</button></div></div>))}</div></div>
 
-             {/* MODAL DE DETALHES */}
-             {modalItem && (
-                 <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn" onClick={() => setModalItem(null)}>
-                     <div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-blue-500/50 shadow-2xl overflow-hidden flex flex-col md:flex-row" onClick={e => e.stopPropagation()}>
-                         <div className="md:w-1/2 bg-black flex items-center justify-center"><img src={modalItem.url} className="w-full h-full object-contain max-h-[50vh] md:max-h-[80vh]"/></div>
-                         <div className="md:w-1/2 p-8 flex flex-col">
-                             <div className="flex justify-between items-start mb-6"><h3 className="text-2xl font-bold text-white">{modalItem.title || 'Prompt'}</h3><button onClick={() => setModalItem(null)} className="text-gray-400 hover:text-white"><X size={28}/></button></div>
-                             <div className="bg-black border border-gray-800 p-6 rounded-xl flex-1 overflow-y-auto custom-scrollbar mb-6"><p className="text-gray-300 font-mono text-sm leading-relaxed">{modalItem.prompt}</p></div>
-                             <button onClick={() => {navigator.clipboard.writeText(modalItem.prompt); showToast("Copiado!");}} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-600/40 transition-all flex items-center justify-center mb-3"><Copy className="mr-2"/> COPIAR PROMPT</button>
-                             <button className="w-full border border-gray-700 text-gray-400 font-bold py-3 rounded-xl hover:bg-gray-800 hover:text-white transition-all flex items-center justify-center"><Heart className="mr-2"/> ADICIONAR AOS FAVORITOS</button>
-                         </div>
-                     </div>
-                 </div>
-             )}
+             {/* MODAL */}
+             {modalItem && (<div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn" onClick={() => setModalItem(null)}><div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-blue-500/50 shadow-2xl overflow-hidden flex flex-col md:flex-row" onClick={e => e.stopPropagation()}><div className="md:w-1/2 bg-black"><img src={modalItem.url} className="w-full h-full object-contain max-h-[60vh] md:max-h-[80vh]"/></div><div className="md:w-1/2 p-8 flex flex-col"><div className="flex justify-between items-start mb-6"><h3 className="text-2xl font-bold text-white">{modalItem.title || 'Prompt'}</h3><button onClick={() => setModalItem(null)} className="text-gray-400 hover:text-white"><X size={28}/></button></div><div className="bg-black border border-gray-800 p-6 rounded-xl flex-1 overflow-y-auto custom-scrollbar mb-6"><p className="text-gray-300 font-mono text-sm leading-relaxed">{modalItem.prompt}</p></div><button onClick={() => {navigator.clipboard.writeText(modalItem.prompt); showToast("Copiado!");}} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-600/40 transition-all flex items-center justify-center mb-3"><Copy className="mr-2"/> COPIAR PROMPT</button><button className="w-full border border-gray-700 text-gray-400 font-bold py-3 rounded-xl hover:bg-gray-800 hover:text-white transition-all flex items-center justify-center"><Heart className="mr-2"/> ADICIONAR AOS FAVORITOS</button></div></div></div>)}
         </div>
     );
 }
