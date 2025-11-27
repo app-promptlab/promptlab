@@ -1,26 +1,19 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { ToastContext } from '../ToastContext';
-// ...
-import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Heart, Copy, Sparkles, ChevronRight } from 'lucide-react';
 import Modal from '../components/Modal';
+import { ToastContext } from '../ToastContext';
 
-export default function PromptsGallery({ user, onPurchase }) {
-    const { showToast } = useContext(ToastContext) || { showToast: alert };
+export default function PromptsGallery() {
     const [prompts, setPrompts] = useState([]);
     const [packs, setPacks] = useState([]);
     const [modalItem, setModalItem] = useState(null);
+    const { showToast } = useContext(ToastContext) || { showToast: alert };
 
     useEffect(() => { 
         supabase.from('products').select('*').limit(10).then(({data}) => setPacks(data || []));
         supabase.from('pack_items').select('*').limit(50).then(({data}) => setPrompts(data || [])); 
     }, []);
-
-    const handleCopy = (text) => {
-        navigator.clipboard.writeText(text);
-        alert("Copiado!"); // Aqui você pode usar o Toast se passar via props
-    };
 
     return (
         <div className="max-w-7xl mx-auto animate-fadeIn px-6 pb-20 pt-8">
@@ -62,7 +55,14 @@ export default function PromptsGallery({ user, onPurchase }) {
              </div>
 
              {/* MODAL */}
-             <Modal item={modalItem} onClose={() => setModalItem(null)} onCopy={handleCopy} />
+             <Modal 
+                item={modalItem} 
+                onClose={() => setModalItem(null)} 
+                onCopy={(text) => {
+                    navigator.clipboard.writeText(text);
+                    showToast("Copiado com sucesso!");
+                }} 
+             />
         </div>
     );
 }
