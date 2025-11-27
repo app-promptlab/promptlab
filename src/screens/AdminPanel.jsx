@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { supabase } from '../supabaseClient';
-import ImageUploader from '../components/ImageUploader';
+import { supabase } from '../supabaseClient'; // <--- ../
+import ImageUploader from '../components/ImageUploader'; // <--- ../components
 import { Shield, LayoutGrid, Play, Users, FileText, Settings, ChevronLeft, Plus, Edit3, Trash2, Images } from 'lucide-react';
-import { ToastContext } from '../ToastContext';
+import { ToastContext } from '../ToastContext'; // <--- ../
+
+// ... (o resto do código AdminPanel que te mandei antes está certo)
 
 export default function AdminPanel({ updateSettings, settings }) {
   const [activeSection, setActiveSection] = useState('prompts');

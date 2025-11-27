@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import Hero from '../components/Hero';
-import Row from '../components/Row';
+import { supabase } from '../supabaseClient'; // <--- Note os dois pontos
+import Hero from '../components/Hero';       // <--- Note os dois pontos
+import Row from '../components/Row';         // <--- Note os dois pontos
 import { Zap, Images, Search, ShoppingBag, FileText, Play } from 'lucide-react';
 
 export default function Dashboard({ user, settings, changeTab }) {
@@ -10,30 +10,30 @@ export default function Dashboard({ user, settings, changeTab }) {
   const [news, setNews] = useState([]);
 
   useEffect(() => {
+      if (!user) return;
       supabase.from('pack_items').select('*').eq('is_featured', true).limit(10).then(({data}) => setFeaturedPrompts(data || []));
       supabase.from('tutorials_videos').select('*').eq('is_featured', true).limit(10).then(({data}) => setFeaturedTutorials(data || []));
       supabase.from('news').select('*').limit(2).order('id', {ascending:false}).then(({data}) => setNews(data || []));
-  }, []);
+  }, [user]);
+
+  // Proteção contra crash se settings não carregar
+  const safeSettings = settings || { logo_position: 'center' };
 
   return (
     <div className="w-full animate-fadeIn pb-20">
-      {/* Banner Hero */}
-      <Hero settings={settings} />
+      <Hero settings={safeSettings} />
       
       <div className="max-w-full mx-auto px-6 -mt-8 relative z-10 space-y-12">
-          {/* Boas Vindas */}
           <div className="flex justify-between items-end pb-4 border-b border-gray-800">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-1">Olá, {user.name.split(' ')[0]}</h2>
+              <h2 className="text-3xl font-bold text-white mb-1">Olá, {user.name ? user.name.split(' ')[0] : 'Visitante'}</h2>
               <p className="text-gray-400">O que vamos criar hoje?</p>
             </div>
           </div>
 
-          {/* Trilhos (Carrosséis) */}
           <Row title="Destaques da Semana" items={featuredPrompts} type="prompt" />
           <Row title="Aulas Recomendadas" items={featuredTutorials} type="tutorial" isLarge />
 
-          {/* Atalhos Rápidos */}
           <div>
               <h3 className="text-xl font-bold text-white mb-4 flex items-center"><Zap className="mr-2 text-green-500"/> Ferramentas Rápidas</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -44,7 +44,6 @@ export default function Dashboard({ user, settings, changeTab }) {
               </div>
           </div>
 
-          {/* Feed de Notícias */}
           {news.length > 0 && (
             <div>
               <h3 className="text-xl font-bold text-white mb-4 flex items-center"><FileText className="mr-2 text-gray-400"/> Novidades</h3>
