@@ -3,11 +3,11 @@ import { Loader2, Check } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { ToastContext } from './ToastContext';
 
-// Componentes (Da pasta components)
+// Componentes (Peças)
 import Sidebar from './components/Sidebar'; 
 import AuthScreen from './components/AuthScreen';
 
-// --- CORREÇÃO FINAL: Pasta 'screens', Letra Maiúscula e extensão .jsx ---
+// Páginas (Telas) - Apontando para a pasta 'screens'
 import Dashboard from './screens/Dashboard.jsx';
 import PromptsGallery from './screens/PromptsGallery.jsx';
 import StorePage from './screens/StorePage.jsx';
@@ -29,6 +29,7 @@ export default function App() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Carrega configurações visuais
   useEffect(() => {
     const fetchSettings = async () => {
         const { data } = await supabase.from('app_settings').select().single();
@@ -37,6 +38,7 @@ export default function App() {
     fetchSettings();
   }, []);
 
+  // Verifica Login
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -51,6 +53,7 @@ export default function App() {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
         const { data: purchases } = await supabase.from('user_purchases').select('product_id').eq('user_id', userId);
         
+        // TRAVA DE SEGURANÇA ADMIN
         const MEU_EMAIL = "app.promptlab@gmail.com"; 
         const finalPlan = (email === MEU_EMAIL) ? 'admin' : (profile?.plan || 'free');
 
