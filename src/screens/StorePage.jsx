@@ -1,12 +1,11 @@
 import React from 'react';
-import { ShoppingBag, Images } from 'lucide-react'; // <--- CORREÇÃO AQUI
+import { ShoppingBag, Images } from 'lucide-react';
 
 export default function StorePage({ packs, onPurchase }) {
     return (
         <div className="max-w-7xl mx-auto animate-fadeIn px-6 pt-8">
              <h2 className="text-3xl font-bold text-white mb-8">Loja Oficial</h2>
              
-             {/* Destaque de Geradores */}
              <div className="mb-12 bg-gradient-to-r from-gray-900 to-black border border-blue-900/30 rounded-2xl p-8 flex items-center justify-between relative overflow-hidden shadow-2xl">
                 <div className="z-10">
                     <h3 className="text-2xl font-bold text-white mb-2">Acesso Creator Vitalício</h3>

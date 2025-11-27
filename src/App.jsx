@@ -3,11 +3,11 @@ import { Loader2, Check } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { ToastContext } from './ToastContext';
 
-// Componentes (Peças)
+// Componentes
 import Sidebar from './components/Sidebar'; 
 import AuthScreen from './components/AuthScreen';
 
-// Páginas (Telas) - Apontando para a pasta 'screens'
+// Páginas (Screens)
 import Dashboard from './screens/Dashboard.jsx';
 import PromptsGallery from './screens/PromptsGallery.jsx';
 import StorePage from './screens/StorePage.jsx';
@@ -29,7 +29,7 @@ export default function App() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Carrega configurações visuais
+  // Carrega configurações
   useEffect(() => {
     const fetchSettings = async () => {
         const { data } = await supabase.from('app_settings').select().single();
@@ -53,7 +53,6 @@ export default function App() {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
         const { data: purchases } = await supabase.from('user_purchases').select('product_id').eq('user_id', userId);
         
-        // TRAVA DE SEGURANÇA ADMIN
         const MEU_EMAIL = "app.promptlab@gmail.com"; 
         const finalPlan = (email === MEU_EMAIL) ? 'admin' : (profile?.plan || 'free');
 
@@ -94,12 +93,18 @@ export default function App() {
       case 'dashboard': return <Dashboard user={user} settings={appSettings} changeTab={setActiveTab} />;
       case 'prompts': return <PromptsGallery user={user} />;
       case 'tutorials': return <TutorialsPage />;
-      case 'loja': return <StorePage onPurchase={handlePurchase} />;
+      case 'loja': return <StorePage packs={packs} onPurchase={handlePurchase} />; // Adicionei packs prop aqui
       case 'admin': return isAdmin ? <AdminPanel updateSettings={(s) => setAppSettings(prev => ({...prev, ...s}))} settings={appSettings} /> : null;
       case 'profile': return <Profile user={user} setUser={setUser} />;
+      case 'favorites': return <div className="text-white p-10 text-center">Favoritos em breve...</div>;
+      case 'generator': return <div className="text-white p-10 text-center">Geradores em breve...</div>;
       default: return <Dashboard user={user} settings={appSettings} changeTab={setActiveTab} />;
     }
   };
+  
+  // Pequeno hook para carregar os packs para a loja no App principal
+  const [packs, setPacks] = useState([]);
+  useEffect(() => { supabase.from('products').select('*').then(({data}) => setPacks(data || [])); }, []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
