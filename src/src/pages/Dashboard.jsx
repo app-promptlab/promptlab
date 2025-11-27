@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Hero from '../components/Hero';
 import Row from '../components/Row';
-import { Zap, Images, Search, ShoppingBag, FileText } from 'lucide-react';
+import { Zap, Images, Search, ShoppingBag, FileText, Play } from 'lucide-react';
 
 export default function Dashboard({ user, settings, changeTab }) {
   const [featuredPrompts, setFeaturedPrompts] = useState([]);
@@ -17,6 +17,7 @@ export default function Dashboard({ user, settings, changeTab }) {
 
   return (
     <div className="w-full animate-fadeIn pb-20">
+      {/* Banner Hero */}
       <Hero settings={settings} />
       
       <div className="max-w-full mx-auto px-6 -mt-8 relative z-10 space-y-12">
@@ -28,7 +29,7 @@ export default function Dashboard({ user, settings, changeTab }) {
             </div>
           </div>
 
-          {/* Carrosséis (Rows) */}
+          {/* Trilhos (Carrosséis) */}
           <Row title="Destaques da Semana" items={featuredPrompts} type="prompt" />
           <Row title="Aulas Recomendadas" items={featuredTutorials} type="tutorial" isLarge />
 
@@ -43,7 +44,7 @@ export default function Dashboard({ user, settings, changeTab }) {
               </div>
           </div>
 
-          {/* News Feed */}
+          {/* Feed de Notícias */}
           {news.length > 0 && (
             <div>
               <h3 className="text-xl font-bold text-white mb-4 flex items-center"><FileText className="mr-2 text-gray-400"/> Novidades</h3>
