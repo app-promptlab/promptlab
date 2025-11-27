@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-// AQUI ESTAVA O ERRO: Agora importamos a conexão única
-import { supabase } from '../supabaseClient'; 
+import { supabase } from '../supabaseClient';
 
 export default function AuthScreen({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -16,29 +15,16 @@ export default function AuthScreen({ onLogin }) {
       });
   }, []);
 
-  // Efeito Warp Speed
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    canvas.width = width; canvas.height = height;
-    
-    let stars = [];
-    for(let i=0; i<200; i++) stars.push({x: (Math.random()-0.5)*width, y: (Math.random()-0.5)*height, z: Math.random()*width});
-
+    const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
+    let width = window.innerWidth; let height = window.innerHeight; canvas.width = width; canvas.height = height;
+    let stars = []; for(let i=0; i<200; i++) stars.push({x: (Math.random()-0.5)*width, y: (Math.random()-0.5)*height, z: Math.random()*width});
     const render = () => {
-        ctx.fillStyle = 'black'; ctx.fillRect(0, 0, width, height);
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = 'black'; ctx.fillRect(0, 0, width, height); ctx.fillStyle = 'white';
         stars.forEach(star => {
-            star.z -= 2; 
-            if(star.z <= 0) { star.z = width; star.x = (Math.random()-0.5)*width; star.y = (Math.random()-0.5)*height; }
-            const x = (star.x / star.z) * width + width/2;
-            const y = (star.y / star.z) * height + height/2;
-            const size = (1 - star.z / width) * 3;
-            if(x>0 && x<width && y>0 && y<height) {
-                ctx.globalAlpha = (1 - star.z / width); ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
-            }
+            star.z -= 2; if(star.z <= 0) { star.z = width; star.x = (Math.random()-0.5)*width; star.y = (Math.random()-0.5)*height; }
+            const x = (star.x / star.z) * width + width/2; const y = (star.y / star.z) * height + height/2; const size = (1 - star.z / width) * 3;
+            if(x>0 && x<width && y>0 && y<height) { ctx.globalAlpha = (1 - star.z / width); ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI*2); ctx.fill(); }
         });
         requestAnimationFrame(render);
     };
@@ -48,7 +34,7 @@ export default function AuthScreen({ onLogin }) {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden font-sans select-none">
       <canvas ref={canvasRef} className="absolute inset-0 z-0 opacity-60" />
-      <div className="w-full max-w-md bg-gray-900/60 backdrop-blur-xl p-10 rounded-3xl border border-white/10 relative z-10 transition-all duration-500 hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-[0_0_60px_rgba(37,99,235,0.2)] shadow-2xl group">
+      <div className="w-full max-w-md bg-gray-900/60 backdrop-blur-xl p-10 rounded-3xl border border-white/10 relative z-10 transition-all duration-500 hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-[0_0_60px_rgba(37,99,235,0.2)] shadow-2xl">
         <div className="text-center mb-8">
             {logoUrl ? <img src={logoUrl} className="h-24 mx-auto mb-6 object-contain drop-shadow-2xl animate-fadeIn"/> : <h2 className="text-5xl font-bold text-white mb-4 tracking-tighter">Prompt<span className="text-blue-600">Lab</span></h2>}
             <p className="text-gray-400 text-sm font-medium tracking-widest uppercase">{isRegister ? "Junte-se à revolução" : "Acesse o Futuro"}</p>
@@ -57,7 +43,7 @@ export default function AuthScreen({ onLogin }) {
           {isRegister && <div className="group/input"><input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Nome completo" /></div>}
           <div className="group/input"><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Seu e-mail" /></div>
           <div className="group/input"><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/40 border border-gray-700 rounded-xl p-4 text-white focus:border-blue-500 focus:bg-black/60 outline-none transition-all" placeholder="Sua senha" /></div>
-          <button type="submit" className="w-full bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/30 hover:shadow-blue-500/50 active:scale-95 uppercase tracking-widest text-xs mt-4">{isRegister ? "Iniciar Jornada" : "Entrar na Plataforma"}</button>
+          <button type="submit" className="w-full bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 uppercase tracking-widest text-xs mt-4">{isRegister ? "Iniciar Jornada" : "Entrar na Plataforma"}</button>
         </form>
         <button onClick={() => setIsRegister(!isRegister)} className="w-full text-center mt-8 text-xs text-gray-500 hover:text-white transition-colors">{isRegister ? "Já possui conta? Fazer Login" : "Ainda não tem conta? Criar agora"}</button>
       </div>

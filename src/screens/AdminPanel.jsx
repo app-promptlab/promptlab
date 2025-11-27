@@ -1,35 +1,26 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { supabase } from '../supabaseClient';
 import ImageUploader from '../components/ImageUploader';
-import { Shield, LayoutGrid, Play, Users, FileText, Settings, ChevronLeft, Plus, Edit3, Trash2, Images, ExternalLink } from 'lucide-react';
+import { Shield, LayoutGrid, Play, Users, FileText, Settings, ChevronLeft, Plus, Edit3, Trash2, Images } from 'lucide-react';
 import { ToastContext } from '../ToastContext';
 
 export default function AdminPanel({ updateSettings, settings }) {
   const [activeSection, setActiveSection] = useState('prompts');
   const [dataList, setDataList] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
-  
-  // Estado para controlar o "Nível Netflix" (Entrar na Série)
   const [selectedPack, setSelectedPack] = useState(null); 
   const [packPrompts, setPackPrompts] = useState([]); 
-  
   const { showToast } = useContext(ToastContext) || { showToast: alert };
 
-  // 1. BUSCA DE DADOS PRINCIPAIS
   const fetchData = async () => {
     let query;
     if (activeSection === 'users') query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
     if (activeSection === 'prompts') query = supabase.from('products').select('*').order('id', { ascending: true });
     if (activeSection === 'tutorials') query = supabase.from('tutorials_videos').select('*').order('id', { ascending: true });
     if (activeSection === 'news') query = supabase.from('news').select('*').order('id', { ascending: false });
-    
-    if (query) { 
-        const { data } = await query; 
-        setDataList(data || []); 
-    }
+    if (query) { const { data } = await query; setDataList(data || []); }
   };
 
-  // 2. BUSCA DOS "EPISÓDIOS" (PROMPTS) QUANDO ENTRA NO PACK
   const fetchPackPrompts = async (packId) => {
       const { data } = await supabase.from('pack_items').select('*').eq('pack_id', packId).order('created_at', { ascending: false });
       setPackPrompts(data || []);
@@ -37,219 +28,70 @@ export default function AdminPanel({ updateSettings, settings }) {
 
   useEffect(() => { fetchData(); setSelectedPack(null); }, [activeSection]);
 
-  // 3. FUNÇÃO SALVAR (INTELIGENTE)
   const handleSave = async (e) => {
       e.preventDefault();
-      
-      try {
-        // A. Salvando Configurações
-        if (activeSection === 'settings') {
-            await supabase.from('app_settings').update(editingItem).gt('id', 0);
-            updateSettings(editingItem); 
-            showToast('Configurações salvas!'); 
-            return;
-        }
-
-        // B. Salvando um PROMPT (Episódio) dentro de um Pack
-        if (selectedPack && activeSection === 'prompts') {
-            const payload = { ...editingItem, pack_id: selectedPack.id };
-            // Remove ID se for novo para o banco criar automático
-            if (!payload.id) delete payload.id; 
-
-            const { error } = await supabase.from('pack_items').upsert(payload).select();
-
-            if (error) throw error;
-            
-            showToast('Prompt salvo com sucesso!'); 
-            setEditingItem(null); 
-            fetchPackPrompts(selectedPack.id); 
-            return;
-        }
-
-        // C. Salvando Itens Principais (Pack, Usuario, Tutorial...)
-        let table = activeSection === 'users' ? 'profiles' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
-        let payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
-        
-        if (!payload.id) delete payload.id;
-
-        const { error } = await supabase.from(table).upsert(payload).select();
-        
-        if (error) throw error;
-
-        showToast('Item salvo com sucesso!'); 
-        setEditingItem(null); 
-        fetchData();
-
-      } catch (error) {
-          alert("Erro ao salvar: " + error.message);
+      if (activeSection === 'settings') { await supabase.from('app_settings').update(editingItem).gt('id', 0); updateSettings(editingItem); showToast('Configurações salvas!'); return; }
+      if (selectedPack && activeSection === 'prompts') {
+          const { error } = await supabase.from('pack_items').upsert({ ...editingItem, pack_id: selectedPack.id }).eq('id', editingItem.id || 0);
+          if (!error) { showToast('Prompt salvo!'); setEditingItem(null); fetchPackPrompts(selectedPack.id); } return;
       }
+      let table = activeSection === 'users' ? 'profiles' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
+      let payload = activeSection === 'users' ? { plan: editingItem.plan } : editingItem;
+      const { error } = await supabase.from(table).upsert(payload).eq('id', editingItem.id || 0);
+      if(!error) { showToast('Salvo!'); setEditingItem(null); fetchData(); }
   };
 
-  // 4. DELETAR
   const handleDelete = async (id, isPrompt = false) => {
-      if(!confirm('Tem certeza absoluta que deseja excluir?')) return;
+      if(!confirm('Tem certeza?')) return;
       let table = isPrompt ? 'pack_items' : activeSection === 'prompts' ? 'products' : activeSection === 'tutorials' ? 'tutorials_videos' : activeSection;
-      
-      const { error } = await supabase.from(table).delete().eq('id', id);
-      
-      if (error) {
-          alert("Erro ao deletar: " + error.message);
-      } else {
-          if(isPrompt && selectedPack) fetchPackPrompts(selectedPack.id);
-          else fetchData();
-          showToast('Item deletado.');
-      }
+      await supabase.from(table).delete().eq('id', id);
+      if(isPrompt && selectedPack) fetchPackPrompts(selectedPack.id); else fetchData();
   };
 
   return (
-    <div className="max-w-7xl mx-auto pb-20 animate-fadeIn px-6">
-      
-      {/* HEADER DO ADMIN */}
+    <div className="max-w-7xl mx-auto pb-20 animate-fadeIn px-6 pt-8">
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-800 pb-4 gap-4">
-          <div>
-              <h2 className="text-3xl font-bold text-white flex items-center">
-                  <Shield className="text-blue-600 mr-3" size={32}/> 
-                  Estúdio Admin
-              </h2>
-              <p className="text-gray-400">Gerencie seu conteúdo estilo Netflix.</p>
-          </div>
-          
-          {/* NAVEGAÇÃO DE ABAS */}
-          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">
-              {[
-                  { id: 'prompts', label: 'Séries (Packs)', icon: LayoutGrid },
-                  { id: 'tutorials', label: 'Tutoriais', icon: Play },
-                  { id: 'users', label: 'Usuários', icon: Users },
-                  { id: 'news', label: 'Blog/News', icon: FileText },
-                  { id: 'settings', label: 'Configurações', icon: Settings }
-              ].map(menu => (
-                  <button 
-                    key={menu.id} 
-                    onClick={() => { setActiveSection(menu.id); setEditingItem(menu.id === 'settings' ? settings : null); setSelectedPack(null); }} 
-                    className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap flex items-center transition-all ${activeSection === menu.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-                  >
-                      <menu.icon size={16} className="mr-2"/> {menu.label}
-                  </button>
-              ))}
-          </div>
+          <div><h2 className="text-3xl font-bold text-white flex items-center"><Shield className="text-blue-600 mr-3"/> Estúdio Admin</h2></div>
+          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">{['prompts', 'tutorials', 'users', 'news', 'settings'].map(id => (<button key={id} onClick={() => { setActiveSection(id); setEditingItem(id === 'settings' ? settings : null); setSelectedPack(null); }} className={`px-4 py-2 rounded-lg font-bold capitalize whitespace-nowrap ${activeSection === id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{id === 'prompts' ? 'Séries (Packs)' : id}</button>))}</div>
       </div>
 
-      {/* === ÁREA 1: CONFIGURAÇÕES (SETTINGS) === */}
       {activeSection === 'settings' && editingItem && (
-          <div className="bg-gray-900 p-8 rounded-2xl border border-gray-800 grid grid-cols-1 gap-8">
-              <h3 className="text-white font-bold text-xl border-l-4 border-blue-600 pl-3">Identidade Visual</h3>
+          <div className="bg-gray-900 p-8 rounded-2xl border border-gray-800 grid grid-cols-1 gap-6">
+              <h3 className="text-white font-bold text-xl">Visuais</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div><ImageUploader label="Logo do Menu (Pequena)" currentImage={editingItem.logo_menu_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_menu_url: url})} /></div>
-                  <div><ImageUploader label="Banner do Dashboard (Topo)" currentImage={editingItem.banner_url} onUploadComplete={(url) => setEditingItem({...editingItem, banner_url: url})} /></div>
-                  <div><ImageUploader label="Logo Principal (Com Slogan)" currentImage={editingItem.logo_header_url} onUploadComplete={(url) => setEditingItem({...editingItem, logo_header_url: url})} /></div>
+                  <div><ImageUploader label="Logo Menu" currentImage={editingItem.logo_menu_url} onUploadComplete={url=>setEditingItem({...editingItem,logo_menu_url:url})}/></div>
+                  <div><ImageUploader label="Banner Topo" currentImage={editingItem.banner_url} onUploadComplete={url=>setEditingItem({...editingItem,banner_url:url})}/></div>
+                  <div><ImageUploader label="Logo Header" currentImage={editingItem.logo_header_url} onUploadComplete={url=>setEditingItem({...editingItem,logo_header_url:url})}/></div>
               </div>
-              <div className="border-t border-gray-800 pt-6">
-                  <label className="text-gray-400 block mb-3 font-bold">Posição da Logo no Banner</label>
-                  <div className="flex gap-4">
-                      {['flex-start', 'center', 'flex-end'].map(pos => (
-                          <button key={pos} onClick={() => setEditingItem({...editingItem, logo_position: pos})} className={`px-6 py-3 rounded-lg border-2 font-bold transition-all ${editingItem.logo_position === pos ? 'bg-blue-600 border-blue-600 text-white' : 'bg-transparent border-gray-700 text-gray-500 hover:border-gray-500'}`}>
-                              {pos === 'flex-start' ? 'Esquerda' : pos === 'center' ? 'Centro' : 'Direita'}
-                          </button>
-                      ))}
-                  </div>
-              </div>
-              <button onClick={handleSave} className="bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-xl font-bold text-lg w-full md:w-auto self-end shadow-lg">Salvar Alterações</button>
+              <div><label className="text-gray-400 block mb-2">Posição</label><div className="flex gap-4">{['flex-start','center','flex-end'].map(pos=><button key={pos} onClick={()=>setEditingItem({...editingItem,logo_position:pos})} className={`px-4 py-2 rounded border ${editingItem.logo_position===pos?'bg-blue-600 border-blue-600 text-white':'bg-black border-gray-700 text-gray-400'}`}>{pos}</button>)}</div></div>
+              <button onClick={handleSave} className="bg-green-600 text-white px-8 py-3 rounded font-bold w-full">Salvar</button>
           </div>
       )}
 
-      {/* === ÁREA 2: PROMPTS (ESTILO NETFLIX) === */}
       {activeSection === 'prompts' && (
           selectedPack ? (
-              // --- DENTRO DA SÉRIE (GERENCIAR PROMPTS) ---
               <div className="animate-fadeIn">
-                  <button onClick={() => setSelectedPack(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold text-lg group">
-                      <ChevronLeft className="mr-2 group-hover:-translate-x-1 transition-transform"/> Voltar para Catálogo
-                  </button>
-                  
+                  <button onClick={() => setSelectedPack(null)} className="mb-6 text-gray-400 hover:text-white flex items-center font-bold text-lg"><ChevronLeft className="mr-2"/> Voltar</button>
                   <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-                      {/* Cabeçalho do Pack */}
-                      <div className="relative h-64 bg-gray-800">
-                          <img src={selectedPack.cover} className="w-full h-full object-cover opacity-40"/>
-                          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
-                          <div className="absolute bottom-8 left-8 right-8 flex justify-between items-end">
-                              <div>
-                                  <span className="text-blue-500 font-bold tracking-widest text-xs uppercase mb-2 block">EDITANDO SÉRIE</span>
-                                  <h2 className="text-4xl md:text-5xl font-black text-white mb-2">{selectedPack.title}</h2>
-                                  <p className="text-gray-300 max-w-xl">{selectedPack.description}</p>
+                      <div className="relative h-48 bg-gray-800"><img src={selectedPack.cover} className="w-full h-full object-cover opacity-40"/><div className="absolute bottom-6 left-8 right-8 flex justify-between items-end"><div><span className="text-blue-500 font-bold text-xs uppercase">SÉRIE</span><h2 className="text-4xl font-bold text-white">{selectedPack.title}</h2></div><button onClick={() => setEditingItem({ title: '', prompt: '', url: '', is_featured: false })} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center"><Plus size={20} className="mr-2"/> Adicionar Episódio</button></div></div>
+                      <div className="p-8 grid grid-cols-2 md:grid-cols-5 gap-4">
+                          {packPrompts.map(prompt => (
+                              <div key={prompt.id} className="bg-black border border-gray-800 rounded-xl overflow-hidden group relative aspect-square">
+                                  <img src={prompt.url} className="w-full h-full object-cover"/>
+                                  <div className="absolute inset-0 bg-black/80 hidden group-hover:flex flex-col items-center justify-center gap-2"><button onClick={()=>setEditingItem(prompt)} className="bg-blue-600 p-2 rounded-full text-white"><Edit3 size={18}/></button><button onClick={()=>handleDelete(prompt.id, true)} className="bg-red-600 p-2 rounded-full text-white"><Trash2 size={18}/></button></div>
                               </div>
-                              <button 
-                                onClick={() => setEditingItem({ title: '', prompt: '', url: '', is_featured: false })} 
-                                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg hover:scale-105 transition-transform"
-                              >
-                                  <Plus size={20} className="mr-2"/> Adicionar Episódio (Prompt)
-                              </button>
-                          </div>
-                      </div>
-
-                      {/* Lista de Episódios (Prompts) */}
-                      <div className="p-8">
-                          {packPrompts.length === 0 ? (
-                              <div className="text-center py-20 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl">
-                                  <Images size={48} className="mx-auto mb-4 opacity-20"/>
-                                  <p>Nenhum prompt adicionado nesta série ainda.</p>
-                              </div>
-                          ) : (
-                              <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-                                  {packPrompts.map(prompt => (
-                                      <div key={prompt.id} className="bg-black border border-gray-800 rounded-xl overflow-hidden group hover:border-blue-600 transition-all relative">
-                                          <div className="aspect-[3/4] relative">
-                                              <img src={prompt.url} className="w-full h-full object-cover"/>
-                                              {/* Overlay de Ações */}
-                                              <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-                                                  <button onClick={() => setEditingItem(prompt)} className="bg-blue-600 text-white p-2 rounded-full hover:scale-110 transition-transform"><Edit3 size={18}/></button>
-                                                  <button onClick={() => handleDelete(prompt.id, true)} className="bg-red-600 text-white p-2 rounded-full hover:scale-110 transition-transform"><Trash2 size={18}/></button>
-                                              </div>
-                                          </div>
-                                          <div className="p-4">
-                                              <h4 className="text-white font-bold truncate text-sm">{prompt.title || 'Sem Título'}</h4>
-                                              {prompt.is_featured && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded mt-1 inline-block font-bold">DESTAQUE</span>}
-                                          </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          )}
+                          ))}
                       </div>
                   </div>
               </div>
           ) : (
-              // --- CATÁLOGO DE PACKS (SÉRIES) ---
               <div className="animate-fadeIn">
-                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl text-white font-bold">Catálogo de Séries (Packs)</h3>
-                    <button 
-                        onClick={() => setEditingItem({ title: '', description: '', price: 'R$ 0,00', cover: '', checkout_url: '' })} 
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg hover:shadow-blue-900/40 transition-all"
-                    >
-                        <Plus size={20} className="mr-2"/> Nova Série
-                    </button>
-                 </div>
-                 
+                 <div className="flex justify-between items-center mb-6"><h3 className="text-xl text-white font-bold">Catálogo de Séries</h3><button onClick={() => setEditingItem({ title: '', description: '', price: 'R$ 0,00', cover: '', checkout_url: '' })} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center"><Plus size={20} className="mr-2"/> Nova Série</button></div>
                  <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                      {dataList.map(pack => (
-                         <div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:shadow-2xl hover:shadow-blue-900/20 transition-all group relative cursor-pointer" onClick={() => { setSelectedPack(pack); fetchPackPrompts(pack.id); }}>
-                             {/* Capa */}
-                             <div className="aspect-[2/3] relative">
-                                 <img src={pack.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
-                                 <div className="absolute bottom-4 left-4 right-4">
-                                     <h4 className="text-white font-bold leading-tight mb-1 truncate">{pack.title}</h4>
-                                     <p className="text-blue-400 text-xs font-bold">{pack.price}</p>
-                                 </div>
-                                 <div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-                                     <span className="bg-white text-black px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wide">Gerenciar Episódios</span>
-                                 </div>
-                             </div>
-                             
-                             {/* Botões Rápidos */}
-                             <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                 <button onClick={(e) => {e.stopPropagation(); setEditingItem(pack);}} className="bg-black/80 text-blue-400 p-2 rounded-lg hover:text-white"><Edit3 size={16}/></button>
-                                 <button onClick={(e) => {e.stopPropagation(); handleDelete(pack.id);}} className="bg-black/80 text-red-500 p-2 rounded-lg hover:text-white"><Trash2 size={16}/></button>
-                             </div>
+                         <div key={pack.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:shadow-lg transition-all group relative cursor-pointer" onClick={() => { setSelectedPack(pack); fetchPackPrompts(pack.id); }}>
+                             <div className="aspect-[2/3] relative"><img src={pack.cover} className="w-full h-full object-cover"/><div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="bg-white text-black px-3 py-1 rounded font-bold text-xs">Gerenciar</span></div></div>
+                             <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100"><button onClick={(e)=>{e.stopPropagation();setEditingItem(pack)}} className="bg-black/80 text-blue-400 p-1.5 rounded"><Edit3 size={14}/></button><button onClick={(e)=>{e.stopPropagation();handleDelete(pack.id)}} className="bg-black/80 text-red-500 p-1.5 rounded"><Trash2 size={14}/></button></div>
                          </div>
                      ))}
                  </div>
@@ -257,136 +99,30 @@ export default function AdminPanel({ updateSettings, settings }) {
           )
       )}
 
-      {/* === ÁREA 3: LISTAS COMUNS (USUÁRIOS, TUTORIAIS, NEWS) === */}
       {activeSection !== 'settings' && activeSection !== 'prompts' && (
           <div className="animate-fadeIn">
-            {activeSection !== 'users' && (
-                <div className="mb-6 flex justify-end">
-                    <button 
-                        onClick={() => setEditingItem({})} 
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center shadow-lg"
-                    >
-                        <Plus size={20} className="mr-2"/> Adicionar Novo
-                    </button>
+            {activeSection !== 'users' && <div className="mb-6 flex justify-end"><button onClick={() => setEditingItem({})} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center"><Plus size={20} className="mr-2"/> Adicionar Novo</button></div>}
+            {editingItem && !selectedPack && (
+                <div className="bg-gray-900 p-6 rounded-xl border border-blue-500 mb-8">
+                    <h3 className="text-white font-bold mb-4">Editor</h3>
+                    <form onSubmit={handleSave} className="grid grid-cols-1 gap-4">
+                        {activeSection === 'users' && <select className="bg-black border border-gray-700 p-3 rounded text-white" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}><option value="free">Free</option><option value="pro">Pro</option><option value="gold">Gold</option><option value="admin">Admin</option></select>}
+                        {(activeSection === 'prompts' || activeSection === 'tutorials' || activeSection === 'news' || selectedPack) && (
+                            Object.keys(editingItem).map(key => {
+                                if(key === 'id' || key === 'created_at' || key === 'pack_id' || key === 'is_featured') return null;
+                                if(key === 'cover' || key === 'image' || key === 'thumbnail' || key === 'url') return <div key={key}><ImageUploader label={key} currentImage={editingItem[key]} onUploadComplete={(url) => setEditingItem({...editingItem, [key]: url})} /></div>
+                                return <div key={key}><label className="text-gray-500 text-xs uppercase font-bold mb-1 block">{key}</label><input type="text" className="w-full bg-black border border-gray-700 p-3 rounded text-white" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
+                            })
+                        )}
+                        <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setEditingItem(null)} className="text-gray-500 font-bold">Cancelar</button><button type="submit" className="bg-green-600 text-white px-6 py-2 rounded font-bold">Salvar</button></div>
+                    </form>
                 </div>
             )}
-
-            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden shadow-xl">
-                <table className="w-full text-left text-sm text-gray-400">
-                    <thead className="bg-black text-xs uppercase font-bold tracking-wider text-gray-500">
-                        <tr><th className="p-6">Item / Informação</th><th className="p-6">Detalhes</th><th className="p-6 text-right">Ações</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                        {dataList.map(item => (
-                            <tr key={item.id} className="hover:bg-gray-800/50 transition-colors">
-                                <td className="p-6">
-                                    {activeSection === 'users' ? (
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-blue-900/50 flex items-center justify-center text-blue-400 font-bold">{item.name?.charAt(0).toUpperCase()}</div>
-                                            <div><span className="text-white font-bold block">{item.name}</span><span className="text-xs">{item.email}</span></div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-4">
-                                            {(item.thumbnail || item.image) && <img src={item.thumbnail || item.image} className="w-16 h-10 object-cover rounded bg-black"/>}
-                                            <span className="text-white font-medium">{item.title || item.id}</span>
-                                        </div>
-                                    )}
-                                </td>
-                                <td className="p-6">
-                                    {activeSection === 'users' ? (
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1 text-xs text-gray-400">
-                                                {item.phone || 'Telefone não cadastrado'}
-                                            </div>
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${item.plan === 'admin' ? 'bg-red-900/30 border-red-500/50 text-red-400' : 'bg-green-900/30 border-green-500/50 text-green-400'}`}>
-                                                {item.plan}
-                                            </span>
-                                        </div>
-                                    ) : (item.video_url || item.date)}
-                                </td>
-                                <td className="p-6 text-right">
-                                    <button onClick={() => setEditingItem(item)} className="text-blue-500 hover:text-white bg-blue-500/10 p-2 rounded-lg mr-2 transition-colors"><Edit3 size={18}/></button>
-                                    {activeSection !== 'users' && <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-white bg-red-500/10 p-2 rounded-lg transition-colors"><Trash2 size={18}/></button>}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
+            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+                <table className="w-full text-left text-sm text-gray-400"><thead className="bg-black text-xs uppercase font-bold"><tr><th className="p-4">Info</th><th className="p-4">Detalhes</th><th className="p-4 text-right">Ações</th></tr></thead>
+                    <tbody className="divide-y divide-gray-800">{dataList.map(item => (<tr key={item.id} className="hover:bg-gray-800/50"><td className="p-4">{activeSection === 'users' ? item.name : item.title}</td><td className="p-4">{activeSection === 'users' ? item.plan : (item.video_url || item.date)}</td><td className="p-4 text-right"><button onClick={() => setEditingItem(item)} className="text-blue-400 mr-3"><Edit3 size={16}/></button>{activeSection !== 'users' && <button onClick={() => handleDelete(item.id)} className="text-red-500"><Trash2 size={16}/></button>}</td></tr>))}</tbody>
                 </table>
             </div>
-          </div>
-      )}
-
-      {/* === MODAL DE EDIÇÃO (OVERLAY) === */}
-      {editingItem && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-              <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden">
-                  <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-800/50">
-                      <h3 className="text-xl font-bold text-white">
-                          {activeSection === 'prompts' && selectedPack ? 'Editar Episódio' : activeSection === 'prompts' ? 'Editar Série' : 'Editar Registro'}
-                      </h3>
-                      <button onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-white"><X/></button>
-                  </div>
-                  
-                  <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                      <form onSubmit={handleSave} className="space-y-6">
-                          
-                          {/* FORM: USUÁRIOS */}
-                          {activeSection === 'users' && (
-                              <div>
-                                  <label className="block text-gray-400 text-sm font-bold mb-2">Plano de Acesso</label>
-                                  <select className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white focus:border-blue-600 outline-none" value={editingItem.plan || 'free'} onChange={e => setEditingItem({...editingItem, plan: e.target.value})}>
-                                      <option value="free">Free</option><option value="pro">Pro</option><option value="gold">Gold</option><option value="admin">Admin</option>
-                                  </select>
-                              </div>
-                          )}
-
-                          {/* FORM: SÉRIE (PACK) */}
-                          {activeSection === 'prompts' && !selectedPack && (
-                              <>
-                                  <ImageUploader label="Capa da Série (Poster)" currentImage={editingItem.cover} onUploadComplete={(url) => setEditingItem({...editingItem, cover: url})} />
-                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Título da Série</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} placeholder="Ex: Cyberpunk Girls"/></div>
-                                  <div className="grid grid-cols-2 gap-4">
-                                      <div><label className="block text-gray-400 text-sm font-bold mb-2">Preço</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})} placeholder="Ex: R$ 29,90"/></div>
-                                      <div><label className="block text-gray-400 text-sm font-bold mb-2">Link Checkout</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})} placeholder="https://kiwify..."/></div>
-                                  </div>
-                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Descrição (Sinopse)</label><textarea className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white h-24" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div>
-                              </>
-                          )}
-
-                          {/* FORM: EPISÓDIO (PROMPT) */}
-                          {activeSection === 'prompts' && selectedPack && (
-                              <>
-                                  <ImageUploader label="Imagem Gerada (Thumbnail)" currentImage={editingItem.url} onUploadComplete={(url) => setEditingItem({...editingItem, url: url})} />
-                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">Título do Episódio</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} placeholder="Ex: Retrato Neon"/></div>
-                                  <div><label className="block text-gray-400 text-sm font-bold mb-2">O Prompt (Script)</label><textarea className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white h-40 font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})} placeholder="/imagine..."/></div>
-                                  <label className="flex items-center gap-3 p-4 bg-black/30 rounded-xl border border-gray-700 cursor-pointer">
-                                      <input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})} className="w-5 h-5 accent-blue-600"/>
-                                      <span className="text-white font-bold">Destacar no Dashboard (Carrossel)</span>
-                                  </label>
-                              </>
-                          )}
-
-                          {/* FORM: GENÉRICO (TUTORIAIS/NEWS) */}
-                          {(activeSection === 'tutorials' || activeSection === 'news') && (
-                              Object.keys(editingItem).map(key => {
-                                  if(['id','created_at','pack_id','is_featured'].includes(key)) return null;
-                                  if(['thumbnail','image','cover'].includes(key)) return <ImageUploader key={key} label={key.toUpperCase()} currentImage={editingItem[key]} onUploadComplete={(url) => setEditingItem({...editingItem, [key]: url})} />;
-                                  return <div key={key}><label className="block text-gray-400 text-sm font-bold mb-2 uppercase">{key}</label><input type="text" className="w-full bg-black border border-gray-700 p-4 rounded-xl text-white" value={editingItem[key] || ''} onChange={e => setEditingItem({...editingItem, [key]: e.target.value})}/></div>
-                              })
-                          )}
-                          
-                          {/* BOTÃO SALVAR DE Destaque (Tutorials) */}
-                          {(activeSection === 'tutorials') && (
-                               <label className="flex items-center gap-3 p-4 bg-black/30 rounded-xl border border-gray-700 cursor-pointer"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})} className="w-5 h-5 accent-blue-600"/><span className="text-white font-bold">Destacar no Dashboard</span></label>
-                          )}
-
-                          <div className="flex justify-end gap-4 pt-4">
-                              <button type="button" onClick={() => setEditingItem(null)} className="px-6 py-3 rounded-xl font-bold text-gray-400 hover:bg-gray-800">Cancelar</button>
-                              <button type="submit" className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg">Salvar Tudo</button>
-                          </div>
-                      </form>
-                  </div>
-              </div>
           </div>
       )}
     </div>
