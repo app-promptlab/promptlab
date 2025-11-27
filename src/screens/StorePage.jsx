@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Images } from 'lucide-react'; // <--- ADICIONADO Images AQUI
+import { ShoppingBag, Images } from 'lucide-react'; // <--- CORREÇÃO AQUI
 
 export default function StorePage({ packs, onPurchase }) {
     return (
@@ -7,7 +7,7 @@ export default function StorePage({ packs, onPurchase }) {
              <h2 className="text-3xl font-bold text-white mb-8">Loja Oficial</h2>
              
              {/* Destaque de Geradores */}
-             <div className="mb-12 bg-gradient-to-r from-gray-900 to-black border border-blue-900/30 rounded-2xl p-8 flex items-center justify-between relative overflow-hidden">
+             <div className="mb-12 bg-gradient-to-r from-gray-900 to-black border border-blue-900/30 rounded-2xl p-8 flex items-center justify-between relative overflow-hidden shadow-2xl">
                 <div className="z-10">
                     <h3 className="text-2xl font-bold text-white mb-2">Acesso Creator Vitalício</h3>
                     <p className="text-gray-400 max-w-md mb-6">Desbloqueie todos os geradores e ferramentas de IA da plataforma com um único pagamento.</p>
