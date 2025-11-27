@@ -7,7 +7,7 @@ import { ToastContext } from './ToastContext';
 import Sidebar from './components/Sidebar'; 
 import AuthScreen from './components/AuthScreen';
 
-// Páginas (Screens)
+// Páginas (Screens) - IMPORTANTE: Os nomes aqui devem bater com os arquivos na pasta src/screens
 import Dashboard from './screens/Dashboard.jsx';
 import PromptsGallery from './screens/PromptsGallery.jsx';
 import StorePage from './screens/StorePage.jsx';
