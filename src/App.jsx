@@ -3,17 +3,17 @@ import { Loader2, Check } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { ToastContext } from './ToastContext';
 
-// Componentes (Maiúsculo igual ao seu print)
+// Componentes (Da pasta components)
 import Sidebar from './components/Sidebar'; 
 import AuthScreen from './components/AuthScreen';
 
-// Telas (Maiúsculo igual ao seu print e na pasta 'screens')
-import Dashboard from './screens/Dashboard';
-import PromptsGallery from './screens/PromptsGallery';
-import StorePage from './screens/StorePage';
-import TutorialsPage from './screens/TutorialsPage';
-import AdminPanel from './screens/AdminPanel';
-import Profile from './screens/Profile';
+// --- CORREÇÃO FINAL: Pasta 'screens', Letra Maiúscula e extensão .jsx ---
+import Dashboard from './screens/Dashboard.jsx';
+import PromptsGallery from './screens/PromptsGallery.jsx';
+import StorePage from './screens/StorePage.jsx';
+import TutorialsPage from './screens/TutorialsPage.jsx';
+import AdminPanel from './screens/AdminPanel.jsx';
+import Profile from './screens/Profile.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null); 
