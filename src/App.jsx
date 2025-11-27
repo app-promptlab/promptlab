@@ -3,10 +3,11 @@ import { Loader2, Check } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { ToastContext } from './ToastContext';
 
+// Componentes
 import Sidebar from './components/Sidebar'; 
 import AuthScreen from './components/AuthScreen';
 
-// Imports MAIÚSCULOS da pasta screens
+// Páginas (Screens)
 import Dashboard from './screens/Dashboard.jsx';
 import PromptsGallery from './screens/PromptsGallery.jsx';
 import StorePage from './screens/StorePage.jsx';
@@ -49,8 +50,10 @@ export default function App() {
     try {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
         const { data: purchases } = await supabase.from('user_purchases').select('product_id').eq('user_id', userId);
+        
         const MEU_EMAIL = "app.promptlab@gmail.com"; 
         const finalPlan = (email === MEU_EMAIL) ? 'admin' : (profile?.plan || 'free');
+
         setUser({ ...profile, email, plan: finalPlan, access: purchases ? purchases.map(p => p.product_id) : [] });
     } catch (error) { console.error(error); setUser(null); } finally { setLoading(false); }
   };
@@ -71,7 +74,10 @@ export default function App() {
     if (checkoutUrl) { window.open(checkoutUrl, '_blank'); return; }
     if (window.confirm(`Confirmar compra?`)) {
       const { error } = await supabase.from('user_purchases').insert({ user_id: user.id, product_id: productId });
-      if (!error) { setUser(prev => ({ ...prev, access: [...prev.access, productId] })); showToast("Compra realizada!"); }
+      if (!error) { 
+          setUser(prev => ({ ...prev, access: [...prev.access, productId] })); 
+          showToast("Compra realizada!"); 
+      }
     }
   };
 
@@ -85,25 +91,43 @@ export default function App() {
       case 'dashboard': return <Dashboard user={user} settings={appSettings} changeTab={setActiveTab} />;
       case 'prompts': return <PromptsGallery user={user} />;
       case 'tutorials': return <TutorialsPage />;
-      case 'loja': return <StorePage packs={packs} onPurchase={handlePurchase} />;
+      case 'loja': return <StorePage packs={[]} onPurchase={handlePurchase} />;
       case 'admin': return isAdmin ? <AdminPanel updateSettings={(s) => setAppSettings(prev => ({...prev, ...s}))} settings={appSettings} /> : null;
       case 'profile': return <Profile user={user} setUser={setUser} />;
+      case 'favorites': return <div className="text-white p-10 text-center">Favoritos em breve...</div>;
+      case 'generator': return <div className="text-white p-10 text-center">Geradores em breve...</div>;
       default: return <Dashboard user={user} settings={appSettings} changeTab={setActiveTab} />;
     }
   };
   
-  const [packs, setPacks] = useState([]);
-  useEffect(() => { supabase.from('products').select('*').then(({data}) => setPacks(data || [])); }, []);
-
   return (
     <ToastContext.Provider value={{ showToast }}>
         <div className="flex h-screen bg-black text-gray-100 font-sans overflow-hidden">
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} sidebarMinimized={sidebarMinimized} setSidebarMinimized={setSidebarMinimized} appSettings={appSettings} isAdmin={isAdmin} onLogout={handleLogout} />
+        <Sidebar 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            sidebarOpen={sidebarOpen} 
+            setSidebarOpen={setSidebarOpen} 
+            sidebarMinimized={sidebarMinimized}
+            setSidebarMinimized={setSidebarMinimized}
+            appSettings={appSettings}
+            isAdmin={isAdmin}
+            onLogout={handleLogout}
+        />
+        
         <div className={`flex-1 flex flex-col min-w-0 overflow-hidden bg-black transition-all duration-300 ${sidebarMinimized ? 'md:ml-24' : 'md:ml-64'}`}>
-            <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 pb-24 md:pb-0">{renderContent()}</main>
+            <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 pb-24 md:pb-0">
+            {renderContent()}
+            </main>
         </div>
         </div>
-        {toast && (<div className="fixed top-4 right-4 z-[200] bg-gray-900/90 backdrop-blur-md border border-blue-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center animate-fadeIn"><div className="bg-blue-500 rounded-full p-1 mr-3"><Check size={14} /></div><span className="font-medium">{toast.message}</span></div>)}
+        
+        {toast && (
+            <div className="fixed top-4 right-4 z-[200] bg-gray-900/90 backdrop-blur-md border border-blue-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center animate-fadeIn">
+                <div className="bg-blue-500 rounded-full p-1 mr-3"><Check size={14} /></div>
+                <span className="font-medium">{toast.message}</span>
+            </div>
+        )}
     </ToastContext.Provider>
   );
 }
