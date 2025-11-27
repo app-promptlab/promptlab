@@ -1,7 +1,7 @@
+// src/supabaseClient.js
 import { createClient } from '@supabase/supabase-js';
 
-// Estas variáveis precisam estar configuradas no Coolify (Environment Variables)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseKey);
