@@ -3,17 +3,17 @@ import { Loader2, Check } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { ToastContext } from './ToastContext';
 
-// Componentes (Pastas components mantemos como está)
-import Sidebar from './components/Sidebar';
+// Componentes (Maiúsculo igual ao seu print)
+import Sidebar from './components/Sidebar'; 
 import AuthScreen from './components/AuthScreen';
 
-// --- MUDANÇA CRÍTICA: Imports tudo em minúsculo ---
-import Dashboard from './views/dashboard.jsx';
-import PromptsGallery from './views/promptsgallery.jsx';
-import StorePage from './views/storepage.jsx';
-import TutorialsPage from './views/tutorialspage.jsx';
-import AdminPanel from './views/adminpanel.jsx';
-import Profile from './views/profile.jsx';
+// Telas (Maiúsculo igual ao seu print e na pasta 'screens')
+import Dashboard from './screens/Dashboard';
+import PromptsGallery from './screens/PromptsGallery';
+import StorePage from './screens/StorePage';
+import TutorialsPage from './screens/TutorialsPage';
+import AdminPanel from './screens/AdminPanel';
+import Profile from './screens/Profile';
 
 export default function App() {
   const [user, setUser] = useState(null); 
