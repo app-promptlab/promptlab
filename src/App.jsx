@@ -3,17 +3,17 @@ import { Loader2, Check } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { ToastContext } from './ToastContext';
 
-// Importa os Componentes (Lego)
+// Importa os Componentes
 import Sidebar from './components/Sidebar';
 import AuthScreen from './components/AuthScreen';
 
-// Importa as Páginas (COM .JSX PARA EVITAR ERRO DE DEPLOY)
-import Dashboard from './pages/Dashboard.jsx';
-import PromptsGallery from './pages/PromptsGallery.jsx';
-import StorePage from './pages/StorePage.jsx';
-import TutorialsPage from './pages/TutorialsPage.jsx';
-import AdminPanel from './pages/AdminPanel.jsx';
-import Profile from './pages/Profile.jsx';
+// --- MUDANÇA AQUI: Importando da pasta 'views' ---
+import Dashboard from './views/Dashboard.jsx';
+import PromptsGallery from './views/PromptsGallery.jsx';
+import StorePage from './views/StorePage.jsx';
+import TutorialsPage from './views/TutorialsPage.jsx';
+import AdminPanel from './views/AdminPanel.jsx';
+import Profile from './views/Profile.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null); 
@@ -29,7 +29,6 @@ export default function App() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Carrega configurações visuais
   useEffect(() => {
     const fetchSettings = async () => {
         const { data } = await supabase.from('app_settings').select().single();
@@ -38,7 +37,6 @@ export default function App() {
     fetchSettings();
   }, []);
 
-  // Verifica Login
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -53,7 +51,6 @@ export default function App() {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
         const { data: purchases } = await supabase.from('user_purchases').select('product_id').eq('user_id', userId);
         
-        // EMAIL ADMIN
         const MEU_EMAIL = "app.promptlab@gmail.com"; 
         const finalPlan = (email === MEU_EMAIL) ? 'admin' : (profile?.plan || 'free');
 
@@ -123,7 +120,6 @@ export default function App() {
         </div>
         </div>
         
-        {/* Notificação Toast */}
         {toast && (
             <div className="fixed top-4 right-4 z-[200] bg-gray-900/90 backdrop-blur-md border border-blue-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center animate-fadeIn">
                 <div className="bg-blue-500 rounded-full p-1 mr-3"><Check size={14} /></div>
