@@ -1,3 +1,6 @@
+import React, { useState, useEffect, useContext } from 'react';
+import { ToastContext } from '../ToastContext'; 
+// ... resto dos imports
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import ImageUploader from '../components/ImageUploader';

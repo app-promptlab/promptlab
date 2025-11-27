@@ -1,9 +1,13 @@
+import React, { useState, useEffect, useContext } from 'react';
+import { ToastContext } from '../ToastContext';
+// ...
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Heart, Copy, Sparkles, ChevronRight } from 'lucide-react';
 import Modal from '../components/Modal';
 
 export default function PromptsGallery({ user, onPurchase }) {
+    const { showToast } = useContext(ToastContext) || { showToast: alert };
     const [prompts, setPrompts] = useState([]);
     const [packs, setPacks] = useState([]);
     const [modalItem, setModalItem] = useState(null);

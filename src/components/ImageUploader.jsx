@@ -1,15 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; // Importar useContext
 import { Loader2, UploadCloud } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
-
-// Precisamos instanciar o supabase aqui também ou passar via props. 
-// Para simplificar, vou instanciar, mas idealmente passaria via contexto.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from '../supabaseClient';
+import { ToastContext } from '../ToastContext'; // Importar o Contexto
 
 export default function ImageUploader({ currentImage, onUploadComplete, label, compact = false }) {
   const [uploading, setUploading] = useState(false);
+  const { showToast } = useContext(ToastContext) || { showToast: alert }; // Usar o contexto
 
   const uploadImage = async (event) => {
     try {
@@ -24,6 +20,7 @@ export default function ImageUploader({ currentImage, onUploadComplete, label, c
       
       const { data } = supabase.storage.from('uploads').getPublicUrl(fileName);
       onUploadComplete(data.publicUrl);
+      showToast("Imagem enviada!");
       
     } catch (error) { 
         alert('Erro: ' + error.message); 

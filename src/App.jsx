@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react'; // Adicionei o Check aqui que faltava
 import { supabase } from './supabaseClient';
+import { ToastContext } from './ToastContext'; // <--- IMPORTANTE
 
-// Importa os Componentes (Lego)
+// Importa os Componentes
 import Sidebar from './components/Sidebar';
 import AuthScreen from './components/AuthScreen';
 
-// Importa as Páginas (Salas do Castelo)
+// Importa as Páginas
 import Dashboard from './pages/Dashboard';
 import PromptsGallery from './pages/PromptsGallery';
 import StorePage from './pages/StorePage';
@@ -21,8 +22,13 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
   const [appSettings, setAppSettings] = useState({ logo_menu_url: '', banner_url: '', logo_header_url: '', logo_position: 'center' }); 
+  const [toast, setToast] = useState(null);
 
-  // Carrega configurações visuais
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   useEffect(() => {
     const fetchSettings = async () => {
         const { data } = await supabase.from('app_settings').select().single();
@@ -31,7 +37,6 @@ export default function App() {
     fetchSettings();
   }, []);
 
-  // Verifica Login
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -71,7 +76,7 @@ export default function App() {
       const { error } = await supabase.from('user_purchases').insert({ user_id: user.id, product_id: productId });
       if (!error) { 
           setUser(prev => ({ ...prev, access: [...prev.access, productId] })); 
-          alert("Compra realizada!"); 
+          showToast("Compra realizada!"); 
       }
     }
   };
@@ -89,29 +94,41 @@ export default function App() {
       case 'loja': return <StorePage onPurchase={handlePurchase} />;
       case 'admin': return isAdmin ? <AdminPanel updateSettings={(s) => setAppSettings(prev => ({...prev, ...s}))} settings={appSettings} /> : null;
       case 'profile': return <Profile user={user} setUser={setUser} />;
-      default: return <div className="text-white p-10 text-center">Em breve...</div>;
+      case 'favorites': return <div className="text-white p-10 text-center">Favoritos em breve...</div>;
+      case 'generator': return <div className="text-white p-10 text-center">Geradores em breve...</div>;
+      default: return <Dashboard user={user} settings={appSettings} changeTab={setActiveTab} />;
     }
   };
 
   return (
-    <div className="flex h-screen bg-black text-gray-100 font-sans overflow-hidden">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        sidebarOpen={sidebarOpen} 
-        setSidebarOpen={setSidebarOpen} 
-        sidebarMinimized={sidebarMinimized}
-        setSidebarMinimized={setSidebarMinimized}
-        appSettings={appSettings}
-        isAdmin={isAdmin}
-        onLogout={handleLogout}
-      />
-      
-      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden bg-black transition-all duration-300 ${sidebarMinimized ? 'md:ml-24' : 'md:ml-64'}`}>
-        <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 pb-24 md:pb-0">
-          {renderContent()}
-        </main>
-      </div>
-    </div>
+    <ToastContext.Provider value={{ showToast }}>
+        <div className="flex h-screen bg-black text-gray-100 font-sans overflow-hidden">
+        <Sidebar 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            sidebarOpen={sidebarOpen} 
+            setSidebarOpen={setSidebarOpen} 
+            sidebarMinimized={sidebarMinimized}
+            setSidebarMinimized={setSidebarMinimized}
+            appSettings={appSettings}
+            isAdmin={isAdmin}
+            onLogout={handleLogout}
+        />
+        
+        <div className={`flex-1 flex flex-col min-w-0 overflow-hidden bg-black transition-all duration-300 ${sidebarMinimized ? 'md:ml-24' : 'md:ml-64'}`}>
+            <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 pb-24 md:pb-0">
+            {renderContent()}
+            </main>
+        </div>
+        </div>
+        
+        {/* Notificação Flutuante */}
+        {toast && (
+            <div className="fixed top-4 right-4 z-[200] bg-gray-900/90 backdrop-blur-md border border-blue-500 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center animate-fadeIn">
+                <div className="bg-blue-500 rounded-full p-1 mr-3"><Check size={14} /></div>
+                <span className="font-medium">{toast.message}</span>
+            </div>
+        )}
+    </ToastContext.Provider>
   );
 }
