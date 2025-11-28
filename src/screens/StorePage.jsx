@@ -1,6 +1,5 @@
 import React from 'react';
-// CORREÇÃO: Adicionei 'Images' aqui na lista de imports
-import { ShoppingBag, Images } from 'lucide-react'; 
+import { ShoppingBag, Images } from 'lucide-react'; // <--- O ícone Images foi adicionado aqui
 
 export default function StorePage({ packs, onPurchase }) {
     return (
