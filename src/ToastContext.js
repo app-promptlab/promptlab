@@ -1,2 +1,6 @@
 import { createContext } from 'react';
-export const ToastContext = createContext(null);
+
+// Cria o contexto com valor inicial nulo para evitar crash
+export const ToastContext = createContext({
+  showToast: (msg) => console.log(msg), 
+});
