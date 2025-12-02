@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Heart, Copy, Sparkles, ChevronLeft, Crown } from 'lucide-react';
 import Modal from '../components/Modal';
-import DynamicPage from '../components/DynamicPage'; // Importar wrapper
+import DynamicPage from '../components/DynamicPage'; // Wrapper que desenha o header/blocos
 
+// LockedCard (Visual limpo)
 const LockedCard = ({ item }) => (
   <div className="relative w-full h-full overflow-hidden rounded-xl bg-black/50 group">
     <img src={item.url} className="absolute inset-0 w-full h-full object-cover filter blur-lg opacity-40 scale-110" alt="Locked"/>
@@ -55,9 +56,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
   const isPro = user?.plan === 'pro' || user?.plan === 'admin';
 
-  // WRAPPER: Se for a galeria normal, usa DynamicPage ('prompts'). Se for favoritos, não usa header.
+  // Conteúdo da Galeria (Packs + Feed)
   const Content = (
     <div className="max-w-[1600px] mx-auto px-4 pb-20 pt-8">
+      {/* Seção Packs */}
       {!onlyFavorites && (
         <div className="mb-10">
             <div className="flex items-center justify-between mb-4 border-l-4 border-blue-600 pl-4">
@@ -76,6 +78,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
         </div>
       )}
 
+      {/* Seção Feed */}
       <div>
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center">{onlyFavorites ? 'Meus Favoritos' : (selectedPack ? selectedPack.title : 'Feed de Prompts')}</h2>
         {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center">Nenhum favorito.</div>}
@@ -99,7 +102,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     </div>
   );
 
-  // Se for Favoritos, renderiza direto. Se for Prompts, embrulha no DynamicPage.
+  // Se for Favoritos, retorna direto. Se for Prompts, envolve no DynamicPage para ter Header/Banners.
   if (onlyFavorites) return Content;
   return <DynamicPage pageId="prompts">{Content}</DynamicPage>;
 }
