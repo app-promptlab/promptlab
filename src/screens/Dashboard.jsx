@@ -1,62 +1,97 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // <--- Note os dois pontos
-import Hero from '../components/Hero';       // <--- Note os dois pontos
-import Row from '../components/Row';         // <--- Note os dois pontos
-import { Zap, Images, Search, ShoppingBag, FileText, Play } from 'lucide-react';
+import { supabase } from '../supabaseClient';
+import Row from '../components/Row';
+import { Zap, Loader2 } from 'lucide-react';
 
-export default function Dashboard({ user, settings, changeTab }) {
-  const [featuredPrompts, setFeaturedPrompts] = useState([]);
-  const [featuredTutorials, setFeaturedTutorials] = useState([]);
+export default function Dashboard({ user, changeTab }) {
+  const [loading, setLoading] = useState(true);
   const [news, setNews] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [trending, setTrending] = useState([]);
 
   useEffect(() => {
-      if (!user) return;
-      supabase.from('pack_items').select('*').eq('is_featured', true).limit(10).then(({data}) => setFeaturedPrompts(data || []));
-      supabase.from('tutorials_videos').select('*').eq('is_featured', true).limit(10).then(({data}) => setFeaturedTutorials(data || []));
-      supabase.from('news').select('*').limit(2).order('id', {ascending:false}).then(({data}) => setNews(data || []));
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // 1. Carregar Novidades (Tabela news)
+        const { data: newsData } = await supabase.from('news').select('*').limit(5);
+        
+        // 2. Carregar Favoritos (Join com pack_items)
+        // Nota: O supabase retorna data.item como um objeto
+        const { data: favData } = await supabase
+          .from('user_favorites')
+          .select('*, item:pack_items(*)')
+          .eq('user_id', user.id);
+        
+        // Mapear para extrair apenas o item de dentro do favorito
+        const formattedFavs = favData?.map(f => f.item) || [];
+
+        // 3. Carregar "Mais Curtidos" (Usando Featured como base por enquanto)
+        const { data: trendData } = await supabase
+          .from('pack_items')
+          .select('*')
+          .eq('is_featured', true)
+          .limit(10);
+
+        setNews(newsData || []);
+        setFavorites(formattedFavs);
+        setTrending(trendData || []);
+
+      } catch (error) {
+        console.error("Erro dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) loadData();
   }, [user]);
 
-  // Proteção contra crash se settings não carregar
-  const safeSettings = settings || { logo_position: 'center' };
+  if (loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
     <div className="w-full animate-fadeIn pb-20">
-      <Hero settings={safeSettings} />
       
-      <div className="max-w-full mx-auto px-6 -mt-8 relative z-10 space-y-12">
-          <div className="flex justify-between items-end pb-4 border-b border-gray-800">
-            <div>
-              <h2 className="text-3xl font-bold text-white mb-1">Olá, {user.name ? user.name.split(' ')[0] : 'Visitante'}</h2>
-              <p className="text-gray-400">O que vamos criar hoje?</p>
-            </div>
-          </div>
+      {/* Hero Header Simples */}
+      <div className="relative h-[40vh] bg-gradient-to-b from-blue-900/20 to-black flex items-end p-8 md:p-12">
+        <div className="max-w-4xl relative z-10">
+           <h1 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tighter">
+             Olá, {user?.name?.split(' ')[0] || 'Criador'}
+           </h1>
+           <p className="text-gray-400 text-lg md:text-xl max-w-xl mb-6">
+             Pronto para criar algo extraordinário hoje? Explore nossos novos packs e ferramentas de IA.
+           </p>
+           <div className="flex gap-4">
+             <button onClick={() => changeTab('generator')} className="bg-white text-black hover:bg-gray-200 px-6 py-3 rounded-lg font-bold flex items-center transition-colors">
+               <Zap size={20} className="mr-2" />
+               Gerar Agora
+             </button>
+             <button onClick={() => changeTab('prompts')} className="bg-gray-800/80 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold backdrop-blur-md transition-colors">
+               Explorar Packs
+             </button>
+           </div>
+        </div>
+        {/* Background Glow */}
+        <div className="absolute top-0 right-0 w-2/3 h-full bg-gradient-to-l from-blue-600/10 to-transparent pointer-events-none"/>
+      </div>
 
-          <Row title="Destaques da Semana" items={featuredPrompts} type="prompt" />
-          <Row title="Aulas Recomendadas" items={featuredTutorials} type="tutorial" isLarge />
+      {/* Conteúdo Estilo Netflix - Sobe um pouco sobre o Hero */}
+      <div className="relative z-20 px-4 md:px-12 -mt-10 space-y-4">
+        
+        {/* Linha 1: Novidades */}
+        {news.length > 0 && (
+          <Row title="Novidades & Atualizações" items={news} isLarge={true} type="news" />
+        )}
 
-          <div>
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center"><Zap className="mr-2 text-green-500"/> Ferramentas Rápidas</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <button onClick={() => changeTab('generator')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:border-green-500 group"><Zap className="text-green-500 group-hover:scale-110 transition-transform"/> <span className="text-white font-bold text-sm">Gerador Texto</span></button>
-                  <button onClick={() => changeTab('generator')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:border-blue-500 group"><Images className="text-blue-500 group-hover:scale-110 transition-transform"/> <span className="text-white font-bold text-sm">Criar Imagem</span></button>
-                  <button onClick={() => changeTab('prompts')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:border-purple-500 group"><Search className="text-purple-500 group-hover:scale-110 transition-transform"/> <span className="text-white font-bold text-sm">Buscar Prompt</span></button>
-                  <button onClick={() => changeTab('loja')} className="bg-gray-900 hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-all hover:border-orange-500 group"><ShoppingBag className="text-orange-500 group-hover:scale-110 transition-transform"/> <span className="text-white font-bold text-sm">Comprar Packs</span></button>
-              </div>
-          </div>
+        {/* Linha 2: Favoritos (Só aparece se tiver) */}
+        {favorites.length > 0 && (
+          <Row title="Seus Favoritos" items={favorites} type="prompt" />
+        )}
 
-          {news.length > 0 && (
-            <div>
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center"><FileText className="mr-2 text-gray-400"/> Novidades</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {news.map(item => (
-                  <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col hover:border-gray-600 transition-all group">
-                      {item.image && <div className="h-48 w-full overflow-hidden"><img src={item.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/></div>}
-                      <div className="p-6"><span className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-2 block">{item.date}</span><h4 className="text-xl font-bold text-white mb-2">{item.title}</h4><p className="text-gray-400 text-sm leading-relaxed">{item.content}</p></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        {/* Linha 3: Mais Curtidos / Populares */}
+        <Row title="Mais Curtidos da Semana" items={trending} type="prompt" />
+
       </div>
     </div>
   );

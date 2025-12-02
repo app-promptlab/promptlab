@@ -1,50 +1,106 @@
 import React from 'react';
-import { LayoutDashboard, ShoppingBag, LayoutGrid, Play, Zap, Heart, Shield, User, LogOut, Menu, Home, X } from 'lucide-react';
+import { LayoutDashboard, Zap, LayoutGrid, Play, Heart, Shield, User, LogOut, Menu, X, Home } from 'lucide-react';
 
-// Item definido FORA para não causar re-render infinito
-const SidebarItem = ({ icon: Icon, label, activeTab, id, onClick, minimized, isLogout }) => {
-  const isActive = activeTab === id;
-  return (
+export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, appSettings, isAdmin, onLogout }) {
+  
+  const handleNav = (id) => { 
+    setActiveTab(id); 
+    setSidebarOpen(false); 
+  };
+
+  const SidebarItem = ({ icon: Icon, label, id, isLogout, highlight }) => (
     <button 
-      onClick={onClick} 
-      className={`flex items-center w-full rounded-xl transition-all duration-200 group font-medium ${minimized ? 'justify-center px-2 py-4' : 'px-4 py-3'} ${isActive && !isLogout ? 'text-blue-500 bg-blue-500/10 border-l-4 border-blue-500 rounded-l-none' : 'text-gray-400 hover:text-white hover:bg-gray-900'} ${isLogout ? 'hover:text-red-400 hover:bg-red-500/10' : ''}`}
-      title={minimized ? label : ''}
+      onClick={() => isLogout ? onLogout() : handleNav(id)} 
+      className={`
+        flex items-center w-full px-4 py-3 mb-1 rounded-xl transition-all duration-200 group font-medium
+        ${activeTab === id && !isLogout ? 'text-blue-500 bg-blue-500/10 border-l-4 border-blue-500 rounded-l-none' : 'text-gray-400 hover:text-white hover:bg-gray-900'}
+        ${isLogout ? 'mt-auto hover:text-red-400 hover:bg-red-500/10' : ''}
+        ${highlight ? 'text-white bg-gradient-to-r from-blue-900/50 to-purple-900/50 border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]' : ''}
+      `}
     >
-      <Icon size={minimized ? 28 : 20} className={`${minimized ? '' : 'mr-3'}`} />
-      {!minimized && <span className="truncate">{label}</span>}
+      <Icon size={20} className={`mr-3 ${highlight ? 'text-blue-400' : ''}`} />
+      <span>{label}</span>
     </button>
   );
-};
-
-export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, sidebarMinimized, setSidebarMinimized, appSettings, isAdmin, onLogout }) {
-  const handleNav = (id) => { setActiveTab(id); setSidebarOpen(false); };
 
   return (
     <>
-      {/* Desktop */}
-      <aside className={`hidden md:flex flex-col fixed inset-y-0 left-0 z-50 bg-black border-r border-gray-800 transition-all duration-300 ${sidebarMinimized ? 'w-24' : 'w-64'}`}>
-        <div className={`p-6 flex items-center ${sidebarMinimized ? 'justify-center' : 'justify-between'} border-b border-gray-800 h-20`}>
-           {!sidebarMinimized ? (appSettings.logo_menu_url ? <img src={appSettings.logo_menu_url} className="h-8 object-contain"/> : <span className="text-xl font-bold text-white">PromptLab</span>) : (<Menu size={28} className="text-blue-600"/>)}
-           <button onClick={() => setSidebarMinimized(!sidebarMinimized)} className="text-gray-400 hover:text-white"><Menu size={24} /></button>
+      {/* --- DESKTOP SIDEBAR (FIXA) --- */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 bg-black border-r border-gray-800 w-64 
+        hidden md:flex flex-col transition-all duration-300
+      `}>
+        {/* Logo Area */}
+        <div className="h-20 flex items-center px-6 border-b border-gray-800">
+          {appSettings?.logo_menu_url ? (
+            <img src={appSettings.logo_menu_url} alt="Logo" className="h-8 object-contain" />
+          ) : (
+            <span className="text-xl font-bold text-white tracking-tighter">Prompt<span className="text-blue-600">Lab</span></span>
+          )}
         </div>
-        <nav className={`space-y-2 mt-4 flex-1 overflow-y-auto px-2`}>
-          <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" activeTab={activeTab} onClick={() => handleNav('dashboard')} minimized={sidebarMinimized} />
-          <SidebarItem icon={ShoppingBag} label="Loja" id="loja" activeTab={activeTab} onClick={() => handleNav('loja')} minimized={sidebarMinimized} />
-          <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" activeTab={activeTab} onClick={() => handleNav('prompts')} minimized={sidebarMinimized} />
-          <SidebarItem icon={Play} label="Tutoriais" id="tutorials" activeTab={activeTab} onClick={() => handleNav('tutorials')} minimized={sidebarMinimized} />
-          {isAdmin && <SidebarItem icon={Shield} label="Admin" id="admin" activeTab={activeTab} onClick={() => handleNav('admin')} minimized={sidebarMinimized} />}
-          <SidebarItem icon={User} label="Perfil" id="profile" activeTab={activeTab} onClick={() => handleNav('profile')} minimized={sidebarMinimized} />
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+          <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" />
+          <SidebarItem icon={Zap} label="Gerador" id="generator" highlight />
+          <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" />
+          <SidebarItem icon={Play} label="Tutoriais" id="tutorials" />
+          <SidebarItem icon={Heart} label="Favoritos" id="favorites" />
+          
+          <div className="my-4 border-t border-gray-800 mx-2 opacity-50"></div>
+          
+          {isAdmin && <SidebarItem icon={Shield} label="Admin" id="admin" />}
+          <SidebarItem icon={User} label="Perfil" id="profile" />
         </nav>
-        <div className="p-4 border-t border-gray-800"><SidebarItem icon={LogOut} label="Sair" isLogout onClick={onLogout} minimized={sidebarMinimized} /></div>
+
+        {/* Footer / Logout */}
+        <div className="p-4 border-t border-gray-800">
+          <SidebarItem icon={LogOut} label="Sair" isLogout />
+        </div>
       </aside>
-      {/* Mobile */}
-      <div className="md:hidden fixed bottom-0 w-full bg-gray-900 border-t border-gray-800 z-50 flex justify-around items-center p-3 pb-5 safe-area-bottom">
-          <button onClick={() => handleNav('dashboard')} className={`flex flex-col items-center ${activeTab==='dashboard'?'text-blue-500':'text-gray-500'}`}><Home size={24}/><span className="text-[10px] mt-1">Home</span></button>
-          <button onClick={() => handleNav('loja')} className={`flex flex-col items-center ${activeTab==='loja'?'text-blue-500':'text-gray-500'}`}><ShoppingBag size={24}/><span className="text-[10px] mt-1">Loja</span></button>
-          <div className="-mt-6"><button onClick={() => handleNav('prompts')} className="bg-blue-600 text-white p-4 rounded-full shadow-lg border-4 border-black"><Images size={24}/></button></div>
-          <button onClick={() => handleNav('tutorials')} className={`flex flex-col items-center ${activeTab==='tutorials'?'text-blue-500':'text-gray-500'}`}><Play size={24}/><span className="text-[10px] mt-1">Aulas</span></button>
-          <button onClick={() => handleNav(isAdmin?'admin':'profile')} className={`flex flex-col items-center ${activeTab==='profile'||activeTab==='admin'?'text-blue-500':'text-gray-500'}`}><User size={24}/><span className="text-[10px] mt-1">Perfil</span></button>
+
+      {/* --- MOBILE OVERLAY MENU --- */}
+      {/* Fundo Escuro (Backdrop) */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden animate-fadeIn"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Menu Gaveta Mobile */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-gray-900 border-r border-gray-800 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="h-20 flex items-center justify-between px-6 border-b border-gray-800">
+          <span className="text-xl font-bold text-white">Menu</span>
+          <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white">
+            <X size={24} />
+          </button>
+        </div>
+        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+            <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" />
+            <SidebarItem icon={Zap} label="Gerador" id="generator" highlight />
+            <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" />
+            <SidebarItem icon={Play} label="Tutoriais" id="tutorials" />
+            <SidebarItem icon={Heart} label="Favoritos" id="favorites" />
+            {isAdmin && <SidebarItem icon={Shield} label="Admin" id="admin" />}
+            <SidebarItem icon={User} label="Perfil" id="profile" />
+            <SidebarItem icon={LogOut} label="Sair" isLogout />
+        </nav>
       </div>
+
+      {/* --- MOBILE FAB (Botão Flutuante) --- */}
+      {/* Só aparece se o menu estiver fechado e for mobile */}
+      {!sidebarOpen && (
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          className="md:hidden fixed bottom-6 right-6 z-50 bg-blue-600 text-white p-4 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] active:scale-95 transition-transform"
+        >
+          <Menu size={28} />
+        </button>
+      )}
     </>
   );
 }
