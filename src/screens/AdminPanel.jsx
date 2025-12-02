@@ -1,437 +1,256 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../context/ThemeContext';
-import { 
-  Plus, Edit3, Trash2, X, ChevronLeft, UploadCloud, Loader2, Save, 
-  LayoutDashboard, Zap, LayoutGrid, Play, Heart, Palette, Smartphone 
-} from 'lucide-react';
+import { Plus, Edit3, Trash2, Save, Layout, Palette, Image as ImageIcon, Video, Link, ArrowUp, ArrowDown } from 'lucide-react';
 
-// --- Componente de Upload ---
+// --- Uploader Simples ---
 function ImageUploader({ currentImage, onUploadComplete, label }) {
   const [uploading, setUploading] = useState(false);
-  
-  const uploadImage = async (event) => {
+  const upload = async (e) => {
     try {
       setUploading(true);
-      if (!event.target.files || event.target.files.length === 0) return;
-      
-      const file = event.target.files[0];
-      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-      
-      const { error } = await supabase.storage.from('uploads').upload(fileName, file);
-      if (error) throw error;
-      
+      const file = e.target.files[0];
+      if(!file) return;
+      const fileName = `${Date.now()}_${file.name.replace(/\W/g, '')}`;
+      await supabase.storage.from('uploads').upload(fileName, file);
       const { data } = supabase.storage.from('uploads').getPublicUrl(fileName);
       onUploadComplete(data.publicUrl);
-    } catch (error) { 
-      alert('Erro upload: ' + error.message); 
-    } finally { 
-      setUploading(false); 
-    }
+    } catch(err) { alert(err.message); } finally { setUploading(false); }
   };
-
   return (
     <div className="mb-4">
-      <label className="text-gray-400 text-xs font-bold uppercase mb-2 block">{label}</label>
-      <div className="flex items-center gap-3">
-         <label className={`cursor-pointer bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-             {uploading ? <Loader2 size={16} className="animate-spin mr-2"/> : <UploadCloud size={16} className="mr-2"/>}
-             {uploading ? 'Enviando...' : 'Escolher'}
-             <input type="file" accept="image/*" onChange={uploadImage} className="hidden" disabled={uploading}/>
-         </label>
-         {currentImage && (
-            <div className="relative group">
-                <img src={currentImage} className="h-12 w-12 rounded object-cover border border-gray-700" alt="Preview"/>
-            </div>
-         )}
-      </div>
+        <label className="text-xs font-bold text-gray-400 block mb-2">{label}</label>
+        <div className="flex items-center gap-3">
+            <label className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded text-xs font-bold cursor-pointer text-white">
+                {uploading ? '...' : 'Upload'}
+                <input type="file" className="hidden" onChange={upload} disabled={uploading}/>
+            </label>
+            {currentImage && <img src={currentImage} className="h-10 w-10 rounded border border-gray-600"/>}
+        </div>
     </div>
   );
 }
 
-// --- Painel Admin Principal ---
 export default function AdminPanel({ showToast }) {
-  const { config, refreshConfig } = useTheme();
-
-  const TABS = [
-    { id: 'editor', label: 'Editor Visual', icon: Palette },
-    { id: 'generator', label: 'Tela Gerador', icon: Zap },
-    { id: 'dashboard', label: 'Dashboard (News)', icon: LayoutDashboard },
-    { id: 'prompts', label: 'Prompts & Packs', icon: LayoutGrid },
-    { id: 'tutorials', label: 'Tutoriais', icon: Play },
-    { id: 'favorites', label: 'Favoritos', icon: Heart },
-  ];
-
-  const [activeTab, setActiveTab] = useState('editor');
-  const [items, setItems] = useState([]);
-  const [editingItem, setEditingItem] = useState(null);
-  const [selectedPack, setSelectedPack] = useState(null);
+  const { identity, refreshIdentity } = useTheme();
   
-  // Estado para Site Config (Editor e Gerador)
-  const [siteConfig, setSiteConfig] = useState(config || {});
+  // Abas do Painel
+  const [mainTab, setMainTab] = useState('identity'); // identity, pages, content
+  
+  // Estados para Identidade
+  const [siteIdentity, setSiteIdentity] = useState(identity);
 
-  // --- Data Fetching ---
-  const fetchData = async () => {
-    setItems([]);
-    try {
-        if (activeTab === 'editor' || activeTab === 'generator') {
-            // Garante que estamos com a config mais atual
-            const { data } = await supabase.from('site_config').select('*').single();
-            if (data) setSiteConfig(data);
-        }
-        else if (activeTab === 'dashboard') {
-            const { data } = await supabase.from('news').select('*').order('id', {ascending: false});
-            setItems(data || []);
-        }
-        else if (activeTab === 'prompts') {
-            if (selectedPack) {
-                const { data } = await supabase.from('pack_items').select('*').eq('pack_id', selectedPack.id).order('id', {ascending: false});
-                setItems(data || []);
-            } else {
-                const { data } = await supabase.from('products').select('*').order('id', {ascending: false});
-                setItems(data || []);
-            }
-        }
-        else if (activeTab === 'tutorials') {
-            const { data } = await supabase.from('tutorials_videos').select('*').order('id', {ascending: true});
-            setItems(data || []);
-        }
-        else if (activeTab === 'favorites') {
-            const { data } = await supabase.from('user_favorites').select('*, profile:profiles(email), item:pack_items(title)').limit(50).order('created_at', {ascending: false});
-            setItems(data || []);
-        }
-    } catch (error) { console.error("Erro fetch:", error); }
+  // Estados para Gestor de Páginas
+  const [selectedPage, setSelectedPage] = useState('dashboard');
+  const [pageConfig, setPageConfig] = useState({});
+  const [pageContent, setPageContent] = useState([]);
+  const [editingBlock, setEditingBlock] = useState(null); // Bloco sendo editado
+
+  // --- CARREGAMENTO ---
+  useEffect(() => {
+    if (mainTab === 'identity') setSiteIdentity(identity);
+    if (mainTab === 'pages') loadPageData();
+  }, [mainTab, selectedPage, identity]);
+
+  const loadPageData = async () => {
+    // 1. Config da Página (Header)
+    const { data: pData } = await supabase.from('pages_config').select('*').eq('page_id', selectedPage).single();
+    setPageConfig(pData || { page_id: selectedPage, show_header: true });
+
+    // 2. Conteúdo (Blocos)
+    const { data: cData } = await supabase.from('page_content').select('*').eq('page_id', selectedPage).order('order_index', {ascending: true});
+    setPageContent(cData || []);
   };
 
-  useEffect(() => { fetchData(); }, [activeTab, selectedPack]);
-
-  // --- Salvar Site Config (Para Editor e Gerador) ---
-  const saveSiteConfig = async () => {
-    const { error } = await supabase.from('site_config').update(siteConfig).eq('id', siteConfig.id);
-    if (!error) {
-        showToast("Configurações atualizadas!");
-        refreshConfig(); // Atualiza o tema do site em tempo real
-    } else {
-        alert("Erro ao salvar config: " + error.message);
-    }
+  // --- SALVAR IDENTIDADE ---
+  const saveIdentity = async () => {
+    // Como identity pode não ter ID se for insert manual, vamos garantir update seguro
+    // Mas no script eu criei uma linha inicial. Vamos assumir update no ID 1 ou app_name.
+    // Melhor: dar update onde app_name = PromptLab ou pelo ID se tivermos no contexto.
+    const { error } = await supabase.from('site_identity').update(siteIdentity).gt('id', 0); // Atualiza qualquer linha existente
+    if (!error) { showToast("Tema Salvo!"); refreshIdentity(); }
+    else alert(error.message);
   };
 
-  // --- Salvar Conteúdo (News, Prompts, Tutorials) ---
-  const handleSaveItem = async (e) => {
+  // --- SALVAR PÁGINA (HEADER) ---
+  const savePageConfig = async () => {
+    const { error } = await supabase.from('pages_config').upsert(pageConfig);
+    if (!error) showToast("Cabeçalho Salvo!");
+    else alert(error.message);
+  };
+
+  // --- CRUD BLOCOS ---
+  const saveBlock = async (e) => {
     e.preventDefault();
-    let table = '';
-    let payload = { ...editingItem };
-    delete payload.profile; delete payload.item; // Limpeza
-
-    if (activeTab === 'dashboard') table = 'news';
-    if (activeTab === 'tutorials') table = 'tutorials_videos';
-    if (activeTab === 'prompts') {
-        if (selectedPack) { table = 'pack_items'; payload.pack_id = selectedPack.id; } 
-        else table = 'products';
-    }
-
-    const { error } = await supabase.from(table).upsert(payload);
-    if (!error) { showToast("Salvo com sucesso!"); setEditingItem(null); fetchData(); } 
-    else alert("Erro: " + error.message);
+    const payload = { ...editingBlock, page_id: selectedPage };
+    if (!payload.order_index) payload.order_index = pageContent.length + 1;
+    
+    const { error } = await supabase.from('page_content').upsert(payload);
+    if (!error) { showToast("Bloco Salvo!"); setEditingBlock(null); loadPageData(); }
+    else alert(error.message);
   };
 
-  const handleDelete = async (id) => {
-    if(!confirm("Tem certeza que deseja excluir?")) return;
-    let table = '';
-    if (activeTab === 'dashboard') table = 'news';
-    if (activeTab === 'tutorials') table = 'tutorials_videos';
-    if (activeTab === 'prompts') table = selectedPack ? 'pack_items' : 'products';
-    if (activeTab === 'favorites') table = 'user_favorites';
-
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if(!error) { showToast("Excluído!"); fetchData(); }
+  const deleteBlock = async (id) => {
+    if(!confirm("Excluir bloco?")) return;
+    await supabase.from('page_content').delete().eq('id', id);
+    loadPageData();
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 pb-24 animate-fadeIn">
-      <h1 className="text-3xl font-bold text-white mb-8">Painel Admin (White Label)</h1>
+    <div className="max-w-7xl mx-auto px-6 py-8 pb-32 animate-fadeIn">
+      <h1 className="text-3xl font-bold text-white mb-8">Painel Admin White Label</h1>
 
-      {/* Navegação de Abas */}
-      <div className="flex gap-2 mb-8 overflow-x-auto border-b border-gray-800 pb-1 scrollbar-hide">
-        {TABS.map(tab => (
-            <button 
-                key={tab.id} 
-                onClick={() => { setActiveTab(tab.id); setSelectedPack(null); setEditingItem(null); }}
-                className={`
-                    flex items-center gap-2 px-6 py-3 font-bold text-sm transition-all rounded-t-lg whitespace-nowrap
-                    ${activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}
-                `}
-            >
-                <tab.icon size={18}/> {tab.label}
-            </button>
-        ))}
+      {/* Menu Principal */}
+      <div className="flex gap-4 border-b border-gray-800 pb-1 mb-8">
+        <button onClick={() => setMainTab('identity')} className={`px-4 py-2 font-bold flex items-center gap-2 ${mainTab==='identity' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-400'}`}>
+            <Palette size={18}/> Identidade Visual
+        </button>
+        <button onClick={() => setMainTab('pages')} className={`px-4 py-2 font-bold flex items-center gap-2 ${mainTab==='pages' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-400'}`}>
+            <Layout size={18}/> Gestor de Páginas
+        </button>
       </div>
 
-      {/* ======================= ABA: EDITOR VISUAL ======================= */}
-      {activeTab === 'editor' && (
-        <div className="max-w-5xl space-y-8">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-white">Identidade Visual</h2>
-                <button onClick={saveSiteConfig} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg flex items-center shadow-lg sticky top-4 z-10"><Save size={18} className="mr-2"/> Salvar Tema</button>
+      {/* === ABA 1: IDENTIDADE === */}
+      {mainTab === 'identity' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
+                <h3 className="text-white font-bold uppercase text-xs mb-4">Cores do Tema</h3>
+                <div className="grid grid-cols-2 gap-4">
+                    <div><label className="text-gray-500 text-xs block mb-1">Primária</label><div className="flex"><input type="color" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})} className="h-8 w-8"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/></div></div>
+                    <div><label className="text-gray-500 text-xs block mb-1">Secundária</label><div className="flex"><input type="color" value={siteIdentity.secondary_color} onChange={e=>setSiteIdentity({...siteIdentity, secondary_color:e.target.value})} className="h-8 w-8"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2" value={siteIdentity.secondary_color} onChange={e=>setSiteIdentity({...siteIdentity, secondary_color:e.target.value})}/></div></div>
+                    <div><label className="text-gray-500 text-xs block mb-1">Fundo (Bg)</label><div className="flex"><input type="color" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})} className="h-8 w-8"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/></div></div>
+                    <div><label className="text-gray-500 text-xs block mb-1">Cards (Surface)</label><div className="flex"><input type="color" value={siteIdentity.surface_color} onChange={e=>setSiteIdentity({...siteIdentity, surface_color:e.target.value})} className="h-8 w-8"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2" value={siteIdentity.surface_color} onChange={e=>setSiteIdentity({...siteIdentity, surface_color:e.target.value})}/></div></div>
+                </div>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Cores */}
-                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
-                    <h3 className="text-blue-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2">Paleta de Cores</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Primária (Botões)</label><div className="flex gap-2"><input type="color" value={siteConfig.primary_color} onChange={e=>setSiteConfig({...siteConfig, primary_color: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-none"/><input type="text" value={siteConfig.primary_color} onChange={e=>setSiteConfig({...siteConfig, primary_color: e.target.value})} className="flex-1 bg-black border border-gray-700 rounded px-2 text-white text-sm"/></div></div>
-                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Secundária (Detalhes)</label><div className="flex gap-2"><input type="color" value={siteConfig.secondary_color} onChange={e=>setSiteConfig({...siteConfig, secondary_color: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-none"/><input type="text" value={siteConfig.secondary_color} onChange={e=>setSiteConfig({...siteConfig, secondary_color: e.target.value})} className="flex-1 bg-black border border-gray-700 rounded px-2 text-white text-sm"/></div></div>
-                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Fundo (Background)</label><div className="flex gap-2"><input type="color" value={siteConfig.background_color} onChange={e=>setSiteConfig({...siteConfig, background_color: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-none"/><input type="text" value={siteConfig.background_color} onChange={e=>setSiteConfig({...siteConfig, background_color: e.target.value})} className="flex-1 bg-black border border-gray-700 rounded px-2 text-white text-sm"/></div></div>
-                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Superfície (Cards)</label><div className="flex gap-2"><input type="color" value={siteConfig.surface_color} onChange={e=>setSiteConfig({...siteConfig, surface_color: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-none"/><input type="text" value={siteConfig.surface_color} onChange={e=>setSiteConfig({...siteConfig, surface_color: e.target.value})} className="flex-1 bg-black border border-gray-700 rounded px-2 text-white text-sm"/></div></div>
-                    </div>
-                    <div><label className="text-gray-400 text-xs font-bold block mb-1">Nome do App</label><input type="text" value={siteConfig.app_name} onChange={e=>setSiteConfig({...siteConfig, app_name: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                </div>
-
-                {/* Imagens e Textos Home */}
-                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
-                    <h3 className="text-blue-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2">Branding e Home</h3>
-                    <ImageUploader label="Logo Header (Grande)" currentImage={siteConfig.logo_header_url} onUploadComplete={url => setSiteConfig({...siteConfig, logo_header_url: url})} />
-                    <ImageUploader label="Logo Menu (Icone)" currentImage={siteConfig.logo_menu_url} onUploadComplete={url => setSiteConfig({...siteConfig, logo_menu_url: url})} />
-                    <ImageUploader label="Capa do Topo (Hero)" currentImage={siteConfig.hero_background_url} onUploadComplete={url => setSiteConfig({...siteConfig, hero_background_url: url})} />
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Título Home</label><input type="text" value={siteConfig.home_title} onChange={e=>setSiteConfig({...siteConfig, home_title: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Subtítulo</label><input type="text" value={siteConfig.home_subtitle} onChange={e=>setSiteConfig({...siteConfig, home_subtitle: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                    </div>
-                </div>
+            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
+                <h3 className="text-white font-bold uppercase text-xs mb-4">Branding</h3>
+                <input className="w-full bg-black border border-gray-700 p-2 text-white text-sm rounded mb-4" placeholder="Nome do App" value={siteIdentity.app_name} onChange={e=>setSiteIdentity({...siteIdentity, app_name: e.target.value})} />
+                <ImageUploader label="Logo Header (Grande)" currentImage={siteIdentity.logo_header_url} onUploadComplete={url => setSiteIdentity({...siteIdentity, logo_header_url: url})} />
+                <ImageUploader label="Logo Menu (Pequena)" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url => setSiteIdentity({...siteIdentity, logo_menu_url: url})} />
+                <button onClick={saveIdentity} className="w-full bg-blue-600 text-white font-bold py-2 rounded mt-4">Salvar Tema Global</button>
             </div>
         </div>
       )}
 
-      {/* ======================= ABA: TELA GERADOR ======================= */}
-      {activeTab === 'generator' && (
-        <div className="max-w-5xl space-y-8">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-white">Conteúdo do Gerador</h2>
-                <button onClick={saveSiteConfig} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg flex items-center shadow-lg sticky top-4 z-10"><Save size={18} className="mr-2"/> Salvar Gerador</button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Configs Principais */}
-                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
-                    <h3 className="text-purple-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2">Cabeçalho & Links</h3>
-                    <div><label className="text-gray-400 text-xs font-bold block mb-1">Título da Página</label><input type="text" value={siteConfig.generator_title} onChange={e=>setSiteConfig({...siteConfig, generator_title: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                    <div><label className="text-gray-400 text-xs font-bold block mb-1">Subtítulo</label><input type="text" value={siteConfig.generator_subtitle} onChange={e=>setSiteConfig({...siteConfig, generator_subtitle: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                    <div><label className="text-gray-400 text-xs font-bold block mb-1">ID do YouTube</label><input type="text" value={siteConfig.generator_youtube_id} onChange={e=>setSiteConfig({...siteConfig, generator_youtube_id: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Link Botão Prompt</label><input type="text" value={siteConfig.link_prompt_tool} onChange={e=>setSiteConfig({...siteConfig, link_prompt_tool: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Link Botão Imagem</label><input type="text" value={siteConfig.link_image_tool} onChange={e=>setSiteConfig({...siteConfig, link_image_tool: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                    </div>
-                </div>
-
-                {/* Tutorial Mobile */}
-                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
-                    <h3 className="text-purple-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2"><Smartphone size={16} className="inline mr-1"/> Tutorial Mobile</h3>
-                    <div><label className="text-gray-400 text-xs font-bold block mb-1">Título da Seção</label><input type="text" value={siteConfig.tutorial_mobile_title} onChange={e=>setSiteConfig({...siteConfig, tutorial_mobile_title: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
-                    
-                    <div className="bg-black/40 p-3 rounded border border-gray-700">
-                        <span className="text-white text-xs font-bold mb-2 block">Passo 01</span>
-                        <ImageUploader label="Imagem (Opcional)" currentImage={siteConfig.step1_image} onUploadComplete={url => setSiteConfig({...siteConfig, step1_image: url})}/>
-                        <label className="text-gray-400 text-xs font-bold block mb-1 mt-2">Texto</label><input type="text" value={siteConfig.step1_text} onChange={e=>setSiteConfig({...siteConfig, step1_text: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white text-xs"/>
-                    </div>
-
-                    <div className="bg-black/40 p-3 rounded border border-gray-700">
-                        <span className="text-white text-xs font-bold mb-2 block">Passo 02</span>
-                        <ImageUploader label="Imagem (Opcional)" currentImage={siteConfig.step2_image} onUploadComplete={url => setSiteConfig({...siteConfig, step2_image: url})}/>
-                        <label className="text-gray-400 text-xs font-bold block mb-1 mt-2">Texto</label><input type="text" value={siteConfig.step2_text} onChange={e=>setSiteConfig({...siteConfig, step2_text: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white text-xs"/>
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* ======================= ABA: DASHBOARD (NEWS) ======================= */}
-      {activeTab === 'dashboard' && (
+      {/* === ABA 2: GESTOR DE PÁGINAS === */}
+      {mainTab === 'pages' && (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">Gerenciar Novidades</h2>
-                <button onClick={() => setEditingItem({})} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center shadow-lg"><Plus size={18} className="mr-2"/> Nova Notícia</button>
+            {/* Seletor de Página */}
+            <div className="flex items-center gap-4 mb-8 bg-gray-900 p-4 rounded-xl border border-gray-800">
+                <span className="text-white font-bold">Editando Página:</span>
+                <select 
+                    value={selectedPage} 
+                    onChange={e => setSelectedPage(e.target.value)}
+                    className="bg-black text-white border border-gray-700 rounded px-4 py-2"
+                >
+                    <option value="dashboard">Dashboard (Home)</option>
+                    <option value="generator">Gerador</option>
+                    <option value="tutorials">Tutoriais</option>
+                    <option value="prompts">Prompts (Galeria)</option>
+                </select>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {items.map(item => (
-                    <div key={item.id} className="bg-gray-900 border border-gray-800 p-4 rounded-xl relative group hover:border-blue-500 transition-colors">
-                        <div className="h-32 bg-black rounded mb-3 overflow-hidden">
-                            <img src={item.image} className="w-full h-full object-cover" alt="news"/>
-                        </div>
-                        <h3 className="font-bold text-white truncate">{item.title}</h3>
-                        <p className="text-gray-500 text-xs mb-3">{item.date}</p>
-                        <div className="flex gap-2">
-                            <button onClick={()=>setEditingItem(item)} className="bg-blue-600/20 hover:bg-blue-600 text-blue-500 hover:text-white p-2 rounded flex-1 transition-colors"><Edit3 size={16} className="mx-auto"/></button>
-                            <button onClick={()=>handleDelete(item.id)} className="bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded flex-1 transition-colors"><Trash2 size={16} className="mx-auto"/></button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-      )}
 
-      {/* ======================= ABA: PROMPTS (PACKS & ITEMS) ======================= */}
-      {activeTab === 'prompts' && (
-        <div>
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white flex items-center gap-4">
-                    {selectedPack && (
-                        <button onClick={() => setSelectedPack(null)} className="bg-gray-800 p-2 rounded-full hover:bg-gray-700 text-white transition-colors">
-                            <ChevronLeft size={20}/>
-                        </button>
-                    )}
-                    {selectedPack ? `Editando: ${selectedPack.title}` : 'Gerenciar Packs'}
-                </h2>
-                <button onClick={() => setEditingItem({})} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center shadow-lg"><Plus size={18} className="mr-2"/> Novo {selectedPack ? 'Prompt' : 'Pack'}</button>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {items.map(item => (
-                    <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group hover:border-blue-500 transition-all cursor-pointer relative shadow-lg">
-                        <div onClick={() => !selectedPack && setSelectedPack(item)} className="aspect-[3/4] relative bg-black">
-                            <img src={item.cover || item.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="Cover"/>
-                            {!selectedPack && <div className="absolute bottom-0 w-full p-2 bg-black/80 text-white text-xs font-bold text-center truncate">{item.title}</div>}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Coluna 1: Config do Cabeçalho */}
+                <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4 sticky top-6">
+                        <h3 className="text-blue-500 font-bold uppercase text-xs">Cabeçalho (Hero)</h3>
+                        <div className="flex items-center gap-2 mb-4">
+                            <input type="checkbox" checked={pageConfig.show_header || false} onChange={e => setPageConfig({...pageConfig, show_header: e.target.checked})}/>
+                            <span className="text-white text-sm">Exibir Cabeçalho</span>
                         </div>
-                        <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e) => {e.stopPropagation(); setEditingItem(item)}} className="bg-blue-600 p-1.5 rounded text-white shadow-lg hover:scale-110 transition-transform"><Edit3 size={14}/></button>
-                            <button onClick={(e) => {e.stopPropagation(); handleDelete(item.id)}} className="bg-red-600 p-1.5 rounded text-white shadow-lg hover:scale-110 transition-transform"><Trash2 size={14}/></button>
-                        </div>
-                        {selectedPack && <div className="p-2 text-xs text-gray-400 bg-gray-900 truncate border-t border-gray-800">{item.title}</div>}
+                        <div><label className="text-gray-500 text-xs block mb-1">Título</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={pageConfig.title || ''} onChange={e=>setPageConfig({...pageConfig, title: e.target.value})}/></div>
+                        <div><label className="text-gray-500 text-xs block mb-1">Subtítulo</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={pageConfig.subtitle || ''} onChange={e=>setPageConfig({...pageConfig, subtitle: e.target.value})}/></div>
+                        <ImageUploader label="Imagem de Fundo (Capa)" currentImage={pageConfig.cover_url} onUploadComplete={url => setPageConfig({...pageConfig, cover_url: url})} />
+                        <button onClick={savePageConfig} className="w-full bg-blue-600 text-white font-bold py-2 rounded text-sm">Salvar Cabeçalho</button>
                     </div>
-                ))}
-            </div>
-        </div>
-      )}
+                </div>
 
-      {/* ======================= ABA: TUTORIAIS ======================= */}
-      {activeTab === 'tutorials' && (
-        <div>
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">Vídeos de Tutorial</h2>
-                <button onClick={() => setEditingItem({})} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center shadow-lg"><Plus size={18} className="mr-2"/> Novo Vídeo</button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {items.map(item => (
-                    <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group hover:border-blue-500 transition-colors">
-                        <div className="aspect-video bg-black relative">
-                            <img src={item.thumbnail} className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" alt="Thumb"/>
-                            <div className="absolute inset-0 flex items-center justify-center"><Play className="text-white fill-white opacity-80"/></div>
-                        </div>
-                        <div className="p-4">
-                            <h3 className="text-white font-bold mb-2 truncate">{item.title}</h3>
-                            <div className="flex gap-2">
-                                <button onClick={()=>setEditingItem(item)} className="flex-1 bg-gray-800 py-2 rounded text-blue-400 text-xs font-bold hover:bg-gray-700 transition-colors">EDITAR</button>
-                                <button onClick={()=>handleDelete(item.id)} className="flex-1 bg-gray-800 py-2 rounded text-red-400 text-xs font-bold hover:bg-gray-700 transition-colors">EXCLUIR</button>
+                {/* Coluna 2: Blocos de Conteúdo */}
+                <div className="lg:col-span-2">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-white font-bold">Blocos de Conteúdo</h3>
+                        <button onClick={() => setEditingBlock({ type: 'video' })} className="bg-green-600 text-white px-4 py-2 rounded text-xs font-bold flex items-center gap-2"><Plus size={14}/> Adicionar Bloco</button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {pageContent.map((block, idx) => (
+                            <div key={block.id} className="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between group hover:border-blue-500 transition-colors">
+                                <div className="flex items-center gap-4">
+                                    <div className="bg-black p-2 rounded text-gray-400 font-mono text-xs">{idx + 1}</div>
+                                    <div className="w-16 h-10 bg-black rounded overflow-hidden">
+                                        {block.type === 'video' ? <div className="w-full h-full flex items-center justify-center"><Video size={16} className="text-gray-500"/></div> : <img src={block.media_url} className="w-full h-full object-cover"/>}
+                                    </div>
+                                    <div>
+                                        <h4 className="text-white font-bold text-sm">{block.title}</h4>
+                                        <p className="text-gray-500 text-xs uppercase">{block.type.replace('_', ' ')}</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setEditingBlock(block)} className="p-2 bg-gray-800 rounded hover:text-white text-blue-500"><Edit3 size={16}/></button>
+                                    <button onClick={() => deleteBlock(block.id)} className="p-2 bg-gray-800 rounded hover:text-white text-red-500"><Trash2 size={16}/></button>
+                                </div>
                             </div>
-                        </div>
+                        ))}
+                        {pageContent.length === 0 && <div className="text-gray-500 text-center py-10 border border-dashed border-gray-800 rounded-xl">Nenhum conteúdo adicionado nesta página.</div>}
                     </div>
-                ))}
-            </div>
-        </div>
-      )}
-
-      {/* ======================= ABA: FAVORITOS ======================= */}
-      {activeTab === 'favorites' && (
-        <div>
-            <h2 className="text-xl font-bold text-white mb-6">Monitoramento de Favoritos</h2>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-gray-400">
-                        <thead className="bg-black text-white uppercase font-bold text-xs tracking-wider">
-                            <tr>
-                                <th className="p-4">Usuário</th>
-                                <th className="p-4">Item</th>
-                                <th className="p-4">Data</th>
-                                <th className="p-4 text-right">Ação</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-800">
-                            {items.map(fav => (
-                                <tr key={fav.id} className="hover:bg-gray-800/50 transition-colors">
-                                    <td className="p-4">{fav.profile?.email || 'N/A'}</td>
-                                    <td className="p-4 text-white font-medium">{fav.item?.title || 'Removido'}</td>
-                                    <td className="p-4">{new Date(fav.created_at).toLocaleDateString()}</td>
-                                    <td className="p-4 text-right">
-                                        <button onClick={()=>handleDelete(fav.id)} className="text-red-500 hover:text-white transition-colors"><Trash2 size={16}/></button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {items.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-gray-600">Nenhum favorito registrado.</td></tr>}
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>
       )}
 
-      {/* ======================= MODAL DE EDIÇÃO GENÉRICO ======================= */}
-      {editingItem && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-4 border-b border-gray-800 flex justify-between items-center">
-                    <h3 className="font-bold text-white uppercase tracking-wider">
-                        {editingItem.id ? 'Editar' : 'Novo'} Item
-                    </h3>
-                    <button onClick={() => setEditingItem(null)}><X className="text-gray-400 hover:text-white"/></button>
+      {/* MODAL DE EDIÇÃO DE BLOCO */}
+      {editingBlock && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-900 w-full max-w-lg rounded-xl border border-gray-700 p-6 space-y-4">
+                <h3 className="text-white font-bold uppercase">Editar Bloco</h3>
+                
+                <div>
+                    <label className="text-gray-500 text-xs block mb-1">Tipo de Bloco</label>
+                    <select className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.type} onChange={e => setEditingBlock({...editingBlock, type: e.target.value})}>
+                        <option value="video">Vídeo (YouTube)</option>
+                        <option value="banner_large">Banner Grande (Full)</option>
+                        <option value="banner_small">Banner Pequeno / Botão</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="text-gray-500 text-xs block mb-1">Título</label>
+                    <input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.title || ''} onChange={e => setEditingBlock({...editingBlock, title: e.target.value})}/>
                 </div>
                 
-                <form onSubmit={handleSaveItem} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
-                    
-                    {(activeTab !== 'favorites') && (
-                        <div>
-                            <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título</label>
-                            <input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} required/>
-                        </div>
-                    )}
-
-                    {activeTab === 'dashboard' && (
-                        <>
-                            <ImageUploader label="Imagem da Notícia" currentImage={editingItem.image} onUploadComplete={url => setEditingItem({...editingItem, image: url})}/>
-                            <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Conteúdo</label><textarea rows={3} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.content || ''} onChange={e => setEditingItem({...editingItem, content: e.target.value})}/></div>
-                            <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Data Exibida</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.date || ''} onChange={e => setEditingItem({...editingItem, date: e.target.value})}/></div>
-                        </>
-                    )}
-
-                    {activeTab === 'tutorials' && (
-                        <>
-                            <ImageUploader label="Thumbnail" currentImage={editingItem.thumbnail} onUploadComplete={url => setEditingItem({...editingItem, thumbnail: url})}/>
-                            <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">URL do Vídeo</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.video_url || ''} onChange={e => setEditingItem({...editingItem, video_url: e.target.value})}/></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Link Botão</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.link_action || ''} onChange={e => setEditingItem({...editingItem, link_action: e.target.value})}/></div>
-                                <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Texto Botão</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.link_label || ''} onChange={e => setEditingItem({...editingItem, link_label: e.target.value})}/></div>
-                            </div>
-                        </>
-                    )}
-
-                    {activeTab === 'prompts' && !selectedPack && (
-                        <>
-                            <ImageUploader label="Capa do Pack" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/>
-                            <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div>
-                            <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço (Display)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div>
-                            <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Link Checkout</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div>
-                        </>
-                    )}
-
-                    {activeTab === 'prompts' && selectedPack && (
-                        <>
-                            <ImageUploader label="Imagem Gerada" currentImage={editingItem.url} onUploadComplete={url => setEditingItem({...editingItem, url: url})}/>
-                            <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Prompt (Comando)</label><textarea rows={5} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})}/></div>
-                            <div className="flex items-center gap-3 bg-gray-800 p-3 rounded-lg">
-                                <input type="checkbox" id="featured" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})} className="w-5 h-5 rounded accent-blue-600"/> 
-                                <label htmlFor="featured" className="text-white text-sm cursor-pointer select-none">Destaque (Aparece nos Trending?)</label>
-                            </div>
-                        </>
-                    )}
-
-                    <div className="pt-6 flex justify-end gap-3 border-t border-gray-800">
-                        <button type="button" onClick={() => setEditingItem(null)} className="px-6 py-2 text-gray-400 font-bold hover:text-white transition-colors">Cancelar</button>
-                        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg font-bold shadow-lg transition-transform active:scale-95">Salvar</button>
+                {editingBlock.type === 'video' ? (
+                    <div>
+                        <label className="text-gray-500 text-xs block mb-1">ID do YouTube (ex: dQw4w9WgXcQ)</label>
+                        <input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.media_url || ''} onChange={e => setEditingBlock({...editingBlock, media_url: e.target.value})}/>
                     </div>
-                </form>
+                ) : (
+                    <ImageUploader label="Imagem do Banner" currentImage={editingBlock.media_url} onUploadComplete={url => setEditingBlock({...editingBlock, media_url: url})} />
+                )}
+
+                {(editingBlock.type.includes('banner')) && (
+                    <>
+                        <div><label className="text-gray-500 text-xs block mb-1">Subtítulo</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.subtitle || ''} onChange={e => setEditingBlock({...editingBlock, subtitle: e.target.value})}/></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="text-gray-500 text-xs block mb-1">Link de Ação</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.action_link || ''} onChange={e => setEditingBlock({...editingBlock, action_link: e.target.value})}/></div>
+                            <div><label className="text-gray-500 text-xs block mb-1">Texto do Botão</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.action_label || ''} onChange={e => setEditingBlock({...editingBlock, action_label: e.target.value})}/></div>
+                        </div>
+                    </>
+                )}
+
+                <div>
+                    <label className="text-gray-500 text-xs block mb-1">Ordem (1, 2, 3...)</label>
+                    <input type="number" className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.order_index || 0} onChange={e => setEditingBlock({...editingBlock, order_index: parseInt(e.target.value)})}/>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                    <button onClick={() => setEditingBlock(null)} className="px-4 py-2 text-gray-400 text-sm font-bold">Cancelar</button>
+                    <button onClick={saveBlock} className="px-6 py-2 bg-blue-600 text-white rounded text-sm font-bold">Salvar Bloco</button>
+                </div>
             </div>
         </div>
       )}
+
     </div>
   );
 }
