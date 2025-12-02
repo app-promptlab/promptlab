@@ -4,7 +4,7 @@ import { Loader2, Check } from 'lucide-react';
 
 // Importação das Telas
 import Sidebar from './components/Sidebar';
-import AuthScreen from './components/AuthScreen'; // Corrigido path
+import AuthScreen from './components/AuthScreen';
 import Dashboard from './screens/Dashboard';
 import Generator from './screens/Generator';
 import PromptsGallery from './screens/PromptsGallery';
@@ -59,7 +59,9 @@ export default function App() {
   return (
     <div className="flex h-screen bg-black text-gray-100 font-sans overflow-hidden">
         
+        {/* Adicionado a prop user={user} aqui abaixo 👇 */}
         <Sidebar 
+            user={user}
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
             sidebarOpen={sidebarOpen}
@@ -71,20 +73,13 @@ export default function App() {
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-black relative">
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800">
-                
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
                 {activeTab === 'generator' && <Generator />}
-                
-                {/* Galeria Normal */}
                 {activeTab === 'prompts' && <PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />}
-                
-                {/* Galeria de Favoritos (Reutilizando componente com filtro) */}
                 {activeTab === 'favorites' && <PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />}
-                
                 {activeTab === 'tutorials' && <TutorialsPage />}
                 {activeTab === 'admin' && isAdmin && <AdminPanel showToast={showToast} />}
                 {activeTab === 'profile' && <Profile user={user} showToast={showToast} />}
-
             </main>
         </div>
 
