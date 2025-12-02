@@ -1,49 +1,59 @@
-import React from 'react';
-import { LayoutDashboard, Zap, LayoutGrid, Play, Heart, Shield, User, LogOut, Menu, X, Home } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, Zap, LayoutGrid, Play, Heart, Shield, User, LogOut, Menu, X } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, appSettings, isAdmin, onLogout }) {
-  
+  // Estado local para controlar se o menu Desktop está minimizado ou expandido
+  const [minimized, setMinimized] = useState(false);
+
   const handleNav = (id) => { 
     setActiveTab(id); 
-    setSidebarOpen(false); 
+    setSidebarOpen(false); // Fecha o menu mobile se estiver aberto
   };
 
-  const SidebarItem = ({ icon: Icon, label, id, isLogout, highlight }) => (
+  const SidebarItem = ({ icon: Icon, label, id, isLogout }) => (
     <button 
       onClick={() => isLogout ? onLogout() : handleNav(id)} 
       className={`
-        flex items-center w-full px-4 py-3 mb-1 rounded-xl transition-all duration-200 group font-medium
-        ${activeTab === id && !isLogout ? 'text-blue-500 bg-blue-500/10 border-l-4 border-blue-500 rounded-l-none' : 'text-gray-400 hover:text-white hover:bg-gray-900'}
+        flex items-center w-full transition-all duration-200 group font-medium mb-1 rounded-xl
+        ${minimized ? 'justify-center px-2 py-3' : 'px-4 py-3'} 
+        ${activeTab === id && !isLogout ? 'text-blue-500 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-900'}
+        ${!minimized && activeTab === id && !isLogout ? 'border-l-4 border-blue-500 rounded-l-none' : ''}
         ${isLogout ? 'mt-auto hover:text-red-400 hover:bg-red-500/10' : ''}
-        ${highlight ? 'text-white bg-gradient-to-r from-blue-900/50 to-purple-900/50 border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)]' : ''}
       `}
+      title={minimized ? label : ''} // Tooltip nativo quando minimizado
     >
-      <Icon size={20} className={`mr-3 ${highlight ? 'text-blue-400' : ''}`} />
-      <span>{label}</span>
+      <Icon size={24} className={`${minimized ? '' : 'mr-3'}`} />
+      {!minimized && <span className="truncate">{label}</span>}
     </button>
   );
 
   return (
     <>
-      {/* --- DESKTOP SIDEBAR (FIXO NA COLUNA, NÃO FLUTUANTE) --- */}
-      {/* Alteração: Removido 'fixed inset-y-0 left-0' e adicionado 'flex-shrink-0' */}
+      {/* --- DESKTOP SIDEBAR --- */}
       <aside className={`
-        w-64 bg-black border-r border-gray-800 z-50 flex-shrink-0
-        hidden md:flex flex-col transition-all duration-300
+        bg-black border-r border-gray-800 z-50 flex-shrink-0 flex flex-col transition-all duration-300
+        hidden md:flex
+        ${minimized ? 'w-20' : 'w-64'}
       `}>
-        {/* Logo Area */}
-        <div className="h-20 flex items-center px-6 border-b border-gray-800">
-          {appSettings?.logo_menu_url ? (
-            <img src={appSettings.logo_menu_url} alt="Logo" className="h-8 object-contain" />
-          ) : (
-            <span className="text-xl font-bold text-white tracking-tighter">Prompt<span className="text-blue-600">Lab</span></span>
+        {/* Header do Menu (Logo + Toggle) */}
+        <div className={`h-20 flex items-center border-b border-gray-800 px-4 ${minimized ? 'justify-center' : 'justify-between'}`}>
+          {!minimized && (
+            appSettings?.logo_menu_url ? (
+              <img src={appSettings.logo_menu_url} alt="Logo" className="h-8 object-contain" />
+            ) : (
+              <span className="text-xl font-bold text-white tracking-tighter">Prompt<span className="text-blue-600">Lab</span></span>
+            )
           )}
+          {/* Botão Hambúrguer para Minimizar/Expandir */}
+          <button onClick={() => setMinimized(!minimized)} className="text-gray-400 hover:text-white p-1">
+            <Menu size={24} />
+          </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
+        {/* Navegação */}
+        <nav className="flex-1 overflow-y-auto py-6 px-2 space-y-1 custom-scrollbar">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" />
-          <SidebarItem icon={Zap} label="Gerador" id="generator" highlight />
+          <SidebarItem icon={Zap} label="Gerador" id="generator" />
           <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" />
           <SidebarItem icon={Play} label="Tutoriais" id="tutorials" />
           <SidebarItem icon={Heart} label="Favoritos" id="favorites" />
@@ -54,14 +64,13 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
           <SidebarItem icon={User} label="Perfil" id="profile" />
         </nav>
 
-        {/* Footer / Logout */}
+        {/* Footer */}
         <div className="p-4 border-t border-gray-800">
           <SidebarItem icon={LogOut} label="Sair" isLogout />
         </div>
       </aside>
 
-      {/* --- MOBILE OVERLAY MENU --- */}
-      {/* Fundo Escuro (Backdrop) */}
+      {/* --- MOBILE OVERLAY MENU (Mantido igual) --- */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden animate-fadeIn"
@@ -69,7 +78,6 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         />
       )}
 
-      {/* Menu Gaveta Mobile */}
       <div className={`
         fixed inset-y-0 left-0 z-50 w-72 bg-gray-900 border-r border-gray-800 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col h-full
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -82,7 +90,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         </div>
         <nav className="flex-1 overflow-y-auto p-4 space-y-2">
             <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" />
-            <SidebarItem icon={Zap} label="Gerador" id="generator" highlight />
+            <SidebarItem icon={Zap} label="Gerador" id="generator" />
             <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" />
             <SidebarItem icon={Play} label="Tutoriais" id="tutorials" />
             <SidebarItem icon={Heart} label="Favoritos" id="favorites" />
@@ -92,7 +100,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         </nav>
       </div>
 
-      {/* --- MOBILE FAB (Botão Flutuante) --- */}
+      {/* FAB Mobile */}
       {!sidebarOpen && (
         <button 
           onClick={() => setSidebarOpen(true)}
