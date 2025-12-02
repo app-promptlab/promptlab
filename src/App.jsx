@@ -4,7 +4,7 @@ import { Loader2, Check } from 'lucide-react';
 
 // Importação das Telas (Certifique-se que criou todos os arquivos acima!)
 import Sidebar from './components/Sidebar';
-import AuthScreen from './screens/AuthScreen';
+import AuthScreen from './components/AuthScreen';
 import Dashboard from './screens/Dashboard';
 import Generator from './screens/Generator';
 import PromptsGallery from './screens/PromptsGallery';
