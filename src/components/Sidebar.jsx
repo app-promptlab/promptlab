@@ -25,9 +25,10 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
 
   return (
     <>
-      {/* --- DESKTOP SIDEBAR (FIXA) --- */}
+      {/* --- DESKTOP SIDEBAR (FIXO NA COLUNA, NÃO FLUTUANTE) --- */}
+      {/* Alteração: Removido 'fixed inset-y-0 left-0' e adicionado 'flex-shrink-0' */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 bg-black border-r border-gray-800 w-64 
+        w-64 bg-black border-r border-gray-800 z-50 flex-shrink-0
         hidden md:flex flex-col transition-all duration-300
       `}>
         {/* Logo Area */}
@@ -40,7 +41,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" />
           <SidebarItem icon={Zap} label="Gerador" id="generator" highlight />
           <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" />
@@ -70,7 +71,7 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
 
       {/* Menu Gaveta Mobile */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-gray-900 border-r border-gray-800 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col
+        fixed inset-y-0 left-0 z-50 w-72 bg-gray-900 border-r border-gray-800 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col h-full
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="h-20 flex items-center justify-between px-6 border-b border-gray-800">
@@ -92,7 +93,6 @@ export default function Sidebar({ activeTab, setActiveTab, sidebarOpen, setSideb
       </div>
 
       {/* --- MOBILE FAB (Botão Flutuante) --- */}
-      {/* Só aparece se o menu estiver fechado e for mobile */}
       {!sidebarOpen && (
         <button 
           onClick={() => setSidebarOpen(true)}
