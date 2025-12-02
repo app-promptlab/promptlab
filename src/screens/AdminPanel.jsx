@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Plus, Edit3, Trash2, X, ChevronLeft, UploadCloud, Loader2, Save, LayoutDashboard, Zap, LayoutGrid, Play, Heart } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { 
+  Plus, Edit3, Trash2, X, ChevronLeft, UploadCloud, Loader2, Save, 
+  LayoutDashboard, Zap, LayoutGrid, Play, Heart, Palette, Smartphone 
+} from 'lucide-react';
 
-// --- Componente Interno de Upload ---
+// --- Componente de Upload ---
 function ImageUploader({ currentImage, onUploadComplete, label }) {
   const [uploading, setUploading] = useState(false);
   
@@ -12,7 +16,6 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
       if (!event.target.files || event.target.files.length === 0) return;
       
       const file = event.target.files[0];
-      // Gera nome único para evitar cache ou conflito
       const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
       
       const { error } = await supabase.storage.from('uploads').upload(fileName, file);
@@ -33,7 +36,7 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
       <div className="flex items-center gap-3">
          <label className={`cursor-pointer bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
              {uploading ? <Loader2 size={16} className="animate-spin mr-2"/> : <UploadCloud size={16} className="mr-2"/>}
-             {uploading ? 'Enviando...' : 'Escolher Arquivo'}
+             {uploading ? 'Enviando...' : 'Escolher'}
              <input type="file" accept="image/*" onChange={uploadImage} className="hidden" disabled={uploading}/>
          </label>
          {currentImage && (
@@ -48,41 +51,37 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
 
 // --- Painel Admin Principal ---
 export default function AdminPanel({ showToast }) {
-  // Configuração das Abas
+  const { config, refreshConfig } = useTheme();
+
   const TABS = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'generator', label: 'Gerador', icon: Zap },
-    { id: 'prompts', label: 'Prompts', icon: LayoutGrid },
+    { id: 'editor', label: 'Editor Visual', icon: Palette },
+    { id: 'generator', label: 'Tela Gerador', icon: Zap },
+    { id: 'dashboard', label: 'Dashboard (News)', icon: LayoutDashboard },
+    { id: 'prompts', label: 'Prompts & Packs', icon: LayoutGrid },
     { id: 'tutorials', label: 'Tutoriais', icon: Play },
     { id: 'favorites', label: 'Favoritos', icon: Heart },
   ];
 
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [items, setItems] = useState([]); // Lista genérica (News, Packs, Videos)
-  const [editingItem, setEditingItem] = useState(null); // Item sendo editado no Modal
-  const [selectedPack, setSelectedPack] = useState(null); // Controle de navegação (Pack -> Items)
+  const [activeTab, setActiveTab] = useState('editor');
+  const [items, setItems] = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
+  const [selectedPack, setSelectedPack] = useState(null);
   
-  // Estado específico para a aba Gerador (Objeto único)
-  const [genSettings, setGenSettings] = useState({
-    title: '', subtitle: '', youtube_id: '', 
-    link_prompt_tool: '', link_image_tool: '',
-    tutorial_title: '', 
-    step1_label: '', step1_text: '', step1_image: '',
-    step2_label: '', step2_text: '', step2_image: ''
-  });
+  // Estado para Site Config (Editor e Gerador)
+  const [siteConfig, setSiteConfig] = useState(config || {});
 
-  // --- Carregamento de Dados ---
+  // --- Data Fetching ---
   const fetchData = async () => {
     setItems([]);
-    
     try {
-        if (activeTab === 'dashboard') {
+        if (activeTab === 'editor' || activeTab === 'generator') {
+            // Garante que estamos com a config mais atual
+            const { data } = await supabase.from('site_config').select('*').single();
+            if (data) setSiteConfig(data);
+        }
+        else if (activeTab === 'dashboard') {
             const { data } = await supabase.from('news').select('*').order('id', {ascending: false});
             setItems(data || []);
-        } 
-        else if (activeTab === 'generator') {
-            const { data } = await supabase.from('generator_settings').select('*').single();
-            if (data) setGenSettings(data);
         }
         else if (activeTab === 'prompts') {
             if (selectedPack) {
@@ -101,73 +100,56 @@ export default function AdminPanel({ showToast }) {
             const { data } = await supabase.from('user_favorites').select('*, profile:profiles(email), item:pack_items(title)').limit(50).order('created_at', {ascending: false});
             setItems(data || []);
         }
-    } catch (error) {
-        console.error("Erro ao buscar dados:", error);
-    }
+    } catch (error) { console.error("Erro fetch:", error); }
   };
 
   useEffect(() => { fetchData(); }, [activeTab, selectedPack]);
 
-  // --- Salvar (Modal Genérico) ---
-  const handleSave = async (e) => {
+  // --- Salvar Site Config (Para Editor e Gerador) ---
+  const saveSiteConfig = async () => {
+    const { error } = await supabase.from('site_config').update(siteConfig).eq('id', siteConfig.id);
+    if (!error) {
+        showToast("Configurações atualizadas!");
+        refreshConfig(); // Atualiza o tema do site em tempo real
+    } else {
+        alert("Erro ao salvar config: " + error.message);
+    }
+  };
+
+  // --- Salvar Conteúdo (News, Prompts, Tutorials) ---
+  const handleSaveItem = async (e) => {
     e.preventDefault();
     let table = '';
     let payload = { ...editingItem };
-
-    // Remove campos de relacionamento para não dar erro no update
-    delete payload.profile; 
-    delete payload.item;
+    delete payload.profile; delete payload.item; // Limpeza
 
     if (activeTab === 'dashboard') table = 'news';
     if (activeTab === 'tutorials') table = 'tutorials_videos';
     if (activeTab === 'prompts') {
-        if (selectedPack) { 
-            table = 'pack_items'; 
-            payload.pack_id = selectedPack.id; 
-        } else { 
-            table = 'products'; 
-        }
+        if (selectedPack) { table = 'pack_items'; payload.pack_id = selectedPack.id; } 
+        else table = 'products';
     }
 
     const { error } = await supabase.from(table).upsert(payload);
-    if (!error) { 
-        showToast("Item salvo com sucesso!"); 
-        setEditingItem(null); 
-        fetchData(); 
-    } else {
-        alert("Erro ao salvar: " + error.message);
-    }
-  };
-
-  // --- Salvar Gerador (Específico) ---
-  const saveGenerator = async () => {
-    const { error } = await supabase.from('generator_settings').upsert(genSettings);
-    if (!error) showToast("Configurações do Gerador salvas!");
+    if (!error) { showToast("Salvo com sucesso!"); setEditingItem(null); fetchData(); } 
     else alert("Erro: " + error.message);
   };
 
-  // --- Excluir ---
   const handleDelete = async (id) => {
-    if(!confirm("Tem certeza que deseja excluir este item?")) return;
+    if(!confirm("Tem certeza que deseja excluir?")) return;
     let table = '';
-    
     if (activeTab === 'dashboard') table = 'news';
     if (activeTab === 'tutorials') table = 'tutorials_videos';
     if (activeTab === 'prompts') table = selectedPack ? 'pack_items' : 'products';
     if (activeTab === 'favorites') table = 'user_favorites';
 
     const { error } = await supabase.from(table).delete().eq('id', id);
-    if(!error) {
-        showToast("Item excluído.");
-        fetchData();
-    } else {
-        alert("Erro ao excluir: " + error.message);
-    }
+    if(!error) { showToast("Excluído!"); fetchData(); }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 pb-24 animate-fadeIn">
-      <h1 className="text-3xl font-bold text-white mb-8">Painel Admin</h1>
+      <h1 className="text-3xl font-bold text-white mb-8">Painel Admin (White Label)</h1>
 
       {/* Navegação de Abas */}
       <div className="flex gap-2 mb-8 overflow-x-auto border-b border-gray-800 pb-1 scrollbar-hide">
@@ -185,20 +167,97 @@ export default function AdminPanel({ showToast }) {
         ))}
       </div>
 
-      {/* ================= CONTEÚDO DAS ABAS ================= */}
+      {/* ======================= ABA: EDITOR VISUAL ======================= */}
+      {activeTab === 'editor' && (
+        <div className="max-w-5xl space-y-8">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-white">Identidade Visual</h2>
+                <button onClick={saveSiteConfig} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg flex items-center shadow-lg sticky top-4 z-10"><Save size={18} className="mr-2"/> Salvar Tema</button>
+            </div>
 
-      {/* 1. DASHBOARD (NEWS) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Cores */}
+                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
+                    <h3 className="text-blue-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2">Paleta de Cores</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Primária (Botões)</label><div className="flex gap-2"><input type="color" value={siteConfig.primary_color} onChange={e=>setSiteConfig({...siteConfig, primary_color: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-none"/><input type="text" value={siteConfig.primary_color} onChange={e=>setSiteConfig({...siteConfig, primary_color: e.target.value})} className="flex-1 bg-black border border-gray-700 rounded px-2 text-white text-sm"/></div></div>
+                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Secundária (Detalhes)</label><div className="flex gap-2"><input type="color" value={siteConfig.secondary_color} onChange={e=>setSiteConfig({...siteConfig, secondary_color: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-none"/><input type="text" value={siteConfig.secondary_color} onChange={e=>setSiteConfig({...siteConfig, secondary_color: e.target.value})} className="flex-1 bg-black border border-gray-700 rounded px-2 text-white text-sm"/></div></div>
+                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Fundo (Background)</label><div className="flex gap-2"><input type="color" value={siteConfig.background_color} onChange={e=>setSiteConfig({...siteConfig, background_color: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-none"/><input type="text" value={siteConfig.background_color} onChange={e=>setSiteConfig({...siteConfig, background_color: e.target.value})} className="flex-1 bg-black border border-gray-700 rounded px-2 text-white text-sm"/></div></div>
+                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Superfície (Cards)</label><div className="flex gap-2"><input type="color" value={siteConfig.surface_color} onChange={e=>setSiteConfig({...siteConfig, surface_color: e.target.value})} className="h-10 w-10 rounded cursor-pointer border-none"/><input type="text" value={siteConfig.surface_color} onChange={e=>setSiteConfig({...siteConfig, surface_color: e.target.value})} className="flex-1 bg-black border border-gray-700 rounded px-2 text-white text-sm"/></div></div>
+                    </div>
+                    <div><label className="text-gray-400 text-xs font-bold block mb-1">Nome do App</label><input type="text" value={siteConfig.app_name} onChange={e=>setSiteConfig({...siteConfig, app_name: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                </div>
+
+                {/* Imagens e Textos Home */}
+                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
+                    <h3 className="text-blue-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2">Branding e Home</h3>
+                    <ImageUploader label="Logo Header (Grande)" currentImage={siteConfig.logo_header_url} onUploadComplete={url => setSiteConfig({...siteConfig, logo_header_url: url})} />
+                    <ImageUploader label="Logo Menu (Icone)" currentImage={siteConfig.logo_menu_url} onUploadComplete={url => setSiteConfig({...siteConfig, logo_menu_url: url})} />
+                    <ImageUploader label="Capa do Topo (Hero)" currentImage={siteConfig.hero_background_url} onUploadComplete={url => setSiteConfig({...siteConfig, hero_background_url: url})} />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Título Home</label><input type="text" value={siteConfig.home_title} onChange={e=>setSiteConfig({...siteConfig, home_title: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Subtítulo</label><input type="text" value={siteConfig.home_subtitle} onChange={e=>setSiteConfig({...siteConfig, home_subtitle: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* ======================= ABA: TELA GERADOR ======================= */}
+      {activeTab === 'generator' && (
+        <div className="max-w-5xl space-y-8">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-white">Conteúdo do Gerador</h2>
+                <button onClick={saveSiteConfig} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg flex items-center shadow-lg sticky top-4 z-10"><Save size={18} className="mr-2"/> Salvar Gerador</button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Configs Principais */}
+                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
+                    <h3 className="text-purple-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2">Cabeçalho & Links</h3>
+                    <div><label className="text-gray-400 text-xs font-bold block mb-1">Título da Página</label><input type="text" value={siteConfig.generator_title} onChange={e=>setSiteConfig({...siteConfig, generator_title: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                    <div><label className="text-gray-400 text-xs font-bold block mb-1">Subtítulo</label><input type="text" value={siteConfig.generator_subtitle} onChange={e=>setSiteConfig({...siteConfig, generator_subtitle: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                    <div><label className="text-gray-400 text-xs font-bold block mb-1">ID do YouTube</label><input type="text" value={siteConfig.generator_youtube_id} onChange={e=>setSiteConfig({...siteConfig, generator_youtube_id: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Link Botão Prompt</label><input type="text" value={siteConfig.link_prompt_tool} onChange={e=>setSiteConfig({...siteConfig, link_prompt_tool: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                        <div><label className="text-gray-400 text-xs font-bold block mb-1">Link Botão Imagem</label><input type="text" value={siteConfig.link_image_tool} onChange={e=>setSiteConfig({...siteConfig, link_image_tool: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                    </div>
+                </div>
+
+                {/* Tutorial Mobile */}
+                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
+                    <h3 className="text-purple-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2"><Smartphone size={16} className="inline mr-1"/> Tutorial Mobile</h3>
+                    <div><label className="text-gray-400 text-xs font-bold block mb-1">Título da Seção</label><input type="text" value={siteConfig.tutorial_mobile_title} onChange={e=>setSiteConfig({...siteConfig, tutorial_mobile_title: e.target.value})} className="w-full bg-black border border-gray-700 rounded p-2 text-white"/></div>
+                    
+                    <div className="bg-black/40 p-3 rounded border border-gray-700">
+                        <span className="text-white text-xs font-bold mb-2 block">Passo 01</span>
+                        <ImageUploader label="Imagem (Opcional)" currentImage={siteConfig.step1_image} onUploadComplete={url => setSiteConfig({...siteConfig, step1_image: url})}/>
+                        <label className="text-gray-400 text-xs font-bold block mb-1 mt-2">Texto</label><input type="text" value={siteConfig.step1_text} onChange={e=>setSiteConfig({...siteConfig, step1_text: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white text-xs"/>
+                    </div>
+
+                    <div className="bg-black/40 p-3 rounded border border-gray-700">
+                        <span className="text-white text-xs font-bold mb-2 block">Passo 02</span>
+                        <ImageUploader label="Imagem (Opcional)" currentImage={siteConfig.step2_image} onUploadComplete={url => setSiteConfig({...siteConfig, step2_image: url})}/>
+                        <label className="text-gray-400 text-xs font-bold block mb-1 mt-2">Texto</label><input type="text" value={siteConfig.step2_text} onChange={e=>setSiteConfig({...siteConfig, step2_text: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white text-xs"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* ======================= ABA: DASHBOARD (NEWS) ======================= */}
       {activeTab === 'dashboard' && (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">Novidades do Dashboard</h2>
+                <h2 className="text-xl font-bold text-white">Gerenciar Novidades</h2>
                 <button onClick={() => setEditingItem({})} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center shadow-lg"><Plus size={18} className="mr-2"/> Nova Notícia</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {items.map(item => (
-                    <div key={item.id} className="bg-gray-900 border border-gray-800 p-4 rounded-xl relative group">
+                    <div key={item.id} className="bg-gray-900 border border-gray-800 p-4 rounded-xl relative group hover:border-blue-500 transition-colors">
                         <div className="h-32 bg-black rounded mb-3 overflow-hidden">
-                            <img src={item.image} className="w-full h-full object-cover" alt="News"/>
+                            <img src={item.image} className="w-full h-full object-cover" alt="news"/>
                         </div>
                         <h3 className="font-bold text-white truncate">{item.title}</h3>
                         <p className="text-gray-500 text-xs mb-3">{item.date}</p>
@@ -212,71 +271,7 @@ export default function AdminPanel({ showToast }) {
         </div>
       )}
 
-      {/* 2. GERADOR (SETTINGS COMPLETO) */}
-      {activeTab === 'generator' && (
-        <div className="max-w-5xl">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">Editar Página Gerador</h2>
-                <button onClick={saveGenerator} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg flex items-center shadow-lg sticky top-4 z-10"><Save size={18} className="mr-2"/> Salvar Alterações</button>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Coluna Esquerda: Principal */}
-                <div className="space-y-6 bg-gray-900 p-6 rounded-xl border border-gray-800">
-                    <h3 className="text-blue-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2">Cabeçalho & Mídia</h3>
-                    <div>
-                        <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título Principal</label>
-                        <input type="text" value={genSettings.title || ''} onChange={e => setGenSettings({...genSettings, title: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none"/>
-                    </div>
-                    <div>
-                        <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Subtítulo</label>
-                        <input type="text" value={genSettings.subtitle || ''} onChange={e => setGenSettings({...genSettings, subtitle: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none"/>
-                    </div>
-                    <div>
-                        <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">ID do YouTube (ex: dQw4w9WgXcQ)</label>
-                        <input type="text" value={genSettings.youtube_id || ''} onChange={e => setGenSettings({...genSettings, youtube_id: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none"/>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                        <div>
-                            <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Link Botão Prompt</label>
-                            <input type="text" value={genSettings.link_prompt_tool || ''} onChange={e => setGenSettings({...genSettings, link_prompt_tool: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none"/>
-                        </div>
-                        <div>
-                            <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Link Botão Imagem</label>
-                            <input type="text" value={genSettings.link_image_tool || ''} onChange={e => setGenSettings({...genSettings, link_image_tool: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none"/>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Coluna Direita: Tutorial Mobile */}
-                <div className="space-y-6 bg-gray-900 p-6 rounded-xl border border-gray-800">
-                    <h3 className="text-purple-500 font-bold uppercase text-xs tracking-wider mb-4 border-b border-gray-800 pb-2">Tutorial Mobile</h3>
-                    <div>
-                        <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título do Tutorial</label>
-                        <input type="text" value={genSettings.tutorial_title || ''} onChange={e => setGenSettings({...genSettings, tutorial_title: e.target.value})} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white focus:border-purple-500 outline-none"/>
-                    </div>
-                    
-                    {/* Passo 1 */}
-                    <div className="p-4 bg-black/40 rounded-lg border border-gray-800">
-                        <div className="flex justify-between mb-2"><span className="text-white font-bold text-xs">Passo 01</span></div>
-                        <ImageUploader label="Imagem (Print Celular)" currentImage={genSettings.step1_image} onUploadComplete={url => setGenSettings({...genSettings, step1_image: url})}/>
-                        <label className="text-gray-400 text-xs font-bold uppercase mb-1 block mt-2">Texto Instrução</label>
-                        <input type="text" value={genSettings.step1_text || ''} onChange={e => setGenSettings({...genSettings, step1_text: e.target.value})} className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white text-sm"/>
-                    </div>
-
-                    {/* Passo 2 */}
-                    <div className="p-4 bg-black/40 rounded-lg border border-gray-800">
-                        <div className="flex justify-between mb-2"><span className="text-white font-bold text-xs">Passo 02</span></div>
-                        <ImageUploader label="Imagem (Print Celular)" currentImage={genSettings.step2_image} onUploadComplete={url => setGenSettings({...genSettings, step2_image: url})}/>
-                        <label className="text-gray-400 text-xs font-bold uppercase mb-1 block mt-2">Texto Instrução</label>
-                        <input type="text" value={genSettings.step2_text || ''} onChange={e => setGenSettings({...genSettings, step2_text: e.target.value})} className="w-full bg-gray-900 border border-gray-700 p-2 rounded text-white text-sm"/>
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* 3. PROMPTS (PACKS & ITEMS) */}
+      {/* ======================= ABA: PROMPTS (PACKS & ITEMS) ======================= */}
       {activeTab === 'prompts' && (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -291,14 +286,13 @@ export default function AdminPanel({ showToast }) {
                 <button onClick={() => setEditingItem({})} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center shadow-lg"><Plus size={18} className="mr-2"/> Novo {selectedPack ? 'Prompt' : 'Pack'}</button>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {items.map(item => (
                     <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group hover:border-blue-500 transition-all cursor-pointer relative shadow-lg">
                         <div onClick={() => !selectedPack && setSelectedPack(item)} className="aspect-[3/4] relative bg-black">
                             <img src={item.cover || item.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="Cover"/>
                             {!selectedPack && <div className="absolute bottom-0 w-full p-2 bg-black/80 text-white text-xs font-bold text-center truncate">{item.title}</div>}
                         </div>
-                        
                         <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={(e) => {e.stopPropagation(); setEditingItem(item)}} className="bg-blue-600 p-1.5 rounded text-white shadow-lg hover:scale-110 transition-transform"><Edit3 size={14}/></button>
                             <button onClick={(e) => {e.stopPropagation(); handleDelete(item.id)}} className="bg-red-600 p-1.5 rounded text-white shadow-lg hover:scale-110 transition-transform"><Trash2 size={14}/></button>
@@ -310,7 +304,7 @@ export default function AdminPanel({ showToast }) {
         </div>
       )}
 
-      {/* 4. TUTORIAIS */}
+      {/* ======================= ABA: TUTORIAIS ======================= */}
       {activeTab === 'tutorials' && (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -337,7 +331,7 @@ export default function AdminPanel({ showToast }) {
         </div>
       )}
 
-      {/* 5. FAVORITOS (VIEW ONLY) */}
+      {/* ======================= ABA: FAVORITOS ======================= */}
       {activeTab === 'favorites' && (
         <div>
             <h2 className="text-xl font-bold text-white mb-6">Monitoramento de Favoritos</h2>
@@ -347,7 +341,7 @@ export default function AdminPanel({ showToast }) {
                         <thead className="bg-black text-white uppercase font-bold text-xs tracking-wider">
                             <tr>
                                 <th className="p-4">Usuário</th>
-                                <th className="p-4">Item Favoritado</th>
+                                <th className="p-4">Item</th>
                                 <th className="p-4">Data</th>
                                 <th className="p-4 text-right">Ação</th>
                             </tr>
@@ -355,8 +349,8 @@ export default function AdminPanel({ showToast }) {
                         <tbody className="divide-y divide-gray-800">
                             {items.map(fav => (
                                 <tr key={fav.id} className="hover:bg-gray-800/50 transition-colors">
-                                    <td className="p-4">{fav.profile?.email || 'Usuário Removido'}</td>
-                                    <td className="p-4 text-white font-medium">{fav.item?.title || 'Item Removido'}</td>
+                                    <td className="p-4">{fav.profile?.email || 'N/A'}</td>
+                                    <td className="p-4 text-white font-medium">{fav.item?.title || 'Removido'}</td>
                                     <td className="p-4">{new Date(fav.created_at).toLocaleDateString()}</td>
                                     <td className="p-4 text-right">
                                         <button onClick={()=>handleDelete(fav.id)} className="text-red-500 hover:text-white transition-colors"><Trash2 size={16}/></button>
@@ -371,7 +365,7 @@ export default function AdminPanel({ showToast }) {
         </div>
       )}
 
-      {/* ================= MODAL DE EDIÇÃO GENÉRICO ================= */}
+      {/* ======================= MODAL DE EDIÇÃO GENÉRICO ======================= */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -382,9 +376,8 @@ export default function AdminPanel({ showToast }) {
                     <button onClick={() => setEditingItem(null)}><X className="text-gray-400 hover:text-white"/></button>
                 </div>
                 
-                <form onSubmit={handleSave} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
+                <form onSubmit={handleSaveItem} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
                     
-                    {/* Campos Padrão (Título) */}
                     {(activeTab !== 'favorites') && (
                         <div>
                             <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título</label>
@@ -392,7 +385,6 @@ export default function AdminPanel({ showToast }) {
                         </div>
                     )}
 
-                    {/* CAMPOS ESPECÍFICOS: DASHBOARD */}
                     {activeTab === 'dashboard' && (
                         <>
                             <ImageUploader label="Imagem da Notícia" currentImage={editingItem.image} onUploadComplete={url => setEditingItem({...editingItem, image: url})}/>
@@ -401,7 +393,6 @@ export default function AdminPanel({ showToast }) {
                         </>
                     )}
 
-                    {/* CAMPOS ESPECÍFICOS: TUTORIAIS */}
                     {activeTab === 'tutorials' && (
                         <>
                             <ImageUploader label="Thumbnail" currentImage={editingItem.thumbnail} onUploadComplete={url => setEditingItem({...editingItem, thumbnail: url})}/>
@@ -413,7 +404,6 @@ export default function AdminPanel({ showToast }) {
                         </>
                     )}
 
-                    {/* CAMPOS ESPECÍFICOS: PACKS */}
                     {activeTab === 'prompts' && !selectedPack && (
                         <>
                             <ImageUploader label="Capa do Pack" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/>
@@ -423,7 +413,6 @@ export default function AdminPanel({ showToast }) {
                         </>
                     )}
 
-                    {/* CAMPOS ESPECÍFICOS: PROMPT ITEMS */}
                     {activeTab === 'prompts' && selectedPack && (
                         <>
                             <ImageUploader label="Imagem Gerada" currentImage={editingItem.url} onUploadComplete={url => setEditingItem({...editingItem, url: url})}/>

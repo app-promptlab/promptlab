@@ -1,8 +1,46 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-.animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #111; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+:root {
+  /* Valores iniciais (serão sobrescritos pelo ThemeContext) */
+  --color-primary: #2563eb;
+  --color-secondary: #9333ea;
+  --color-bg: #000000;
+  --color-surface: #111827;
+  --color-text: #ffffff;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+  }
+}
+
+/* Classes utilitárias para usar as cores do tema */
+.bg-theme-bg { background-color: var(--color-bg); }
+.bg-theme-surface { background-color: var(--color-surface); }
+.bg-theme-primary { background-color: var(--color-primary); }
+.bg-theme-secondary { background-color: var(--color-secondary); }
+
+.text-theme-primary { color: var(--color-primary); }
+.text-theme-secondary { color: var(--color-secondary); }
+.text-theme-text { color: var(--color-text); }
+
+.border-theme-primary { border-color: var(--color-primary); }
+.border-theme-surface { border-color: var(--color-surface); }
+
+/* Ajuste de scrollbar */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Custom Scrollbar para áreas roláveis */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: var(--color-bg); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-surface); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
+
+.animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
