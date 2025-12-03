@@ -37,12 +37,12 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
 
 // --- Painel Admin Principal ---
 export default function AdminPanel({ showToast }) {
-  const { config, refreshConfig } = useTheme();
+  // CORREÇÃO 1: Usando 'identity' em vez de 'config'
+  const { identity, refreshIdentity } = useTheme();
 
-  // DEFINIÇÃO CLARA DAS ABAS
   const TABS = [
-    { id: 'editor', label: 'Editor Visual (Banners)', icon: Palette },
-    { id: 'prompts', label: 'Gerenciar Packs', icon: LayoutGrid }, // Focado apenas em Criar/Editar Packs
+    { id: 'editor', label: 'Editor Visual', icon: Palette },
+    { id: 'prompts', label: 'Gerenciar Packs', icon: LayoutGrid },
     { id: 'dashboard', label: 'Notícias', icon: LayoutDashboard },
     { id: 'tutorials', label: 'Tutoriais', icon: Play },
     { id: 'favorites', label: 'Favoritos', icon: Heart },
@@ -53,26 +53,34 @@ export default function AdminPanel({ showToast }) {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedPack, setSelectedPack] = useState(null);
   
-  // Estados do Editor Visual
+  // --- Estados do Editor Visual ---
   const [selectedPage, setSelectedPage] = useState('dashboard');
   const [pageConfig, setPageConfig] = useState({});
   const [pageContent, setPageContent] = useState([]);
   const [editingBlock, setEditingBlock] = useState(null);
-  const [siteIdentity, setSiteIdentity] = useState(config || {});
+  
+  // CORREÇÃO 2: Inicializando com identity ou objeto vazio seguro
+  const [siteIdentity, setSiteIdentity] = useState(identity || {});
+
+  // Atualiza o form se o identity mudar (ex: carregou do banco)
+  useEffect(() => {
+    if (identity) setSiteIdentity(identity);
+  }, [identity]);
 
   // --- CARREGAMENTO ---
   useEffect(() => {
     if (activeTab === 'editor') {
-        setSiteIdentity(config);
         loadPageData();
     } else {
         fetchData();
     }
-  }, [activeTab, selectedPage, selectedPack, config]);
+  }, [activeTab, selectedPage, selectedPack]);
 
   const loadPageData = async () => {
+    // CORREÇÃO 3: Tabelas corretas 'pages_config' e 'page_content'
     const { data: pData } = await supabase.from('pages_config').select('*').eq('page_id', selectedPage).single();
     setPageConfig(pData || { page_id: selectedPage, show_header: true });
+    
     const { data: cData } = await supabase.from('page_content').select('*').eq('page_id', selectedPage).order('order_index', {ascending: true});
     setPageContent(cData || []);
   };
@@ -85,7 +93,6 @@ export default function AdminPanel({ showToast }) {
             setItems(data || []);
         }
         else if (activeTab === 'prompts') {
-            // Lógica de Packs e Prompts (CRUD)
             if (selectedPack) {
                 const { data } = await supabase.from('pack_items').select('*').eq('pack_id', selectedPack.id).order('id', {ascending: false});
                 setItems(data || []);
@@ -107,13 +114,21 @@ export default function AdminPanel({ showToast }) {
 
   // --- ACTIONS (EDITOR VISUAL) ---
   const saveIdentity = async () => {
+    // CORREÇÃO 4: Atualiza a tabela 'site_identity'
     const { error } = await supabase.from('site_identity').update(siteIdentity).gt('id', 0);
-    if (!error) { showToast("Identidade Salva!"); refreshConfig(); } else alert(error.message);
+    if (!error) { 
+        showToast("Identidade Salva!"); 
+        refreshIdentity(); // Atualiza o contexto global
+    } else { 
+        alert(error.message); 
+    }
   };
+
   const savePageConfig = async () => {
     const { error } = await supabase.from('pages_config').upsert(pageConfig);
     if (!error) showToast("Cabeçalho Salvo!"); else alert(error.message);
   };
+
   const saveBlock = async (e) => {
     e.preventDefault();
     const payload = { ...editingBlock, page_id: selectedPage };
@@ -121,6 +136,7 @@ export default function AdminPanel({ showToast }) {
     const { error } = await supabase.from('page_content').upsert(payload);
     if (!error) { showToast("Bloco Salvo!"); setEditingBlock(null); loadPageData(); } else alert(error.message);
   };
+
   const deleteBlock = async (id) => {
     if(!confirm("Excluir bloco?")) return;
     await supabase.from('page_content').delete().eq('id', id);
@@ -174,7 +190,7 @@ export default function AdminPanel({ showToast }) {
       {activeTab === 'editor' && (
         <div className="max-w-5xl space-y-12">
             
-            {/* SELETOR DE PÁGINA */}
+            {/* 1. SELETOR DE PÁGINA */}
             <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2"><Palette size={20}/> Gestor de Páginas</h2>
@@ -190,7 +206,7 @@ export default function AdminPanel({ showToast }) {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Cabeçalho */}
+                    {/* Configuração do Cabeçalho */}
                     <div className="lg:col-span-1 space-y-4">
                         <h3 className="text-blue-500 font-bold uppercase text-xs mb-2">Cabeçalho (Hero)</h3>
                         <div className="flex items-center gap-2 mb-2"><input type="checkbox" checked={pageConfig.show_header||false} onChange={e=>setPageConfig({...pageConfig, show_header:e.target.checked})}/> <span className="text-white text-sm">Exibir Cabeçalho</span></div>
@@ -231,17 +247,17 @@ export default function AdminPanel({ showToast }) {
                 </div>
             </div>
 
-            {/* IDENTIDADE GLOBAL */}
+            {/* 2. IDENTIDADE VISUAL */}
             <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2"><Palette size={20}/> Identidade Global</h2>
-                    <button onClick={saveIdentity} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg">Salvar</button>
+                    <button onClick={saveIdentity} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg">Salvar Cores/Logos</button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div><label className="text-gray-500 text-xs block mb-1">Primária</label><div className="flex"><input type="color" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})} className="h-8 w-8 cursor-pointer"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/></div></div>
-                    <div><label className="text-gray-500 text-xs block mb-1">Secundária</label><div className="flex"><input type="color" value={siteIdentity.secondary_color} onChange={e=>setSiteIdentity({...siteIdentity, secondary_color:e.target.value})} className="h-8 w-8 cursor-pointer"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.secondary_color} onChange={e=>setSiteIdentity({...siteIdentity, secondary_color:e.target.value})}/></div></div>
-                    <div><label className="text-gray-500 text-xs block mb-1">Fundo</label><div className="flex"><input type="color" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})} className="h-8 w-8 cursor-pointer"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/></div></div>
-                    <div><label className="text-gray-500 text-xs block mb-1">Nome App</label><input className="w-full bg-black text-white text-xs border border-gray-700 px-2 py-2 rounded" value={siteIdentity.app_name} onChange={e=>setSiteIdentity({...siteIdentity, app_name:e.target.value})}/></div>
+                    <div><label className="text-gray-500 text-xs block mb-1">Primária</label><div className="flex"><input type="color" value={siteIdentity.primary_color || '#2563eb'} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})} className="h-8 w-8 cursor-pointer"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.primary_color || ''} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/></div></div>
+                    <div><label className="text-gray-500 text-xs block mb-1">Secundária</label><div className="flex"><input type="color" value={siteIdentity.secondary_color || '#9333ea'} onChange={e=>setSiteIdentity({...siteIdentity, secondary_color:e.target.value})} className="h-8 w-8 cursor-pointer"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.secondary_color || ''} onChange={e=>setSiteIdentity({...siteIdentity, secondary_color:e.target.value})}/></div></div>
+                    <div><label className="text-gray-500 text-xs block mb-1">Fundo</label><div className="flex"><input type="color" value={siteIdentity.background_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})} className="h-8 w-8 cursor-pointer"/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.background_color || ''} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/></div></div>
+                    <div><label className="text-gray-500 text-xs block mb-1">Nome App</label><input className="w-full bg-black text-white text-xs border border-gray-700 px-2 py-2 rounded" value={siteIdentity.app_name || ''} onChange={e=>setSiteIdentity({...siteIdentity, app_name:e.target.value})}/></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <ImageUploader label="Logo Header (Grande)" currentImage={siteIdentity.logo_header_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_header_url:url})}/>
