@@ -1,3 +1,4 @@
+// ... (Imports e LockedCard mantidos iguais) ...
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Heart, Copy, Sparkles, ChevronLeft, Crown, Check, Grid, ArrowRight } from 'lucide-react';
@@ -5,7 +6,7 @@ import Modal from '../components/Modal';
 import DynamicPage from '../components/DynamicPage';
 import Row from '../components/Row';
 
-// LockedCard (Mantido)
+// ... (Mantenha o componente LockedCard aqui igual ao anterior) ...
 const LockedCard = ({ item }) => (
   <div className="relative w-full h-full overflow-hidden rounded-xl bg-black/50 group">
     <img src={item.url} className="absolute inset-0 w-full h-full object-cover filter blur-lg opacity-40 scale-110" alt="Locked"/>
@@ -27,8 +28,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   const [modalItem, setModalItem] = useState(null);
   const [likedIds, setLikedIds] = useState(new Set());
   const [copiedId, setCopiedId] = useState(null);
-  
-  // Estado para controlar visualização dos Packs (Carrossel vs Grade)
   const [viewAllPacks, setViewAllPacks] = useState(false);
 
   useEffect(() => {
@@ -45,14 +44,14 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     load();
   }, [user]);
 
-  const toggleFavorite = async (e, item) => {
-    e.stopPropagation();
+  // Função Unificada de Favoritar (Serve pro Card e pro Modal)
+  const toggleFavorite = async (item) => {
+    // e.stopPropagation() removido aqui pois será chamado direto no clique ou passado pro modal
     const isLiked = likedIds.has(item.id);
     const newSet = new Set(likedIds);
     if (isLiked) newSet.delete(item.id); else newSet.add(item.id);
     setLikedIds(newSet);
     
-    // Toast de Favorito
     const msg = isLiked ? "Removido dos favoritos" : "Adicionado aos favoritos!";
     if(showToast) showToast(msg);
 
@@ -60,12 +59,11 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     else await supabase.from('user_favorites').insert({ user_id: user.id, item_id: item.id });
   };
 
-  const handleCopy = (e, item) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(item.prompt);
-    setCopiedId(item.id);
+  const handleCopy = (text, itemId) => {
+    navigator.clipboard.writeText(text);
+    if(itemId) setCopiedId(itemId);
     if(showToast) showToast("Prompt copiado!");
-    setTimeout(() => setCopiedId(null), 2000);
+    if(itemId) setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleLockedClick = (item) => {
@@ -82,89 +80,46 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
   const Content = (
     <div className="max-w-[1600px] mx-auto px-4 pb-20 pt-8">
-      
-      {/* SEÇÃO PACKS */}
       {!onlyFavorites && (
         <div className="mb-8">
-            <div className="flex items-center justify-between mb-4 border-l-4 border-theme-primary pl-4">
-                <h2 className="text-xl font-bold text-white uppercase tracking-widest">PACKS</h2>
-                
-                {/* Controles de Navegação (Ver Todos / Voltar) */}
-                {selectedPack ? (
-                    <button onClick={() => setSelectedPack(null)} className="text-theme-primary text-sm font-bold flex items-center hover:text-white transition-colors">
-                        <ChevronLeft size={16} className="mr-1"/> Voltar para Packs
-                    </button>
-                ) : (
-                    <button 
-                        onClick={() => setViewAllPacks(!viewAllPacks)} 
-                        className="text-theme-primary text-xs font-bold flex items-center hover:text-white transition-colors bg-theme-surface px-3 py-1 rounded-full border border-white/10"
-                    >
-                        {viewAllPacks ? (
-                            <>Mostrar Menos <ChevronLeft size={14} className="ml-1 rotate-90"/></>
-                        ) : (
-                            <>Ver Todos <Grid size={14} className="ml-1"/></>
-                        )}
-                    </button>
-                )}
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-theme-text flex items-center gap-2"><span className="w-1 h-6 bg-theme-primary rounded-full inline-block"></span> PACKS</h2>
+                {selectedPack ? (<button onClick={() => setSelectedPack(null)} className="text-theme-primary text-sm font-bold flex items-center hover:text-white transition-colors"><ChevronLeft size={16}/> Voltar</button>) : (<button onClick={() => setViewAllPacks(!viewAllPacks)} className="text-theme-primary text-xs font-bold flex items-center hover:text-white transition-colors bg-theme-surface px-3 py-1 rounded-full border border-white/10">{viewAllPacks ? (<>Mostrar Menos <ChevronLeft size={14} className="ml-1 rotate-90"/></>) : (<>Ver Todos <Grid size={14} className="ml-1"/></>)}</button>)}
             </div>
-            
-            {/* Modo Grade (Ver Todos) ou Modo Carrossel (Row) */}
-            {!selectedPack && viewAllPacks ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-fadeIn">
-                    {packs.map(pack => (
-                        <div key={pack.id} onClick={() => { setSelectedPack(pack); setViewAllPacks(false); }} className="aspect-[2/3] rounded-xl overflow-hidden cursor-pointer transition-all duration-300 relative group hover:scale-95 opacity-90 hover:opacity-100 border border-white/10 hover:border-theme-primary">
-                            <img src={pack.cover} className="w-full h-full object-cover" alt={pack.title}/>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
-                            <div className="absolute bottom-2 inset-x-2 text-center text-xs font-bold text-white truncate drop-shadow-md">{pack.title}</div>
-                        </div>
-                    ))}
-                </div>
-            ) : !selectedPack && (
-                <Row items={packs} onItemClick={setSelectedPack} />
-            )}
-            
-            {/* Pack Selecionado (Header do Pack) */}
-            {selectedPack && (
-                <div className="flex items-center gap-4 bg-theme-surface/50 p-4 rounded-xl border border-theme-primary/30 animate-fadeIn mb-6">
-                    <img src={selectedPack.cover} className="w-16 h-24 object-cover rounded-lg shadow-lg"/>
-                    <div>
-                        <h3 className="text-2xl font-bold text-white">{selectedPack.title}</h3>
-                        <p className="text-gray-400 text-sm">{selectedPack.description || 'Explore os prompts desta coleção.'}</p>
-                    </div>
-                </div>
-            )}
+            {!selectedPack && viewAllPacks ? (<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-fadeIn">{packs.map(pack => (<div key={pack.id} onClick={() => { setSelectedPack(pack); setViewAllPacks(false); }} className="aspect-[2/3] rounded-xl overflow-hidden cursor-pointer transition-all duration-300 relative group hover:scale-95 opacity-90 hover:opacity-100 border border-white/10 hover:border-theme-primary"><img src={pack.cover} className="w-full h-full object-cover" alt={pack.title}/><div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" /><div className="absolute bottom-2 inset-x-2 text-center text-xs font-bold text-white truncate drop-shadow-md">{pack.title}</div></div>))}</div>) : !selectedPack && (<Row items={packs} onItemClick={setSelectedPack} />)}
+            {selectedPack && (<div className="flex items-center gap-4 bg-theme-surface/50 p-4 rounded-xl border border-theme-primary/30 animate-fadeIn mb-6"><img src={selectedPack.cover} className="w-16 h-24 object-cover rounded-lg shadow-lg"/><div><h3 className="text-2xl font-bold text-white">{selectedPack.title}</h3><p className="text-gray-400 text-sm">{selectedPack.description || 'Explore os prompts desta coleção.'}</p></div></div>)}
         </div>
       )}
 
-      {/* FEED DE PROMPTS */}
       <div>
-        <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-            {onlyFavorites ? 'Meus Favoritos' : (selectedPack ? 'Prompts da Coleção' : 'Feed de Prompts')}
-        </h2>
-        
-        {filteredPrompts.length === 0 && <div className="text-gray-500 text-center py-10">Nenhum prompt encontrado.</div>}
+        <h2 className="text-2xl font-bold text-theme-text mb-6 flex items-center">{onlyFavorites ? 'Meus Favoritos' : (selectedPack ? 'Prompts da Coleção' : 'Feed de Prompts')}</h2>
+        {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center py-10">Nenhum prompt encontrado.</div>}
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
           {filteredPrompts.map((item, index) => {
              let isLocked = false;
-             if (!isPro && !onlyFavorites) { 
-                 if (!item.is_free) isLocked = true; 
-             }
+             if (!isPro && !onlyFavorites) { if (!item.is_free) isLocked = true; }
              if (onlyFavorites) isLocked = false; 
              
              if (isLocked) return <div key={item.id} className="aspect-[3/4] cursor-pointer" onClick={() => handleLockedClick(item)}><LockedCard item={item} /></div>;
              
              const isLiked = likedIds.has(item.id);
              return (
-               <div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] rounded-xl overflow-hidden relative group cursor-pointer bg-black border border-white/5 hover:border-theme-primary/50 transition-all">
+               <div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] rounded-xl overflow-hidden relative group cursor-pointer bg-theme-card border border-white/5 hover:border-theme-primary/50 transition-all">
                  <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title}/>
                  
-                 <button onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${isLiked ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-black/50'}`}>
+                 <button 
+                    onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} 
+                    className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${isLiked ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-black/50'}`}
+                 >
                     <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
                  </button>
 
                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                    <button onClick={(e) => handleCopy(e, item)} className={`flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider py-2 rounded-lg transition-colors ${copiedId === item.id ? 'bg-green-600' : 'bg-white/20 hover:bg-white/30 backdrop-blur-md'}`}>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); handleCopy(item.prompt, item.id); }}
+                        className={`flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider py-2 rounded-lg transition-colors ${copiedId === item.id ? 'bg-green-600' : 'bg-white/20 hover:bg-white/30 backdrop-blur-md'}`}
+                    >
                         {copiedId === item.id ? <Check size={14}/> : <Copy size={14}/>} {copiedId === item.id ? 'COPIADO' : 'COPIAR'}
                     </button>
                  </div>
@@ -173,7 +128,15 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
           })}
         </div>
       </div>
-      <Modal item={modalItem} onClose={() => setModalItem(null)} onCopy={(text) => { navigator.clipboard.writeText(text); if(showToast) showToast("Copiado!"); }} />
+      
+      {/* Modal Conectado */}
+      <Modal 
+        item={modalItem} 
+        onClose={() => setModalItem(null)} 
+        onCopy={(text) => handleCopy(text, null)} // Passa função de copiar
+        onFavorite={toggleFavorite} // Passa função de favoritar
+        isLiked={modalItem ? likedIds.has(modalItem.id) : false} // Passa estado de favorito
+      />
     </div>
   );
 
