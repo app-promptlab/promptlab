@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  /* Valores padrão (serão substituídos pelo ThemeContext) */
+  /* Valores padrão para não quebrar no carregamento */
   --color-primary: #2563eb;
   --color-secondary: #9333ea;
   --color-bg: #000000;
+  --color-surface: #111827;
   --color-text: #ffffff;
   
-  /* Novas Variáveis */
   --color-sidebar: #000000;
   --color-sidebar-text: #9ca3af;
   --color-card: #111827;
@@ -26,9 +26,7 @@
   }
 }
 
-/* --- CLASSES DINÂMICAS (Use estas nos componentes) --- */
-
-/* Fundos */
+/* --- CLASSES DINÂMICAS --- */
 .bg-theme-bg { background-color: var(--color-bg); }
 .bg-theme-sidebar { background-color: var(--color-sidebar); }
 .bg-theme-card { background-color: var(--color-card); }
@@ -36,13 +34,11 @@
 .bg-theme-primary { background-color: var(--color-primary); }
 .bg-theme-secondary { background-color: var(--color-secondary); }
 
-/* Textos */
 .text-theme-text { color: var(--color-text); }
 .text-theme-sidebar-text { color: var(--color-sidebar-text); }
 .text-theme-card-text { color: var(--color-card-text); }
 .text-theme-primary { color: var(--color-primary); }
 
-/* Bordas */
 .border-theme-card { border-color: var(--color-card); }
 .border-theme-primary { border-color: var(--color-primary); }
 

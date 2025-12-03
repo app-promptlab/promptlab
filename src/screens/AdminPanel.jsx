@@ -13,7 +13,6 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
       setUploading(true);
       if (!event.target.files || event.target.files.length === 0) return;
       const file = event.target.files[0];
-      // Remove caracteres especiais do nome do arquivo
       const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
       const { error } = await supabase.storage.from('uploads').upload(fileName, file);
       if (error) throw error;
@@ -38,7 +37,6 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
 export default function AdminPanel({ showToast }) {
   const { identity, refreshIdentity } = useTheme();
 
-  // APENAS 2 ABAS
   const TABS = [
     { id: 'editor', label: 'Editor Visual (Páginas)', icon: Palette },
     { id: 'prompts', label: 'Gerenciar Packs', icon: LayoutGrid },
@@ -51,6 +49,8 @@ export default function AdminPanel({ showToast }) {
   const [pageConfig, setPageConfig] = useState({});
   const [pageContent, setPageContent] = useState([]);
   const [editingBlock, setEditingBlock] = useState(null);
+  
+  // Inicializa com identity do contexto ou objeto vazio para não quebrar
   const [siteIdentity, setSiteIdentity] = useState(identity || {});
   
   // Packs
@@ -59,7 +59,6 @@ export default function AdminPanel({ showToast }) {
   const [selectedPack, setSelectedPack] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
 
-  // Atualiza identity quando o contexto carregar
   useEffect(() => { if(identity) setSiteIdentity(identity); }, [identity]);
 
   useEffect(() => {
@@ -87,6 +86,35 @@ export default function AdminPanel({ showToast }) {
     }
   };
 
+  // --- ACTIONS EDITOR VISUAL ---
+  const saveIdentity = async () => { 
+      // Remove ID para garantir update seguro
+      const { id, created_at, ...updates } = siteIdentity;
+      const { error } = await supabase.from('site_identity').update(updates).gt('id', 0); 
+      if(!error){ showToast("Identidade Salva!"); refreshIdentity(); } else alert(error.message); 
+  };
+  
+  const savePageConfig = async () => { 
+      const { error } = await supabase.from('pages_config').upsert(pageConfig); 
+      if(!error) showToast("Cabeçalho Salvo!"); else alert(error.message); 
+  };
+
+  const saveBlock = async (e) => {
+    e.preventDefault();
+    const payload = { ...editingBlock, page_id: selectedPage };
+    if (!payload.order_index && !payload.id) payload.order_index = pageContent.length + 1;
+    if (!payload.id) delete payload.id;
+
+    const { error } = await supabase.from('page_content').upsert(payload);
+    if (!error) { showToast("Bloco Salvo!"); setEditingBlock(null); loadPageData(selectedPage); } else alert(error.message);
+  };
+
+  const deleteBlock = async (id) => {
+    if(!confirm("Excluir?")) return;
+    await supabase.from('page_content').delete().eq('id', id);
+    loadPageData(selectedPage);
+  };
+
   // --- DRAG AND DROP ---
   const handleDragStart = (e, index, listType) => { setDraggedItem({ index, type: listType }); e.dataTransfer.effectAllowed = "move"; };
   const handleDragOver = (e) => e.preventDefault();
@@ -109,76 +137,20 @@ export default function AdminPanel({ showToast }) {
     showToast("Ordem atualizada!");
   };
 
-  // --- ACTIONS: IDENTIDADE & HEADER ---
-  const saveIdentity = async () => { 
-      // Remove campos de sistema para não tentar atualizar ID gerado
-      const { id, created_at, ...updates } = siteIdentity;
-      const { error } = await supabase.from('site_identity').update(updates).gt('id', 0); 
-      if(!error){ showToast("Identidade Salva!"); refreshIdentity(); } else alert(error.message); 
-  };
-  
-  const savePageConfig = async () => { 
-      const { error } = await supabase.from('pages_config').upsert(pageConfig); 
-      if(!error) showToast("Cabeçalho Salvo!"); else alert(error.message); 
-  };
-
-  // --- ACTIONS: BLOCOS (BANNERS/VIDEOS) - CORREÇÃO DE ID ---
-  const saveBlock = async (e) => {
-    e.preventDefault();
-    const { id, ...dataToSave } = editingBlock; // Separa o ID do resto
-    
-    const payload = { ...dataToSave, page_id: selectedPage };
-    if (!payload.order_index) payload.order_index = pageContent.length + 1;
-
-    let error;
-    if (id) {
-        // UPDATE (Se tem ID)
-        const res = await supabase.from('page_content').update(payload).eq('id', id);
-        error = res.error;
-    } else {
-        // INSERT (Se não tem ID)
-        const res = await supabase.from('page_content').insert(payload);
-        error = res.error;
-    }
-
-    if (!error) { showToast("Bloco Salvo!"); setEditingBlock(null); loadPageData(selectedPage); } 
-    else alert(error.message);
-  };
-
-  const deleteBlock = async (id) => {
-    if(!confirm("Excluir?")) return;
-    await supabase.from('page_content').delete().eq('id', id);
-    loadPageData(selectedPage);
-  };
-
-  // --- ACTIONS: PACKS E PROMPTS - CORREÇÃO DE ID ---
+  // --- ACTIONS PACKS ---
   const handleSaveItem = async (e) => {
     e.preventDefault();
-    
-    // 1. Identifica se é Update ou Insert
-    const isUpdate = !!editingItem.id;
-    
-    // 2. Limpa payload (remove ID do corpo de dados e campos relacionais)
-    const { id, profile, item, ...dataToSave } = editingItem;
-    
     let table = selectedPack ? 'pack_items' : 'products';
+    let payload = { ...editingItem };
+    delete payload.profile; delete payload.item;
 
     if (selectedPack) { 
-        dataToSave.pack_id = selectedPack.id;
-        if (!isUpdate) dataToSave.order_index = items.length;
+        payload.pack_id = selectedPack.id;
+        if (!payload.id) payload.order_index = items.length;
     }
+    if (!payload.id) delete payload.id;
 
-    let error;
-    if (isUpdate) {
-        // UPDATE
-        const res = await supabase.from(table).update(dataToSave).eq('id', id);
-        error = res.error;
-    } else {
-        // INSERT
-        const res = await supabase.from(table).insert(dataToSave);
-        error = res.error;
-    }
-
+    const { error } = await supabase.from(table).upsert(payload);
     if (!error) { showToast("Salvo!"); setEditingItem(null); fetchData(); } 
     else alert("Erro: " + error.message);
   };
@@ -202,11 +174,10 @@ export default function AdminPanel({ showToast }) {
         ))}
       </div>
 
-      {/* === ABA 1: EDITOR VISUAL === */}
+      {/* === EDITOR VISUAL === */}
       {activeTab === 'editor' && (
         <div className="max-w-6xl space-y-12">
             
-            {/* SELETOR */}
             <div className="flex items-center gap-4 mb-6 bg-gray-900 p-4 rounded-xl border border-gray-800">
                 <span className="text-white font-bold">Editando Página:</span>
                 <select value={selectedPage} onChange={e => {setSelectedPage(e.target.value); loadPageData(e.target.value);}} className="bg-transparent text-white font-bold outline-none cursor-pointer text-lg">
@@ -218,9 +189,9 @@ export default function AdminPanel({ showToast }) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* IDENTIDADE & HEADER */}
                 <div className="lg:col-span-1 space-y-6">
-                    {/* Identidade Global */}
+                    
+                    {/* IDENTIDADE GLOBAL & CORES */}
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
                         <h3 className="text-purple-500 font-bold uppercase text-xs mb-2">Identidade Global & Cores</h3>
                         
@@ -232,7 +203,7 @@ export default function AdminPanel({ showToast }) {
                                     <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-gray-700">
                                         <input type="color" className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer p-0 border-0" value={siteIdentity.primary_color || '#2563eb'} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/>
                                     </div>
-                                    <input className="bg-black text-white text-xs border border-gray-700 flex-1 px-3 py-2 rounded-lg uppercase font-mono" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/>
+                                    <input className="bg-black text-white text-xs border border-gray-700 flex-1 px-2 py-2 rounded-lg uppercase font-mono" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/>
                                 </div>
                             </div>
                             <div>
@@ -241,27 +212,30 @@ export default function AdminPanel({ showToast }) {
                                     <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-gray-700">
                                         <input type="color" className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer p-0 border-0" value={siteIdentity.background_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/>
                                     </div>
-                                    <input className="bg-black text-white text-xs border border-gray-700 flex-1 px-3 py-2 rounded-lg uppercase font-mono" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/>
+                                    <input className="bg-black text-white text-xs border border-gray-700 flex-1 px-2 py-2 rounded-lg uppercase font-mono" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/>
                                 </div>
                             </div>
                         </div>
 
                         {/* CORES MENU E CARDS */}
-                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-800 mt-4">
-                            <div>
-                                <label className="text-xs text-gray-500 font-bold mb-1 block">Fundo Menu</label>
-                                <div className="flex items-center gap-2">
-                                    <div className="relative w-8 h-8 rounded overflow-hidden border border-gray-700">
-                                        <input type="color" className="absolute -top-2 -left-2 w-12 h-12 cursor-pointer p-0 border-0" value={siteIdentity.sidebar_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_color:e.target.value})}/>
-                                    </div>
-                                    <input className="bg-black text-white text-[10px] border border-gray-700 flex-1 px-2 py-1 rounded uppercase font-mono" value={siteIdentity.sidebar_color} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_color:e.target.value})}/>
-                                </div>
-                            </div>
-                            {/* Repetir lógica visual para os outros inputs se quiser, ou manter simples */}
-                            {/* ... outros inputs ... */}
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800 mt-2">
+                            <div><label className="text-xs text-gray-500 mb-1 block">Fundo Menu</label><div className="flex"><input type="color" className="h-6 w-6 rounded cursor-pointer mr-2" value={siteIdentity.sidebar_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_color:e.target.value})}/><input className="bg-black text-white text-[10px] flex-1 border border-gray-700 rounded px-1" value={siteIdentity.sidebar_color} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_color:e.target.value})}/></div></div>
+                            <div><label className="text-xs text-gray-500 mb-1 block">Texto Menu</label><div className="flex"><input type="color" className="h-6 w-6 rounded cursor-pointer mr-2" value={siteIdentity.sidebar_text_color || '#9ca3af'} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_text_color:e.target.value})}/><input className="bg-black text-white text-[10px] flex-1 border border-gray-700 rounded px-1" value={siteIdentity.sidebar_text_color} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_text_color:e.target.value})}/></div></div>
+                            <div><label className="text-xs text-gray-500 mb-1 block">Fundo Cards</label><div className="flex"><input type="color" className="h-6 w-6 rounded cursor-pointer mr-2" value={siteIdentity.card_color || '#111827'} onChange={e=>setSiteIdentity({...siteIdentity, card_color:e.target.value})}/><input className="bg-black text-white text-[10px] flex-1 border border-gray-700 rounded px-1" value={siteIdentity.card_color} onChange={e=>setSiteIdentity({...siteIdentity, card_color:e.target.value})}/></div></div>
+                            <div><label className="text-xs text-gray-500 mb-1 block">Texto Cards</label><div className="flex"><input type="color" className="h-6 w-6 rounded cursor-pointer mr-2" value={siteIdentity.card_text_color || '#ffffff'} onChange={e=>setSiteIdentity({...siteIdentity, card_text_color:e.target.value})}/><input className="bg-black text-white text-[10px] flex-1 border border-gray-700 rounded px-1" value={siteIdentity.card_text_color} onChange={e=>setSiteIdentity({...siteIdentity, card_text_color:e.target.value})}/></div></div>
                         </div>
 
-                        <ImageUploader label="Logo Menu" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_menu_url:url})}/>
+                        <div className="pt-2">
+                            <label className="text-gray-500 text-xs block mb-1">Nome do App</label>
+                            <input className="w-full bg-black border border-gray-700 p-2 text-white rounded text-sm" value={siteIdentity.app_name || ''} onChange={e=>setSiteIdentity({...siteIdentity, app_name:e.target.value})}/>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <ImageUploader label="Logo Header" currentImage={siteIdentity.logo_header_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_header_url:url})}/>
+                            <ImageUploader label="Logo Menu" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_menu_url:url})}/>
+                            <ImageUploader label="Favicon" currentImage={siteIdentity.favicon_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, favicon_url:url})}/>
+                        </div>
+
                         <button onClick={saveIdentity} className="w-full bg-purple-600 text-white font-bold py-2 rounded text-sm hover:bg-purple-500">Salvar Identidade</button>
                     </div>
 
@@ -276,10 +250,10 @@ export default function AdminPanel({ showToast }) {
                     </div>
                 </div>
 
-                {/* CONTEÚDO (VIDEOS/BANNERS) */}
+                {/* Coluna 2: Conteúdo */}
                 <div className="lg:col-span-2">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-white font-bold text-sm uppercase">Vídeos e Banners</h3>
+                        <h3 className="text-white font-bold text-sm uppercase">Vídeos e Banners ({selectedPage})</h3>
                         <button onClick={() => setEditingBlock({ type: 'video' })} className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2"><Plus size={14}/> Adicionar</button>
                     </div>
                     <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-2 pb-20">
@@ -338,14 +312,7 @@ export default function AdminPanel({ showToast }) {
             ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {items.map((item, index) => (
-                        <div 
-                            key={item.id} 
-                            draggable 
-                            onDragStart={(e) => handleDragStart(e, index, 'items')}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, index, 'items')}
-                            className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group relative cursor-move hover:border-blue-500"
-                        >
+                        <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, index, 'items')} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, index, 'items')} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group relative cursor-move hover:border-blue-500">
                             <div className="aspect-[3/4] relative bg-black"><img src={item.url} className="w-full h-full object-cover"/><div className="absolute top-2 left-2 bg-black/60 p-1 rounded text-white"><GripVertical size={16}/></div></div>
                             <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditingItem(item)} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button><button onClick={() => handleDeleteItem(item.id)} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button></div>
                             <div className="p-2 text-xs text-gray-400 bg-gray-900 border-t border-gray-800 flex justify-between"><span>{index+1}.</span><span className="truncate">{item.title}</span></div>
@@ -356,7 +323,7 @@ export default function AdminPanel({ showToast }) {
         </div>
       )}
 
-      {/* MODAL EDIÇÃO ITEM (PROMPTS) */}
+      {/* MODAL EDIÇÃO */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 p-6 overflow-hidden flex flex-col max-h-[90vh]">
@@ -364,26 +331,22 @@ export default function AdminPanel({ showToast }) {
                 <form onSubmit={handleSaveItem} className="overflow-y-auto custom-scrollbar space-y-4">
                     <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} required/></div>
                     
-                    {!selectedPack && (<><ImageUploader label="Capa" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Checkout (Para o Pack inteiro)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div></>)}
+                    {!selectedPack && (<><ImageUploader label="Capa" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Checkout (Pack)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div></>)}
                     
                     {selectedPack && (
                         <>
                             <ImageUploader label="Imagem" currentImage={editingItem.url} onUploadComplete={url => setEditingItem({...editingItem, url: url})}/>
                             <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Prompt</label><textarea rows={5} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})}/></div>
-                            
-                            {/* REMOVIDO LINK INDIVIDUAL, MANTIDO APENAS FREE */}
                             <div className="flex items-center gap-2 mt-4"><input type="checkbox" checked={editingItem.is_free || false} onChange={e => setEditingItem({...editingItem, is_free: e.target.checked})} className="w-5 h-5 accent-blue-600"/> <span className="text-white text-sm font-bold">É Gratuito? (Free)</span></div>
                             <div className="flex items-center gap-2 mt-2"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})}/> <span className="text-white text-sm">Destaque</span></div>
                         </>
                     )}
-
                     <div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setEditingItem(null)} className="px-6 py-2 text-gray-400 font-bold hover:text-white">Cancelar</button><button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg font-bold">Salvar</button></div>
                 </form>
             </div>
         </div>
       )}
 
-      {/* MODAL BLOCO (VISUAL) */}
       {editingBlock && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-gray-900 w-full max-w-lg rounded-xl border border-gray-700 p-6 space-y-4">
