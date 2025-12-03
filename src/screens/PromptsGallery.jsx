@@ -58,9 +58,14 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // NOVA LÓGICA: Busca o link no Pack pai
   const handleLockedClick = (item) => {
-      if (item.item_checkout_url) {
-          window.open(item.item_checkout_url, '_blank');
+      // Encontra o pack dono deste item
+      const parentPack = packs.find(p => p.id === item.pack_id);
+      
+      if (parentPack && parentPack.checkout_url) {
+          // Abre o checkout do pack
+          window.open(parentPack.checkout_url, '_blank');
       } else {
           alert("Este conteúdo é exclusivo para assinantes PRO!");
       }
@@ -97,11 +102,13 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
         {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center">Nenhum favorito.</div>}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
           {filteredPrompts.map((item, index) => {
-             // Lógica de Bloqueio Individual
+             // Lógica Simples: Se não é free e usuário não é pro = Bloqueia
              let isLocked = false;
              if (!isPro && !onlyFavorites) { 
-                 if (!item.is_free) isLocked = true; // Se não é free, bloqueia
+                 if (!item.is_free) isLocked = true; 
              }
+             // Se estiver nos favoritos, libera (assumindo que ele salvou quando tinha acesso ou é só visualização)
+             // Mas se quiser bloquear favoritos pro também, remova a linha abaixo.
              if (onlyFavorites) isLocked = false; 
              
              if (isLocked) {
