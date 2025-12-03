@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heart, Copy, Sparkles, ChevronLeft, Crown } from 'lucide-react';
+import { Heart, Copy, Sparkles, ChevronLeft, Crown, Check } from 'lucide-react';
 import Modal from '../components/Modal';
-import DynamicPage from '../components/DynamicPage'; // Wrapper que desenha o header/blocos
+import DynamicPage from '../components/DynamicPage';
 
-// LockedCard (Visual limpo)
+// Componente Visual do Bloqueio
 const LockedCard = ({ item }) => (
   <div className="relative w-full h-full overflow-hidden rounded-xl bg-black/50 group">
     <img src={item.url} className="absolute inset-0 w-full h-full object-cover filter blur-lg opacity-40 scale-110" alt="Locked"/>
@@ -25,12 +25,13 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   const [selectedPack, setSelectedPack] = useState(null);
   const [modalItem, setModalItem] = useState(null);
   const [likedIds, setLikedIds] = useState(new Set());
+  const [copiedId, setCopiedId] = useState(null); // Feedback visual de cópia
 
   useEffect(() => {
     const load = async () => {
       const { data: pData } = await supabase.from('products').select('*');
       setPacks(pData || []);
-      const { data: iData } = await supabase.from('pack_items').select('*');
+      const { data: iData } = await supabase.from('pack_items').select('*').order('order_index', { ascending: true }); // Ordenado!
       setPrompts(iData || []);
       if (user) {
         const { data: favData } = await supabase.from('user_favorites').select('item_id').eq('user_id', user.id);
@@ -41,7 +42,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   }, [user]);
 
   const toggleFavorite = async (e, item) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Impede abrir o modal
     const isLiked = likedIds.has(item.id);
     const newSet = new Set(likedIds);
     if (isLiked) newSet.delete(item.id); else newSet.add(item.id);
@@ -50,16 +51,22 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     else { await supabase.from('user_favorites').insert({ user_id: user.id, item_id: item.id }); if(showToast) showToast("Favoritado!"); }
   };
 
+  const handleCopy = (e, item) => {
+    e.stopPropagation(); // Impede abrir o modal
+    navigator.clipboard.writeText(item.prompt);
+    setCopiedId(item.id);
+    if(showToast) showToast("Prompt copiado!");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   let filteredPrompts = prompts;
   if (onlyFavorites) filteredPrompts = prompts.filter(p => likedIds.has(p.id));
   else if (selectedPack) filteredPrompts = prompts.filter(p => p.pack_id === selectedPack.id);
 
   const isPro = user?.plan === 'pro' || user?.plan === 'admin';
 
-  // Conteúdo da Galeria (Packs + Feed)
   const Content = (
     <div className="max-w-[1600px] mx-auto px-4 pb-20 pt-8">
-      {/* Seção Packs */}
       {!onlyFavorites && (
         <div className="mb-10">
             <div className="flex items-center justify-between mb-4 border-l-4 border-blue-600 pl-4">
@@ -78,7 +85,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
         </div>
       )}
 
-      {/* Seção Feed */}
       <div>
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center">{onlyFavorites ? 'Meus Favoritos' : (selectedPack ? selectedPack.title : 'Feed de Prompts')}</h2>
         {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center">Nenhum favorito.</div>}
@@ -88,11 +94,27 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
              if (!isPro && !onlyFavorites) { if (selectedPack) { if (index >= 3) isLocked = true; } else { if (index % 2 !== 0) isLocked = true; } }
              if (onlyFavorites) isLocked = false; 
              if (isLocked) return <div key={item.id} className="aspect-[3/4] cursor-pointer" onClick={() => alert("Assine o PRO!")}><LockedCard item={item} /></div>;
+             
+             const isLiked = likedIds.has(item.id);
              return (
                <div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] rounded-xl overflow-hidden relative group cursor-pointer bg-black">
                  <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title}/>
-                 <button onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${likedIds.has(item.id) ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500'}`}><Heart size={20} fill={likedIds.has(item.id) ? "currentColor" : "none"} /></button>
-                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3"><div className="flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider"><Copy size={12}/> VER</div></div>
+                 
+                 {/* Botão Favoritar */}
+                 <button onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${isLiked ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500'}`}>
+                    <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
+                 </button>
+
+                 {/* Botão Copiar (Overlay) */}
+                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                    <button 
+                        onClick={(e) => handleCopy(e, item)}
+                        className={`flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider py-2 rounded-lg transition-colors ${copiedId === item.id ? 'bg-green-600' : 'hover:bg-white/20'}`}
+                    >
+                        {copiedId === item.id ? <Check size={14}/> : <Copy size={14}/>} 
+                        {copiedId === item.id ? 'COPIADO' : 'COPIAR'}
+                    </button>
+                 </div>
                </div>
              );
           })}
@@ -102,7 +124,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     </div>
   );
 
-  // Se for Favoritos, retorna direto. Se for Prompts, envolve no DynamicPage para ter Header/Banners.
   if (onlyFavorites) return Content;
   return <DynamicPage pageId="prompts">{Content}</DynamicPage>;
 }

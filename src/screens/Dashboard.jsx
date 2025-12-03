@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import Row from '../components/Row';
 import DynamicPage from '../components/DynamicPage';
 
-export default function Dashboard({ user }) {
+export default function Dashboard({ user, changeTab }) {
   const [news, setNews] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [trending, setTrending] = useState([]);
@@ -21,7 +21,8 @@ export default function Dashboard({ user }) {
   }, [user]);
 
   return (
-    <DynamicPage pageId="dashboard">
+    // Passando user={user} para habilitar a variável {name}
+    <DynamicPage pageId="dashboard" user={user}>
         <div className="space-y-2 mt-8">
             {news.length > 0 && <Row title="Novidades" items={news} isLarge={true} type="news" />}
             {favorites.length > 0 && <Row title="Meus Favoritos" items={favorites} type="prompt" />}

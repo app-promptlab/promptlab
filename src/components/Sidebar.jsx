@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Zap, LayoutGrid, Play, Heart, Shield, User, LogOut, Menu, X } from 'lucide-react';
 
-// Agora recebemos 'user' como propriedade
 export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, setSidebarOpen, appSettings, isAdmin, onLogout }) {
   const [minimized, setMinimized] = useState(false);
 
@@ -16,8 +15,8 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
       className={`
         flex items-center w-full transition-all duration-200 group font-medium mb-1 rounded-xl
         ${minimized ? 'justify-center px-2 py-3' : 'px-4 py-3'} 
-        ${activeTab === id && !isLogout ? 'text-blue-500 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-900'}
-        ${!minimized && activeTab === id && !isLogout ? 'border-l-4 border-blue-500 rounded-l-none' : ''}
+        ${activeTab === id && !isLogout ? 'text-theme-primary bg-theme-primary/10' : 'text-gray-400 hover:text-white hover:bg-gray-900'}
+        ${!minimized && activeTab === id && !isLogout ? 'border-l-4 border-theme-primary rounded-l-none' : ''}
         ${isLogout ? 'mt-auto hover:text-red-400 hover:bg-red-500/10' : ''}
       `}
       title={minimized ? label : ''}
@@ -27,10 +26,9 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
     </button>
   );
 
-  // Componente interno para mostrar o perfil
   const UserProfileWidget = () => (
     <div className={`flex items-center gap-3 py-6 border-b border-gray-800 mb-2 transition-all ${minimized ? 'justify-center px-2' : 'px-4'}`}>
-        <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 border border-gray-600 ring-2 ring-transparent group-hover:ring-blue-500 transition-all">
+        <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 border border-gray-600 ring-2 ring-transparent group-hover:ring-theme-primary transition-all">
             {user?.avatar ? (
                 <img src={user.avatar} className="w-full h-full object-cover" alt="User" />
             ) : (
@@ -39,11 +37,10 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
                 </div>
             )}
         </div>
-        
         {!minimized && (
             <div className="overflow-hidden">
                 <h4 className="text-white text-sm font-bold truncate">{user?.name?.split(' ')[0] || 'Usuário'}</h4>
-                <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider truncate">
+                <p className="text-theme-primary text-[10px] uppercase font-bold tracking-wider truncate">
                     {user?.plan === 'admin' ? 'Administrador' : `Plano ${user?.plan || 'Free'}`}
                 </p>
             </div>
@@ -65,24 +62,24 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
             appSettings?.logo_menu_url ? (
               <img src={appSettings.logo_menu_url} alt="Logo" className="h-8 object-contain" />
             ) : (
-              <span className="text-xl font-bold text-white tracking-tighter">Prompt<span className="text-blue-600">Lab</span></span>
+              <span className="text-xl font-bold text-white tracking-tighter">Prompt<span className="text-theme-primary">Lab</span></span>
             )
           )}
-          <button onClick={() => setMinimized(!minimized)} className="text-gray-400 hover:text-white p-1">
-            <Menu size={24} />
-          </button>
+          <button onClick={() => setMinimized(!minimized)} className="text-gray-400 hover:text-white p-1"><Menu size={24} /></button>
         </div>
 
-        {/* --- NOVO: FOTO DO PERFIL AQUI --- */}
+        {/* Perfil */}
         <UserProfileWidget />
 
-        {/* Navegação */}
+        {/* Navegação (ORDEM CORRIGIDA) */}
         <nav className="flex-1 overflow-y-auto px-2 space-y-1 custom-scrollbar">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" />
-          <SidebarItem icon={Zap} label="Gerador" id="generator" />
           <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" />
           <SidebarItem icon={Play} label="Tutoriais" id="tutorials" />
           <SidebarItem icon={Heart} label="Favoritos" id="favorites" />
+          
+          {/* GERADOR AGORA ESTÁ ABAIXO DE FAVORITOS */}
+          <SidebarItem icon={Zap} label="Gerador" id="generator" />
           
           <div className="my-4 border-t border-gray-800 mx-2 opacity-50"></div>
           
@@ -107,7 +104,6 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
           <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
         </div>
         
-        {/* Perfil no Mobile também */}
         <div className="px-4 pt-4">
             <div className="flex items-center gap-3 p-3 bg-black/40 rounded-xl border border-gray-800">
                 <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden border border-gray-600">
@@ -115,17 +111,21 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
                 </div>
                 <div>
                     <h4 className="text-white text-sm font-bold">{user?.name?.split(' ')[0]}</h4>
-                    <p className="text-blue-500 text-xs font-bold">{user?.plan || 'Free'}</p>
+                    <p className="text-theme-primary text-xs font-bold">{user?.plan || 'Free'}</p>
                 </div>
             </div>
         </div>
 
+        {/* Navegação Mobile (ORDEM CORRIGIDA) */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-2">
             <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" />
-            <SidebarItem icon={Zap} label="Gerador" id="generator" />
             <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" />
             <SidebarItem icon={Play} label="Tutoriais" id="tutorials" />
             <SidebarItem icon={Heart} label="Favoritos" id="favorites" />
+            
+            {/* GERADOR ABAIXO DE FAVORITOS */}
+            <SidebarItem icon={Zap} label="Gerador" id="generator" />
+            
             {isAdmin && <SidebarItem icon={Shield} label="Admin" id="admin" />}
             <SidebarItem icon={User} label="Perfil" id="profile" />
             <SidebarItem icon={LogOut} label="Sair" isLogout />
@@ -133,7 +133,7 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
       </div>
 
       {!sidebarOpen && (
-        <button onClick={() => setSidebarOpen(true)} className="md:hidden fixed bottom-6 right-6 z-50 bg-blue-600 text-white p-4 rounded-full shadow-lg active:scale-95 transition-transform"><Menu size={28} /></button>
+        <button onClick={() => setSidebarOpen(true)} className="md:hidden fixed bottom-6 right-6 z-50 bg-theme-primary text-white p-4 rounded-full shadow-lg active:scale-95 transition-transform"><Menu size={28} /></button>
       )}
     </>
   );
