@@ -4,7 +4,6 @@ import { Heart, Copy, Sparkles, ChevronLeft, Crown, Check } from 'lucide-react';
 import Modal from '../components/Modal';
 import DynamicPage from '../components/DynamicPage';
 
-// Componente Visual do Bloqueio
 const LockedCard = ({ item }) => (
   <div className="relative w-full h-full overflow-hidden rounded-xl bg-black/50 group">
     <img src={item.url} className="absolute inset-0 w-full h-full object-cover filter blur-lg opacity-40 scale-110" alt="Locked"/>
@@ -25,13 +24,13 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   const [selectedPack, setSelectedPack] = useState(null);
   const [modalItem, setModalItem] = useState(null);
   const [likedIds, setLikedIds] = useState(new Set());
-  const [copiedId, setCopiedId] = useState(null); // Feedback visual de cópia
+  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       const { data: pData } = await supabase.from('products').select('*');
       setPacks(pData || []);
-      const { data: iData } = await supabase.from('pack_items').select('*').order('order_index', { ascending: true }); // Ordenado!
+      const { data: iData } = await supabase.from('pack_items').select('*').order('order_index', { ascending: true });
       setPrompts(iData || []);
       if (user) {
         const { data: favData } = await supabase.from('user_favorites').select('item_id').eq('user_id', user.id);
@@ -42,7 +41,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   }, [user]);
 
   const toggleFavorite = async (e, item) => {
-    e.stopPropagation(); // Impede abrir o modal
+    e.stopPropagation();
     const isLiked = likedIds.has(item.id);
     const newSet = new Set(likedIds);
     if (isLiked) newSet.delete(item.id); else newSet.add(item.id);
@@ -52,7 +51,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   };
 
   const handleCopy = (e, item) => {
-    e.stopPropagation(); // Impede abrir o modal
+    e.stopPropagation();
     navigator.clipboard.writeText(item.prompt);
     setCopiedId(item.id);
     if(showToast) showToast("Prompt copiado!");
@@ -99,20 +98,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
              return (
                <div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] rounded-xl overflow-hidden relative group cursor-pointer bg-black">
                  <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title}/>
-                 
-                 {/* Botão Favoritar */}
-                 <button onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${isLiked ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500'}`}>
-                    <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
-                 </button>
-
-                 {/* Botão Copiar (Overlay) */}
+                 <button onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${isLiked ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500'}`}><Heart size={20} fill={isLiked ? "currentColor" : "none"} /></button>
                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                    <button 
-                        onClick={(e) => handleCopy(e, item)}
-                        className={`flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider py-2 rounded-lg transition-colors ${copiedId === item.id ? 'bg-green-600' : 'hover:bg-white/20'}`}
-                    >
-                        {copiedId === item.id ? <Check size={14}/> : <Copy size={14}/>} 
-                        {copiedId === item.id ? 'COPIADO' : 'COPIAR'}
+                    <button onClick={(e) => handleCopy(e, item)} className={`flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider py-2 rounded-lg transition-colors ${copiedId === item.id ? 'bg-green-600' : 'hover:bg-white/20'}`}>
+                        {copiedId === item.id ? <Check size={14}/> : <Copy size={14}/>} {copiedId === item.id ? 'COPIADO' : 'COPIAR'}
                     </button>
                  </div>
                </div>
@@ -125,5 +114,5 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   );
 
   if (onlyFavorites) return Content;
-  return <DynamicPage pageId="prompts">{Content}</DynamicPage>;
+  return <DynamicPage pageId="prompts" user={user}>{Content}</DynamicPage>;
 }
