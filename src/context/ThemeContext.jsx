@@ -18,21 +18,26 @@ export const ThemeProvider = ({ children }) => {
 
   useEffect(() => { fetchIdentity(); }, []);
 
-  // Injetar CSS e Favicon
   useEffect(() => {
     if (identity) {
       const root = document.documentElement;
+      // Cores Básicas
       root.style.setProperty('--color-primary', identity.primary_color || '#2563eb');
       root.style.setProperty('--color-secondary', identity.secondary_color || '#9333ea');
       root.style.setProperty('--color-bg', identity.background_color || '#000000');
-      root.style.setProperty('--color-surface', identity.surface_color || '#111827');
       root.style.setProperty('--color-text', identity.text_color || '#ffffff');
-      root.style.setProperty('--radius', identity.border_radius || '0.75rem');
       
-      // Atualiza Título
+      // Novas Cores (Menu, Cards, Modal)
+      root.style.setProperty('--color-sidebar', identity.sidebar_color || '#000000');
+      root.style.setProperty('--color-sidebar-text', identity.sidebar_text_color || '#9ca3af');
+      root.style.setProperty('--color-card', identity.card_color || '#111827');
+      root.style.setProperty('--color-card-text', identity.card_text_color || '#ffffff');
+      root.style.setProperty('--color-modal', identity.modal_color || '#111827');
+      
+      // Configs
+      root.style.setProperty('--radius', identity.border_radius || '0.75rem');
       document.title = identity.app_name || 'PromptLab';
 
-      // Atualiza Favicon
       if (identity.favicon_url) {
         let link = document.querySelector("link[rel~='icon']");
         if (!link) {

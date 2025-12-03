@@ -222,15 +222,24 @@ export default function AdminPanel({ showToast }) {
                 <div className="lg:col-span-1 space-y-6">
                     {/* Identidade Global */}
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
-                        <h3 className="text-purple-500 font-bold uppercase text-xs mb-2">Identidade Global</h3>
+                        <h3 className="text-purple-500 font-bold uppercase text-xs mb-2">Identidade Global & Cores</h3>
+                        
+                        {/* CORES PRINCIPAIS */}
                         <div className="grid grid-cols-2 gap-2">
-                            <div><label className="text-xs text-gray-500">Primária</label><input type="color" className="w-full h-8 cursor-pointer rounded" value={siteIdentity.primary_color || '#2563eb'} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/></div>
-                            <div><label className="text-xs text-gray-500">Fundo</label><input type="color" className="w-full h-8 cursor-pointer rounded" value={siteIdentity.background_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/></div>
+                            <div><label className="text-xs text-gray-500">Primária</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.primary_color || '#2563eb'} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/></div></div>
+                            <div><label className="text-xs text-gray-500">Fundo Site</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.background_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/></div></div>
                         </div>
-                        <ImageUploader label="Logo Header (Grande)" currentImage={siteIdentity.logo_header_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_header_url:url})}/>
-                        <ImageUploader label="Logo Menu (Pequena)" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_menu_url:url})}/>
-                        <ImageUploader label="Favicon" currentImage={siteIdentity.favicon_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, favicon_url:url})}/>
-                        <button onClick={saveIdentity} className="w-full bg-purple-600 text-white font-bold py-2 rounded text-sm">Salvar Cores/Logos</button>
+
+                        {/* CORES MENU E CARDS */}
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800">
+                            <div><label className="text-xs text-gray-500">Fundo Menu</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.sidebar_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_color:e.target.value})}/></div></div>
+                            <div><label className="text-xs text-gray-500">Texto Menu</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.sidebar_text_color || '#9ca3af'} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_text_color:e.target.value})}/></div></div>
+                            <div><label className="text-xs text-gray-500">Fundo Cards/Modal</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.modal_color || '#111827'} onChange={e=>setSiteIdentity({...siteIdentity, modal_color:e.target.value})}/></div></div>
+                            <div><label className="text-xs text-gray-500">Texto Cards</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.card_text_color || '#ffffff'} onChange={e=>setSiteIdentity({...siteIdentity, card_text_color:e.target.value})}/></div></div>
+                        </div>
+
+                        <ImageUploader label="Logo Menu" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_menu_url:url})}/>
+                        <button onClick={saveIdentity} className="w-full bg-purple-600 text-white font-bold py-2 rounded text-sm hover:bg-purple-500">Salvar Identidade</button>
                     </div>
 
                     {/* Cabeçalho da Página */}
