@@ -3,7 +3,9 @@ import { supabase } from '../supabaseClient';
 import { Heart, Copy, Sparkles, ChevronLeft, Crown, Check } from 'lucide-react';
 import Modal from '../components/Modal';
 import DynamicPage from '../components/DynamicPage';
+import Row from '../components/Row'; // Importar Row para o carrossel de Packs
 
+// LockedCard (Mantido)
 const LockedCard = ({ item }) => (
   <div className="relative w-full h-full overflow-hidden rounded-xl bg-black/50 group">
     <img src={item.url} className="absolute inset-0 w-full h-full object-cover filter blur-lg opacity-40 scale-110" alt="Locked"/>
@@ -58,17 +60,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // NOVA LÓGICA: Busca o link no Pack pai
   const handleLockedClick = (item) => {
-      // Encontra o pack dono deste item
       const parentPack = packs.find(p => p.id === item.pack_id);
-      
-      if (parentPack && parentPack.checkout_url) {
-          // Abre o checkout do pack
-          window.open(parentPack.checkout_url, '_blank');
-      } else {
-          alert("Este conteúdo é exclusivo para assinantes PRO!");
-      }
+      if (parentPack && parentPack.checkout_url) window.open(parentPack.checkout_url, '_blank');
+      else alert("Este conteúdo é exclusivo para assinantes PRO!");
   };
 
   let filteredPrompts = prompts;
@@ -79,45 +74,39 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
   const Content = (
     <div className="max-w-[1600px] mx-auto px-4 pb-20 pt-8">
+      
+      {/* SEÇÃO PACKS (CARROSSEL HORIZONTAL) */}
       {!onlyFavorites && (
-        <div className="mb-10">
-            <div className="flex items-center justify-between mb-4 border-l-4 border-blue-600 pl-4">
-            <h2 className="text-xl font-bold text-gray-200 uppercase tracking-widest">PACKS</h2>
-            {selectedPack && (<button onClick={() => setSelectedPack(null)} className="text-blue-500 text-sm font-bold flex items-center hover:text-white transition-colors"><ChevronLeft size={16}/> Voltar para todos</button>)}
+        <div className="mb-8">
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <span className="w-1 h-6 bg-theme-primary rounded-full inline-block"></span>
+                    PACKS
+                </h2>
+                {selectedPack ? (
+                    <button onClick={() => setSelectedPack(null)} className="text-theme-primary text-sm font-bold flex items-center hover:text-white transition-colors"><ChevronLeft size={16}/> Voltar</button>
+                ) : (
+                    <span className="text-xs text-gray-500 uppercase tracking-wider">Arraste para o lado →</span>
+                )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {packs.map(pack => (
-                <div key={pack.id} onClick={() => setSelectedPack(pack)} className={`aspect-[2/3] rounded-xl overflow-hidden cursor-pointer transition-all duration-300 relative group ${selectedPack?.id === pack.id ? 'ring-2 ring-blue-500 scale-95' : 'hover:scale-95 opacity-90 hover:opacity-100'}`}>
-                <img src={pack.cover} className="w-full h-full object-cover" alt={pack.title}/>
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
-                <div className="absolute bottom-2 inset-x-2 text-center text-xs font-bold text-white truncate drop-shadow-md">{pack.title}</div>
-                </div>
-            ))}
-            </div>
+            
+            {/* Usando o componente Row para os Packs */}
+            <Row items={packs} onItemClick={setSelectedPack} />
         </div>
       )}
 
+      {/* FEED */}
       <div>
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center">{onlyFavorites ? 'Meus Favoritos' : (selectedPack ? selectedPack.title : 'Feed de Prompts')}</h2>
         {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center">Nenhum favorito.</div>}
+        
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
           {filteredPrompts.map((item, index) => {
-             // Lógica Simples: Se não é free e usuário não é pro = Bloqueia
              let isLocked = false;
-             if (!isPro && !onlyFavorites) { 
-                 if (!item.is_free) isLocked = true; 
-             }
-             // Se estiver nos favoritos, libera (assumindo que ele salvou quando tinha acesso ou é só visualização)
-             // Mas se quiser bloquear favoritos pro também, remova a linha abaixo.
+             if (!isPro && !onlyFavorites) { if (!item.is_free) isLocked = true; }
              if (onlyFavorites) isLocked = false; 
              
-             if (isLocked) {
-                 return (
-                    <div key={item.id} className="aspect-[3/4] cursor-pointer" onClick={() => handleLockedClick(item)}>
-                        <LockedCard item={item} />
-                    </div>
-                 );
-             }
+             if (isLocked) return <div key={item.id} className="aspect-[3/4] cursor-pointer" onClick={() => handleLockedClick(item)}><LockedCard item={item} /></div>;
              
              const isLiked = likedIds.has(item.id);
              return (
