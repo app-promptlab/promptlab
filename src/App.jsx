@@ -74,15 +74,17 @@ function App() {
             onLogout={async () => { await supabase.auth.signOut(); window.location.reload(); }}
         />
 
+        {/* CORREÇÃO: p-0 no mobile para remover moldura */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-theme-bg relative">
-            {/* Header Mobile (Visível apenas em telas pequenas) */}
-            <div className="md:hidden h-16 bg-theme-sidebar border-b border-white/10 flex items-center px-4 justify-between flex-shrink-0">
-                 <span className="font-bold text-theme-primary">Menu</span>
+            
+            {/* Header Mobile */}
+            <div className="md:hidden h-16 bg-theme-sidebar border-b border-white/10 flex items-center px-4 justify-between flex-shrink-0 z-40">
+                 <span className="font-bold text-theme-primary text-lg">App</span>
                  <button onClick={() => setSidebarOpen(true)} className="text-theme-text p-2"><Menu size={24}/></button>
             </div>
 
-            {/* Conteúdo Principal (p-0 para encostar nas bordas no mobile) */}
-            <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800">
+            {/* Conteúdo: w-full e p-0 no mobile */}
+            <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 w-full">
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
                 {activeTab === 'generator' && <Generator />}
                 {activeTab === 'prompts' && <PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />}
