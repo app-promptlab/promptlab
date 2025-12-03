@@ -24,34 +24,25 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
     <div className="mb-4">
       <label className="text-gray-400 text-xs font-bold uppercase mb-2 block">{label}</label>
       <div className="flex items-center gap-3">
-         <label className={`cursor-pointer bg-gray-900 border border-gray-700 hover:border-gray-500 text-white px-4 py-3 rounded-lg text-sm font-bold flex items-center transition-all w-full justify-center ${uploading?'opacity-50':''}`}>
-             {uploading ? <Loader2 size={16} className="animate-spin mr-2"/> : <UploadCloud size={16} className="mr-2"/>} {uploading ? '...' : 'Escolher Imagem'}
+         <label className={`cursor-pointer bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${uploading?'opacity-50':''}`}>
+             {uploading ? <Loader2 size={16} className="animate-spin mr-2"/> : <UploadCloud size={16} className="mr-2"/>} {uploading ? '...' : 'Escolher'}
              <input type="file" accept="image/*" onChange={uploadImage} className="hidden" disabled={uploading}/>
          </label>
-         {currentImage && <div className="relative group flex-shrink-0"><img src={currentImage} className="h-12 w-12 rounded object-cover border border-gray-600" alt="Preview"/></div>}
+         {currentImage && <div className="relative group"><img src={currentImage} className="h-12 w-12 rounded object-cover border border-gray-700" alt="Preview"/></div>}
       </div>
     </div>
   );
 }
 
-// Componente de Input de Cor Customizado
+// Componente Input de Cor Bonito
 const ColorInput = ({ label, value, onChange }) => (
-    <div className="flex flex-col">
-        <label className="text-xs text-gray-500 font-bold mb-1 uppercase">{label}</label>
-        <div className="flex items-center gap-2 bg-black border border-gray-800 p-1.5 rounded-lg">
+    <div>
+        <label className="text-xs text-gray-500 font-bold mb-1 block">{label}</label>
+        <div className="flex items-center gap-2 bg-black border border-gray-700 p-1 rounded-lg">
             <div className="relative w-8 h-8 rounded overflow-hidden border border-gray-600 flex-shrink-0">
-                <input 
-                    type="color" 
-                    className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer p-0 border-0" 
-                    value={value || '#000000'} 
-                    onChange={onChange}
-                />
+                <input type="color" className="absolute -top-2 -left-2 w-12 h-12 cursor-pointer p-0 border-0" value={value || '#000000'} onChange={onChange}/>
             </div>
-            <input 
-                className="bg-transparent text-white text-xs font-mono w-full outline-none uppercase" 
-                value={value} 
-                onChange={onChange}
-            />
+            <input className="bg-transparent text-white text-xs font-mono w-full outline-none uppercase p-1" value={value} onChange={onChange}/>
         </div>
     </div>
 );
@@ -104,7 +95,6 @@ export default function AdminPanel({ showToast }) {
     }
   };
 
-  // ACTIONS
   const handleDragStart = (e, index, listType) => { setDraggedItem({ index, type: listType }); e.dataTransfer.effectAllowed = "move"; };
   const handleDragOver = (e) => e.preventDefault();
   const handleDrop = async (e, dropIndex, listType) => {
@@ -131,7 +121,7 @@ export default function AdminPanel({ showToast }) {
   const savePageConfig = async () => { const { error } = await supabase.from('pages_config').upsert(pageConfig); if(!error) showToast("Cabeçalho Salvo!"); else alert(error.message); };
   const saveBlock = async (e) => {
     e.preventDefault();
-    let payload = { ...editingBlock, page_id: selectedPage };
+    const payload = { ...editingBlock, page_id: selectedPage };
     if (!payload.order_index && !payload.id) payload.order_index = pageContent.length + 1;
     if (!payload.id) delete payload.id;
     const { error } = await supabase.from('page_content').upsert(payload);
@@ -167,7 +157,7 @@ export default function AdminPanel({ showToast }) {
         <div className="max-w-6xl space-y-12">
             <div className="flex items-center gap-4 mb-6 bg-gray-900 p-4 rounded-xl border border-gray-800">
                 <span className="text-white font-bold">Editando Página:</span>
-                <select value={selectedPage} onChange={e => {setSelectedPage(e.target.value); loadPageData(e.target.value);}} className="bg-transparent text-white font-bold outline-none cursor-pointer text-lg">
+                <select value={selectedPage} onChange={e => {setSelectedPage(e.target.value); loadPageData(e.target.value);}} className="bg-black text-white border border-gray-700 p-2 rounded font-bold outline-none cursor-pointer">
                     <option value="dashboard">Dashboard (Home)</option>
                     <option value="generator">Gerador</option>
                     <option value="prompts">Prompts (Galeria)</option>
@@ -176,12 +166,9 @@ export default function AdminPanel({ showToast }) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* IDENTIDADE & HEADER */}
                 <div className="lg:col-span-1 space-y-6">
-                    
-                    {/* Identidade Global (Visual Melhorado) */}
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
-                        <h3 className="text-purple-500 font-bold uppercase text-xs mb-2 border-b border-gray-800 pb-2">Identidade Global & Cores</h3>
+                        <h3 className="text-purple-500 font-bold uppercase text-xs mb-2 pb-2 border-b border-gray-800">Identidade Global</h3>
                         
                         <div className="grid grid-cols-2 gap-3">
                             <ColorInput label="Primária" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})} />
@@ -190,6 +177,7 @@ export default function AdminPanel({ showToast }) {
                             <ColorInput label="Texto Menu" value={siteIdentity.sidebar_text_color} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_text_color:e.target.value})} />
                             <ColorInput label="Fundo Cards" value={siteIdentity.card_color} onChange={e=>setSiteIdentity({...siteIdentity, card_color:e.target.value})} />
                             <ColorInput label="Texto Cards" value={siteIdentity.card_text_color} onChange={e=>setSiteIdentity({...siteIdentity, card_text_color:e.target.value})} />
+                            <ColorInput label="Fundo Modal" value={siteIdentity.modal_color} onChange={e=>setSiteIdentity({...siteIdentity, modal_color:e.target.value})} />
                         </div>
 
                         <div className="pt-2">
@@ -207,7 +195,7 @@ export default function AdminPanel({ showToast }) {
                     </div>
 
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
-                        <h3 className="text-blue-500 font-bold uppercase text-xs mb-2 border-b border-gray-800 pb-2">Cabeçalho ({selectedPage})</h3>
+                        <h3 className="text-blue-500 font-bold uppercase text-xs mb-2 pb-2 border-b border-gray-800">Cabeçalho ({selectedPage})</h3>
                         <div className="flex items-center gap-2 mb-2"><input type="checkbox" checked={pageConfig.show_header||false} onChange={e=>setPageConfig({...pageConfig, show_header:e.target.checked})}/> <span className="text-white text-sm">Exibir Cabeçalho</span></div>
                         <input className="w-full bg-black border border-gray-700 p-2 text-white rounded text-sm" placeholder="Título" value={pageConfig.title||''} onChange={e=>setPageConfig({...pageConfig, title:e.target.value})}/>
                         <input className="w-full bg-black border border-gray-700 p-2 text-white rounded text-sm" placeholder="Subtítulo" value={pageConfig.subtitle||''} onChange={e=>setPageConfig({...pageConfig, subtitle:e.target.value})}/>
@@ -256,12 +244,33 @@ export default function AdminPanel({ showToast }) {
         </div>
       )}
 
-      {/* MODAIS IGUAIS AO ANTERIOR (Resumidos para caber) */}
+      {/* MODAIS */}
       {editingItem && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 p-6 overflow-hidden flex flex-col max-h-[90vh]"><div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white uppercase">{editingItem.id ? 'Editar' : 'Novo'} Item</h3><button onClick={() => setEditingItem(null)}><X className="text-gray-400"/></button></div><form onSubmit={handleSaveItem} className="overflow-y-auto custom-scrollbar space-y-4"><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} required/></div>{!selectedPack && (<><ImageUploader label="Capa" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Checkout (Pack)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div></>)}{selectedPack && (<><ImageUploader label="Imagem" currentImage={editingItem.url} onUploadComplete={url => setEditingItem({...editingItem, url: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Prompt</label><textarea rows={5} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})}/></div><div className="flex items-center gap-2 mt-4"><input type="checkbox" checked={editingItem.is_free || false} onChange={e => setEditingItem({...editingItem, is_free: e.target.checked})} className="w-5 h-5 accent-blue-600"/> <span className="text-white text-sm font-bold">É Gratuito? (Free)</span></div><div className="flex items-center gap-2 mt-2"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})}/> <span className="text-white text-sm">Destaque</span></div></>)}<div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setEditingItem(null)} className="px-6 py-2 text-gray-400 font-bold hover:text-white">Cancelar</button><button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg font-bold">Salvar</button></div></form></div></div>
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 p-6 overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white uppercase">{editingItem.id ? 'Editar' : 'Novo'} Item</h3><button onClick={() => setEditingItem(null)}><X className="text-gray-400"/></button></div>
+                <form onSubmit={handleSaveItem} className="overflow-y-auto custom-scrollbar space-y-4">
+                    <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} required/></div>
+                    {!selectedPack && (<><ImageUploader label="Capa" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Checkout (Pack)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div></>)}
+                    {selectedPack && (<><ImageUploader label="Imagem" currentImage={editingItem.url} onUploadComplete={url => setEditingItem({...editingItem, url: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Prompt</label><textarea rows={5} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})}/></div><div className="flex items-center gap-2 mt-4"><input type="checkbox" checked={editingItem.is_free || false} onChange={e => setEditingItem({...editingItem, is_free: e.target.checked})} className="w-5 h-5 accent-blue-600"/> <span className="text-white text-sm font-bold">É Gratuito? (Free)</span></div><div className="flex items-center gap-2 mt-2"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})}/> <span className="text-white text-sm">Destaque</span></div></>)}
+                    <div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setEditingItem(null)} className="px-6 py-2 text-gray-400 font-bold hover:text-white">Cancelar</button><button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg font-bold">Salvar</button></div>
+                </form>
+            </div>
+        </div>
       )}
+
       {editingBlock && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-gray-900 w-full max-w-lg rounded-xl border border-gray-700 p-6 space-y-4"><h3 className="text-white font-bold uppercase">Editar Bloco ({selectedPage})</h3><div><label className="text-gray-500 text-xs block mb-1">Tipo</label><select className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.type} onChange={e => setEditingBlock({...editingBlock, type: e.target.value})}><option value="video">Vídeo</option><option value="banner_large">Banner Grande</option><option value="banner_small">Botão/Banner Peq.</option></select></div><div><label className="text-gray-500 text-xs block mb-1">Título</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.title || ''} onChange={e => setEditingBlock({...editingBlock, title: e.target.value})}/></div>{editingBlock.type === 'video' ? (<div><label className="text-gray-500 text-xs block mb-1">ID YouTube</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.media_url || ''} onChange={e => setEditingBlock({...editingBlock, media_url: e.target.value})}/></div>) : (<ImageUploader label="Imagem" currentImage={editingBlock.media_url} onUploadComplete={url => setEditingBlock({...editingBlock, media_url: url})} />)}{(editingBlock.type.includes('banner') || editingBlock.type === 'video') && (<><div><label className="text-gray-500 text-xs block mb-1">Subtítulo</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.subtitle || ''} onChange={e => setEditingBlock({...editingBlock, subtitle: e.target.value})}/></div><div className="grid grid-cols-2 gap-4"><div><label className="text-gray-500 text-xs block mb-1">Link</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.action_link || ''} onChange={e => setEditingBlock({...editingBlock, action_link: e.target.value})}/></div><div><label className="text-gray-500 text-xs block mb-1">Texto Botão</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.action_label || ''} onChange={e => setEditingBlock({...editingBlock, action_label: e.target.value})}/></div></div></>)}<div><label className="text-gray-500 text-xs block mb-1">Ordem</label><input type="number" className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.order_index || 0} onChange={e => setEditingBlock({...editingBlock, order_index: parseInt(e.target.value)})}/></div><div className="flex justify-end gap-2 pt-4"><button onClick={() => setEditingBlock(null)} className="px-4 py-2 text-gray-400 text-sm font-bold">Cancelar</button><button onClick={saveBlock} className="px-6 py-2 bg-blue-600 text-white rounded text-sm font-bold">Salvar Bloco</button></div></div></div>
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-gray-900 w-full max-w-lg rounded-xl border border-gray-700 p-6 space-y-4">
+                <h3 className="text-white font-bold uppercase">Editar Bloco</h3>
+                <div><label className="text-gray-500 text-xs block mb-1">Tipo</label><select className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.type} onChange={e => setEditingBlock({...editingBlock, type: e.target.value})}><option value="video">Vídeo</option><option value="banner_large">Banner Grande</option><option value="banner_small">Botão/Banner Peq.</option></select></div>
+                <div><label className="text-gray-500 text-xs block mb-1">Título</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.title || ''} onChange={e => setEditingBlock({...editingBlock, title: e.target.value})}/></div>
+                {editingBlock.type === 'video' ? (<div><label className="text-gray-500 text-xs block mb-1">ID YouTube</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.media_url || ''} onChange={e => setEditingBlock({...editingBlock, media_url: e.target.value})}/></div>) : (<ImageUploader label="Imagem" currentImage={editingBlock.media_url} onUploadComplete={url => setEditingBlock({...editingBlock, media_url: url})} />)}
+                {(editingBlock.type.includes('banner') || editingBlock.type === 'video') && (<><div><label className="text-gray-500 text-xs block mb-1">Subtítulo</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.subtitle || ''} onChange={e => setEditingBlock({...editingBlock, subtitle: e.target.value})}/></div><div className="grid grid-cols-2 gap-4"><div><label className="text-gray-500 text-xs block mb-1">Link</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.action_link || ''} onChange={e => setEditingBlock({...editingBlock, action_link: e.target.value})}/></div><div><label className="text-gray-500 text-xs block mb-1">Texto Botão</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.action_label || ''} onChange={e => setEditingBlock({...editingBlock, action_label: e.target.value})}/></div></div></>)}
+                <div><label className="text-gray-500 text-xs block mb-1">Ordem</label><input type="number" className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.order_index || 0} onChange={e => setEditingBlock({...editingBlock, order_index: parseInt(e.target.value)})}/></div>
+                <div className="flex justify-end gap-2 pt-4"><button onClick={() => setEditingBlock(null)} className="px-4 py-2 text-gray-400 text-sm font-bold">Cancelar</button><button onClick={saveBlock} className="px-6 py-2 bg-blue-600 text-white rounded text-sm font-bold">Salvar Bloco</button></div>
+            </div>
+        </div>
       )}
     </div>
   );
