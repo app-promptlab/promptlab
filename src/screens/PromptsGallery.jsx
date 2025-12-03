@@ -1,12 +1,10 @@
-// ... (Imports e LockedCard mantidos iguais) ...
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heart, Copy, Sparkles, ChevronLeft, Crown, Check, Grid, ArrowRight } from 'lucide-react';
+import { Heart, Copy, Sparkles, ChevronLeft, Crown, Check, Grid } from 'lucide-react';
 import Modal from '../components/Modal';
 import DynamicPage from '../components/DynamicPage';
 import Row from '../components/Row';
 
-// ... (Mantenha o componente LockedCard aqui igual ao anterior) ...
 const LockedCard = ({ item }) => (
   <div className="relative w-full h-full overflow-hidden rounded-xl bg-black/50 group">
     <img src={item.url} className="absolute inset-0 w-full h-full object-cover filter blur-lg opacity-40 scale-110" alt="Locked"/>
@@ -44,9 +42,41 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     load();
   }, [user]);
 
-  // Função Unificada de Favoritar (Serve pro Card e pro Modal)
-  const toggleFavorite = async (item) => {
-    // e.stopPropagation() removido aqui pois será chamado direto no clique ou passado pro modal
+  // --- FUNÇÃO DE CÓPIA SEGURA ---
+  const copyToClipboard = (text) => {
+    // Tenta método moderno
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    } else {
+        // Método Fallback (cria elemento invisível)
+        let textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        return new Promise((res, rej) => {
+            document.execCommand('copy') ? res() : rej();
+            textArea.remove();
+        });
+    }
+  };
+
+  const handleCopy = (e, item) => {
+    if(e) e.stopPropagation();
+    copyToClipboard(item.prompt)
+        .then(() => {
+            setCopiedId(item.id);
+            if(showToast) showToast("Prompt copiado com sucesso!");
+            setTimeout(() => setCopiedId(null), 2000);
+        })
+        .catch(() => alert("Erro ao copiar automaticamente. Tente selecionar e copiar manual."));
+  };
+
+  const toggleFavorite = async (e, item) => {
+    if(e) e.stopPropagation();
     const isLiked = likedIds.has(item.id);
     const newSet = new Set(likedIds);
     if (isLiked) newSet.delete(item.id); else newSet.add(item.id);
@@ -59,17 +89,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     else await supabase.from('user_favorites').insert({ user_id: user.id, item_id: item.id });
   };
 
-  const handleCopy = (text, itemId) => {
-    navigator.clipboard.writeText(text);
-    if(itemId) setCopiedId(itemId);
-    if(showToast) showToast("Prompt copiado!");
-    if(itemId) setTimeout(() => setCopiedId(null), 2000);
-  };
-
   const handleLockedClick = (item) => {
       const parentPack = packs.find(p => p.id === item.pack_id);
       if (parentPack && parentPack.checkout_url) window.open(parentPack.checkout_url, '_blank');
-      else alert("Este conteúdo é exclusivo para assinantes PRO!");
+      else alert("Conteúdo exclusivo para assinantes PRO!");
   };
 
   let filteredPrompts = prompts;
@@ -93,33 +116,21 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
       <div>
         <h2 className="text-2xl font-bold text-theme-text mb-6 flex items-center">{onlyFavorites ? 'Meus Favoritos' : (selectedPack ? 'Prompts da Coleção' : 'Feed de Prompts')}</h2>
-        {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center py-10">Nenhum prompt encontrado.</div>}
+        {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center py-10">Nenhum favorito.</div>}
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
           {filteredPrompts.map((item, index) => {
              let isLocked = false;
              if (!isPro && !onlyFavorites) { if (!item.is_free) isLocked = true; }
              if (onlyFavorites) isLocked = false; 
-             
              if (isLocked) return <div key={item.id} className="aspect-[3/4] cursor-pointer" onClick={() => handleLockedClick(item)}><LockedCard item={item} /></div>;
-             
              const isLiked = likedIds.has(item.id);
              return (
                <div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] rounded-xl overflow-hidden relative group cursor-pointer bg-theme-card border border-white/5 hover:border-theme-primary/50 transition-all">
                  <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title}/>
-                 
-                 <button 
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(item); }} 
-                    className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${isLiked ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-black/50'}`}
-                 >
-                    <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
-                 </button>
-
+                 <button onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${isLiked ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-black/50'}`}><Heart size={20} fill={isLiked ? "currentColor" : "none"} /></button>
                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); handleCopy(item.prompt, item.id); }}
-                        className={`flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider py-2 rounded-lg transition-colors ${copiedId === item.id ? 'bg-green-600' : 'bg-white/20 hover:bg-white/30 backdrop-blur-md'}`}
-                    >
+                    <button onClick={(e) => handleCopy(e, item)} className={`flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider py-2 rounded-lg transition-colors ${copiedId === item.id ? 'bg-green-600' : 'bg-white/20 hover:bg-white/30 backdrop-blur-md'}`}>
                         {copiedId === item.id ? <Check size={14}/> : <Copy size={14}/>} {copiedId === item.id ? 'COPIADO' : 'COPIAR'}
                     </button>
                  </div>
@@ -128,14 +139,12 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
           })}
         </div>
       </div>
-      
-      {/* Modal Conectado */}
       <Modal 
         item={modalItem} 
         onClose={() => setModalItem(null)} 
-        onCopy={(text) => handleCopy(text, null)} // Passa função de copiar
-        onFavorite={toggleFavorite} // Passa função de favoritar
-        isLiked={modalItem ? likedIds.has(modalItem.id) : false} // Passa estado de favorito
+        onCopy={(text) => handleCopy(null, modalItem?.id)} // Usa a função do pai, mas sem evento 'e'
+        onFavorite={() => toggleFavorite(null, modalItem)} 
+        isLiked={modalItem ? likedIds.has(modalItem.id) : false}
       />
     </div>
   );

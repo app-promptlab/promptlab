@@ -7,6 +7,7 @@ export default function Modal({ item, onClose, onCopy, onFavorite, isLiked }) {
   if (!item) return null;
 
   const handleCopyClick = () => {
+    // Chama a função do pai que já tem a lógica segura de copy
     onCopy(item.prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
