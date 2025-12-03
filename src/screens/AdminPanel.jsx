@@ -6,34 +6,51 @@ import {
   Palette, LayoutGrid, Video, Image as ImageIcon, GripVertical 
 } from 'lucide-react';
 
+// --- Componente de Upload ---
 function ImageUploader({ currentImage, onUploadComplete, label }) {
   const [uploading, setUploading] = useState(false);
+  
   const uploadImage = async (event) => {
     try {
       setUploading(true);
       if (!event.target.files || event.target.files.length === 0) return;
+      
       const file = event.target.files[0];
+      // Sanitiza nome do arquivo
       const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+      
       const { error } = await supabase.storage.from('uploads').upload(fileName, file);
       if (error) throw error;
+      
       const { data } = supabase.storage.from('uploads').getPublicUrl(fileName);
       onUploadComplete(data.publicUrl);
-    } catch (error) { alert('Erro upload: ' + error.message); } finally { setUploading(false); }
+    } catch (error) { 
+      alert('Erro upload: ' + error.message); 
+    } finally { 
+      setUploading(false); 
+    }
   };
+
   return (
     <div className="mb-4">
       <label className="text-gray-400 text-xs font-bold uppercase mb-2 block">{label}</label>
       <div className="flex items-center gap-3">
-         <label className={`cursor-pointer bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${uploading?'opacity-50':''}`}>
-             {uploading ? <Loader2 size={16} className="animate-spin mr-2"/> : <UploadCloud size={16} className="mr-2"/>} {uploading ? '...' : 'Escolher'}
+         <label className={`cursor-pointer bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+             {uploading ? <Loader2 size={16} className="animate-spin mr-2"/> : <UploadCloud size={16} className="mr-2"/>}
+             {uploading ? 'Enviando...' : 'Escolher'}
              <input type="file" accept="image/*" onChange={uploadImage} className="hidden" disabled={uploading}/>
          </label>
-         {currentImage && <div className="relative group"><img src={currentImage} className="h-12 w-12 rounded object-cover border border-gray-700" alt="Preview"/></div>}
+         {currentImage && (
+            <div className="relative group">
+                <img src={currentImage} className="h-12 w-12 rounded object-cover border border-gray-700" alt="Preview"/>
+            </div>
+         )}
       </div>
     </div>
   );
 }
 
+// --- Painel Admin ---
 export default function AdminPanel({ showToast }) {
   const { identity, refreshIdentity } = useTheme();
 
@@ -44,29 +61,39 @@ export default function AdminPanel({ showToast }) {
 
   const [activeTab, setActiveTab] = useState('editor');
   
-  // Editor Visual
+  // Editor Visual (Banners/Layout)
   const [selectedPage, setSelectedPage] = useState('dashboard');
   const [pageConfig, setPageConfig] = useState({});
   const [pageContent, setPageContent] = useState([]);
   const [editingBlock, setEditingBlock] = useState(null);
   const [siteIdentity, setSiteIdentity] = useState(identity || {});
   
-  // Packs
+  // Gerenciar Packs (Produtos)
   const [items, setItems] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedPack, setSelectedPack] = useState(null);
+  
+  // Drag State
   const [draggedItem, setDraggedItem] = useState(null);
 
+  // Sincroniza identidade
   useEffect(() => { if(identity) setSiteIdentity(identity); }, [identity]);
 
+  // Carregamento inteligente
   useEffect(() => {
-    if (activeTab === 'editor') loadPageData(selectedPage);
-    else fetchData();
+    if (activeTab === 'editor') {
+        loadPageData(selectedPage);
+    } else {
+        fetchData();
+    }
   }, [activeTab, selectedPage, selectedPack]);
 
   const loadPageData = async (pageId) => {
+    // 1. Config do Cabeçalho
     const { data: pData } = await supabase.from('pages_config').select('*').eq('page_id', pageId).single();
     setPageConfig(pData || { page_id: pageId, show_header: true });
+    
+    // 2. Blocos de Conteúdo (Banners/Vídeos)
     const { data: cData } = await supabase.from('page_content').select('*').eq('page_id', pageId).order('order_index', {ascending: true});
     setPageContent(cData || []);
   };
@@ -75,104 +102,153 @@ export default function AdminPanel({ showToast }) {
     setItems([]);
     if (activeTab === 'prompts') {
         if (selectedPack) {
+            // Itens do Pack
             const { data } = await supabase.from('pack_items').select('*').eq('pack_id', selectedPack.id).order('order_index', {ascending: true});
             setItems(data || []);
         } else {
+            // Lista de Packs
             const { data } = await supabase.from('products').select('*').order('id', {ascending: false});
             setItems(data || []);
         }
     }
   };
 
-  // --- HELPER: LIMPAR ID PARA INSERÇÃO (CORRIGE O ERRO DE ID) ---
-  const cleanPayload = (data) => {
-      const payload = { ...data };
-      // Se ID for falsy (0, null, undefined, string vazia), remove a chave para o Supabase criar
-      if (!payload.id) delete payload.id;
-      return payload;
-  };
-
   // --- DRAG AND DROP ---
-  const handleDragStart = (e, index, listType) => { setDraggedItem({ index, type: listType }); e.dataTransfer.effectAllowed = "move"; };
+  const handleDragStart = (e, index, listType) => { 
+    setDraggedItem({ index, type: listType }); 
+    e.dataTransfer.effectAllowed = "move"; 
+  };
   const handleDragOver = (e) => e.preventDefault();
+  
   const handleDrop = async (e, dropIndex, listType) => {
     e.preventDefault();
     if (!draggedItem || draggedItem.type !== listType) return;
+    
     let currentList = listType === 'blocks' ? pageContent : items;
     const draggedIdx = draggedItem.index;
+    
     if (draggedIdx === dropIndex) return;
 
+    // 1. Reorganiza Array Local
     const newList = [...currentList];
     const [removed] = newList.splice(draggedIdx, 1);
     newList.splice(dropIndex, 0, removed);
 
-    if (listType === 'blocks') setPageContent(newList); else setItems(newList);
+    if (listType === 'blocks') setPageContent(newList);
+    else setItems(newList);
 
+    // 2. Salva Ordem no Banco
     const updates = newList.map((item, idx) => ({ id: item.id, order_index: idx }));
     let table = listType === 'blocks' ? 'page_content' : 'pack_items';
-    for (const update of updates) { await supabase.from(table).update({ order_index: update.order_index }).eq('id', update.id); }
+
+    for (const update of updates) {
+        await supabase.from(table).update({ order_index: update.order_index }).eq('id', update.id);
+    }
     showToast("Ordem atualizada!");
   };
 
-  // --- ACTIONS EDITOR VISUAL ---
+  // =========================================================
+  // LOGICA INTELIGENTE DE SALVAMENTO (SMART ID)
+  // =========================================================
+
+  // 1. Salvar Identidade (Global)
   const saveIdentity = async () => { 
-      const { id, created_at, ...updates } = siteIdentity;
+      // Remove campos de sistema que não devem ser enviados no update
+      const { id, created_at, ...updates } = siteIdentity; 
+      
+      // Atualiza qualquer linha existente (normalmente ID 1)
       const { error } = await supabase.from('site_identity').update(updates).gt('id', 0); 
-      if(!error){ showToast("Identidade Salva!"); refreshIdentity(); } else alert(error.message); 
+      
+      if(!error) { showToast("Identidade Salva!"); refreshIdentity(); } 
+      else alert(error.message); 
   };
   
+  // 2. Salvar Cabeçalho (Upsert é seguro aqui pois page_id é string fixa)
   const savePageConfig = async () => { 
       const { error } = await supabase.from('pages_config').upsert(pageConfig); 
       if(!error) showToast("Cabeçalho Salvo!"); else alert(error.message); 
   };
 
+  // 3. Salvar Bloco (Banner/Vídeo)
   const saveBlock = async (e) => {
     e.preventDefault();
-    let payload = { ...editingBlock, page_id: selectedPage };
-    if (!payload.order_index && !payload.id) payload.order_index = pageContent.length + 1;
     
-    payload = cleanPayload(payload); // <--- CORREÇÃO AQUI
+    // Prepara payload
+    const payload = { ...editingBlock, page_id: selectedPage };
+    
+    // Lógica ID Inteligente
+    if (payload.id) {
+        // EDIÇÃO: Remove o ID do corpo e usa no .eq()
+        const { id, ...updates } = payload;
+        const { error } = await supabase.from('page_content').update(updates).eq('id', id);
+        if (error) throw error;
+    } else {
+        // CRIAÇÃO: Remove ID (se vier vazio) e define ordem
+        delete payload.id;
+        payload.order_index = pageContent.length + 1;
+        const { error } = await supabase.from('page_content').insert(payload);
+        if (error) throw error;
+    }
 
-    const { error } = await supabase.from('page_content').upsert(payload);
-    if (!error) { showToast("Bloco Salvo!"); setEditingBlock(null); loadPageData(selectedPage); } else alert(error.message);
-  };
-
-  const deleteBlock = async (id) => {
-    if(!confirm("Excluir?")) return;
-    await supabase.from('page_content').delete().eq('id', id);
+    showToast("Bloco Salvo!"); 
+    setEditingBlock(null); 
     loadPageData(selectedPage);
   };
 
-  // --- ACTIONS PACKS/ITEMS ---
+  // 4. Salvar Conteúdo (Packs e Prompts)
   const handleSaveItem = async (e) => {
     e.preventDefault();
     let table = selectedPack ? 'pack_items' : 'products';
     let payload = { ...editingItem };
-    delete payload.profile; delete payload.item;
+    
+    // Limpeza de campos relacionais
+    delete payload.profile; 
+    delete payload.item;
 
     if (selectedPack) { 
         payload.pack_id = selectedPack.id;
+        // Se for novo prompt, põe no final da lista
         if (!payload.id) payload.order_index = items.length;
     }
-    
-    payload = cleanPayload(payload); // <--- CORREÇÃO AQUI
 
-    const { error } = await supabase.from(table).upsert(payload);
-    if (!error) { showToast("Salvo!"); setEditingItem(null); fetchData(); } 
-    else alert("Erro: " + error.message);
+    // Lógica ID Inteligente
+    if (payload.id) {
+        // UPDATE
+        const { id, ...updates } = payload;
+        const { error } = await supabase.from(table).update(updates).eq('id', id);
+        if (error) return alert("Erro Update: " + error.message);
+    } else {
+        // INSERT
+        delete payload.id; // Garante que não vai nada como ID
+        const { error } = await supabase.from(table).insert(payload);
+        if (error) return alert("Erro Insert: " + error.message);
+    }
+
+    showToast("Salvo com sucesso!"); 
+    setEditingItem(null); 
+    fetchData();
   };
 
-  const handleDeleteItem = async (id) => {
-    if(!confirm("Excluir?")) return;
-    let table = selectedPack ? 'pack_items' : 'products';
+  // --- DELETE GENÉRICO ---
+  const deleteGeneric = async (id, isBlock = false) => {
+    if(!confirm("Tem certeza?")) return;
+    let table = isBlock ? 'page_content' : (selectedPack ? 'pack_items' : 'products');
+    
     const { error } = await supabase.from(table).delete().eq('id', id);
-    if(!error) { showToast("Excluído!"); fetchData(); }
+    
+    if(!error) { 
+        showToast("Excluído!"); 
+        if (isBlock) loadPageData(selectedPage); else fetchData();
+    } else {
+        alert("Erro ao excluir: " + error.message);
+    }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 pb-32 animate-fadeIn">
       <h1 className="text-3xl font-bold text-white mb-8">Painel Admin</h1>
 
+      {/* Menu Abas */}
       <div className="flex gap-2 mb-8 overflow-x-auto border-b border-gray-800 pb-1 scrollbar-hide">
         {TABS.map(tab => (
             <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSelectedPack(null); setEditingItem(null); }} className={`flex items-center gap-2 px-6 py-3 font-bold text-sm transition-all rounded-t-lg whitespace-nowrap ${activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}>
@@ -184,6 +260,8 @@ export default function AdminPanel({ showToast }) {
       {/* === ABA 1: EDITOR VISUAL === */}
       {activeTab === 'editor' && (
         <div className="max-w-6xl space-y-12">
+            
+            {/* Seletor de Página */}
             <div className="flex items-center gap-4 mb-6 bg-gray-900 p-4 rounded-xl border border-gray-800">
                 <span className="text-white font-bold">Editando Página:</span>
                 <select value={selectedPage} onChange={e => {setSelectedPage(e.target.value); loadPageData(e.target.value);}} className="bg-transparent text-white font-bold outline-none cursor-pointer text-lg">
@@ -195,8 +273,9 @@ export default function AdminPanel({ showToast }) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* IDENTIDADE & HEADER */}
+                {/* Coluna 1: Identidade e Header */}
                 <div className="lg:col-span-1 space-y-6">
+                    {/* Identidade Global */}
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
                         <h3 className="text-purple-500 font-bold uppercase text-xs mb-2">Identidade Global</h3>
                         <div className="grid grid-cols-2 gap-2">
@@ -209,6 +288,7 @@ export default function AdminPanel({ showToast }) {
                         <button onClick={saveIdentity} className="w-full bg-purple-600 text-white font-bold py-2 rounded text-sm">Salvar Cores/Logos</button>
                     </div>
 
+                    {/* Cabeçalho da Página */}
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
                         <h3 className="text-blue-500 font-bold uppercase text-xs mb-2">Cabeçalho ({selectedPage})</h3>
                         <div className="flex items-center gap-2 mb-2"><input type="checkbox" checked={pageConfig.show_header||false} onChange={e=>setPageConfig({...pageConfig, show_header:e.target.checked})}/> <span className="text-white text-sm">Exibir Cabeçalho</span></div>
@@ -219,12 +299,13 @@ export default function AdminPanel({ showToast }) {
                     </div>
                 </div>
 
-                {/* CONTEÚDO (VIDEOS/BANNERS) */}
+                {/* Coluna 2: Blocos de Conteúdo (Drag & Drop) */}
                 <div className="lg:col-span-2">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-white font-bold text-sm uppercase">Vídeos e Banners</h3>
+                        <h3 className="text-white font-bold text-sm uppercase">Conteúdo ({selectedPage})</h3>
                         <button onClick={() => setEditingBlock({ type: 'video' })} className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2"><Plus size={14}/> Adicionar</button>
                     </div>
+                    
                     <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-2 pb-20">
                         {pageContent.map((block, idx) => (
                             <div 
@@ -247,7 +328,7 @@ export default function AdminPanel({ showToast }) {
                                 </div>
                                 <div className="flex gap-2">
                                     <button onClick={()=>setEditingBlock(block)} className="text-blue-500 hover:text-white p-1 rounded hover:bg-gray-800"><Edit3 size={16}/></button>
-                                    <button onClick={()=>deleteBlock(block.id)} className="text-red-500 hover:text-white p-1 rounded hover:bg-gray-800"><Trash2 size={16}/></button>
+                                    <button onClick={()=>deleteGeneric(block.id, true)} className="text-red-500 hover:text-white p-1 rounded hover:bg-gray-800"><Trash2 size={16}/></button>
                                 </div>
                             </div>
                         ))}
@@ -269,21 +350,32 @@ export default function AdminPanel({ showToast }) {
                 <button onClick={() => setEditingItem({})} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center shadow-lg"><Plus size={18} className="mr-2"/> Novo</button>
             </div>
             
-            {!selectedPack ? (
+            {/* Lista Packs */}
+            {!selectedPack && (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {items.map(item => (
                         <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group relative cursor-pointer" onClick={() => setSelectedPack(item)}>
                             <div className="aspect-[3/4] relative bg-black"><img src={item.cover} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"/><div className="absolute bottom-0 w-full p-2 bg-black/80 text-white text-xs font-bold text-center truncate">{item.title}</div></div>
-                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e) => {e.stopPropagation(); setEditingItem(item)}} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button><button onClick={(e) => {e.stopPropagation(); handleDeleteItem(item.id)}} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button></div>
+                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e) => {e.stopPropagation(); setEditingItem(item)}} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button><button onClick={(e) => {e.stopPropagation(); deleteGeneric(item.id)}} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button></div>
                         </div>
                     ))}
                 </div>
-            ) : (
+            )}
+
+            {/* Lista Itens (Drag & Drop) */}
+            {selectedPack && (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {items.map((item, index) => (
-                        <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, index, 'items')} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, index, 'items')} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group relative cursor-move hover:border-blue-500">
+                        <div 
+                            key={item.id} 
+                            draggable 
+                            onDragStart={(e) => handleDragStart(e, index, 'items')}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, index, 'items')}
+                            className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group relative cursor-move hover:border-blue-500"
+                        >
                             <div className="aspect-[3/4] relative bg-black"><img src={item.url} className="w-full h-full object-cover"/><div className="absolute top-2 left-2 bg-black/60 p-1 rounded text-white"><GripVertical size={16}/></div></div>
-                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditingItem(item)} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button><button onClick={() => handleDeleteItem(item.id)} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button></div>
+                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditingItem(item)} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button><button onClick={() => deleteGeneric(item.id)} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button></div>
                             <div className="p-2 text-xs text-gray-400 bg-gray-900 border-t border-gray-800 flex justify-between"><span>{index+1}.</span><span className="truncate">{item.title}</span></div>
                         </div>
                     ))}
@@ -300,17 +392,17 @@ export default function AdminPanel({ showToast }) {
                 <form onSubmit={handleSaveItem} className="overflow-y-auto custom-scrollbar space-y-4">
                     <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} required/></div>
                     
-                    {!selectedPack && (<><ImageUploader label="Capa" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Checkout (Para o Pack inteiro)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div></>)}
+                    {!selectedPack && (<><ImageUploader label="Capa" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Checkout</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div></>)}
                     
                     {selectedPack && (
                         <>
                             <ImageUploader label="Imagem" currentImage={editingItem.url} onUploadComplete={url => setEditingItem({...editingItem, url: url})}/>
                             <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Prompt</label><textarea rows={5} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})}/></div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Link Checkout (Item Individual)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.item_checkout_url || ''} onChange={e => setEditingItem({...editingItem, item_checkout_url: e.target.value})}/></div>
-                                <div className="flex items-center gap-2 mt-6"><input type="checkbox" checked={editingItem.is_free || false} onChange={e => setEditingItem({...editingItem, is_free: e.target.checked})} className="w-5 h-5"/> <span className="text-white text-sm font-bold">É Gratuito? (Free)</span></div>
+                                <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Link Checkout (Item)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.item_checkout_url || ''} onChange={e => setEditingItem({...editingItem, item_checkout_url: e.target.value})}/></div>
+                                <div className="flex items-center gap-2 mt-6"><input type="checkbox" checked={editingItem.is_free || false} onChange={e => setEditingItem({...editingItem, is_free: e.target.checked})} className="w-5 h-5 accent-blue-600"/> <span className="text-white text-sm font-bold">É Gratuito? (Free)</span></div>
                             </div>
-                            <div className="flex items-center gap-2 mt-2"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})}/> <span className="text-white text-sm">Destaque (Home)</span></div>
+                            <div className="flex items-center gap-2 mt-2"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})}/> <span className="text-white text-sm">Destaque</span></div>
                         </>
                     )}
 
@@ -320,7 +412,7 @@ export default function AdminPanel({ showToast }) {
         </div>
       )}
 
-      {/* MODAL BLOCO */}
+      {/* MODAL BLOCO (VISUAL) */}
       {editingBlock && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-gray-900 w-full max-w-lg rounded-xl border border-gray-700 p-6 space-y-4">
