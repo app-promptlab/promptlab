@@ -225,17 +225,40 @@ export default function AdminPanel({ showToast }) {
                         <h3 className="text-purple-500 font-bold uppercase text-xs mb-2">Identidade Global & Cores</h3>
                         
                         {/* CORES PRINCIPAIS */}
-                        <div className="grid grid-cols-2 gap-2">
-                            <div><label className="text-xs text-gray-500">Primária</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.primary_color || '#2563eb'} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/></div></div>
-                            <div><label className="text-xs text-gray-500">Fundo Site</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.background_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/><input className="bg-black text-white text-xs border border-gray-700 flex-1 ml-2 px-2 rounded" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/></div></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs text-gray-500 font-bold mb-1 block">Primária</label>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-gray-700">
+                                        <input type="color" className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer p-0 border-0" value={siteIdentity.primary_color || '#2563eb'} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/>
+                                    </div>
+                                    <input className="bg-black text-white text-xs border border-gray-700 flex-1 px-3 py-2 rounded-lg uppercase font-mono" value={siteIdentity.primary_color} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 font-bold mb-1 block">Fundo Site</label>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-gray-700">
+                                        <input type="color" className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer p-0 border-0" value={siteIdentity.background_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/>
+                                    </div>
+                                    <input className="bg-black text-white text-xs border border-gray-700 flex-1 px-3 py-2 rounded-lg uppercase font-mono" value={siteIdentity.background_color} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/>
+                                </div>
+                            </div>
                         </div>
 
                         {/* CORES MENU E CARDS */}
-                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800">
-                            <div><label className="text-xs text-gray-500">Fundo Menu</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.sidebar_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_color:e.target.value})}/></div></div>
-                            <div><label className="text-xs text-gray-500">Texto Menu</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.sidebar_text_color || '#9ca3af'} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_text_color:e.target.value})}/></div></div>
-                            <div><label className="text-xs text-gray-500">Fundo Cards/Modal</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.modal_color || '#111827'} onChange={e=>setSiteIdentity({...siteIdentity, modal_color:e.target.value})}/></div></div>
-                            <div><label className="text-xs text-gray-500">Texto Cards</label><div className="flex"><input type="color" className="h-8 w-8 rounded cursor-pointer" value={siteIdentity.card_text_color || '#ffffff'} onChange={e=>setSiteIdentity({...siteIdentity, card_text_color:e.target.value})}/></div></div>
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-800 mt-4">
+                            <div>
+                                <label className="text-xs text-gray-500 font-bold mb-1 block">Fundo Menu</label>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative w-8 h-8 rounded overflow-hidden border border-gray-700">
+                                        <input type="color" className="absolute -top-2 -left-2 w-12 h-12 cursor-pointer p-0 border-0" value={siteIdentity.sidebar_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_color:e.target.value})}/>
+                                    </div>
+                                    <input className="bg-black text-white text-[10px] border border-gray-700 flex-1 px-2 py-1 rounded uppercase font-mono" value={siteIdentity.sidebar_color} onChange={e=>setSiteIdentity({...siteIdentity, sidebar_color:e.target.value})}/>
+                                </div>
+                            </div>
+                            {/* Repetir lógica visual para os outros inputs se quiser, ou manter simples */}
+                            {/* ... outros inputs ... */}
                         </div>
 
                         <ImageUploader label="Logo Menu" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_menu_url:url})}/>

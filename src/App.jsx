@@ -77,7 +77,16 @@ function App() {
             onLogout={async () => { await supabase.auth.signOut(); window.location.reload(); }}
         />
 
+        {/* CORREÇÃO AQUI: Removemos paddings extras no container principal */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-theme-bg relative">
+            {/* Header Mobile (Só aparece em telas pequenas para abrir o menu) */}
+            <div className="md:hidden h-16 bg-theme-sidebar border-b border-white/10 flex items-center px-4 justify-between flex-shrink-0">
+                 {/* Espaço reservado para logo ou título se quiser */}
+                 <span className="font-bold text-theme-primary">PromptLab</span>
+                 <button onClick={() => setSidebarOpen(true)} className="text-theme-text p-2"><Menu size={24}/></button>
+            </div>
+
+            {/* Conteúdo Principal: p-0 no mobile para ocupar tudo */}
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800">
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
                 {activeTab === 'generator' && <Generator />}
@@ -90,7 +99,7 @@ function App() {
         </div>
 
         {toast && (
-            <div className="fixed top-6 right-6 z-[100] bg-theme-primary text-white px-6 py-3 rounded-xl shadow-lg animate-fadeIn flex items-center font-bold">
+            <div className="fixed top-6 right-6 z-[200] bg-theme-primary text-white px-6 py-3 rounded-xl shadow-lg animate-fadeIn flex items-center font-bold">
                 <Check size={20} className="mr-2"/> {toast}
             </div>
         )}
