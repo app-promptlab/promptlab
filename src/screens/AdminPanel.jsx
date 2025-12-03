@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useTheme } from '../context/ThemeContext';
 import { 
   Plus, Edit3, Trash2, X, ChevronLeft, UploadCloud, Loader2, Save, 
-  LayoutDashboard, Zap, LayoutGrid, Play, Heart, Palette, Video, Image as ImageIcon, GripVertical 
+  Palette, LayoutGrid, Video, Image as ImageIcon, GripVertical 
 } from 'lucide-react';
 
 function ImageUploader({ currentImage, onUploadComplete, label }) {
@@ -37,7 +37,6 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
 export default function AdminPanel({ showToast }) {
   const { identity, refreshIdentity } = useTheme();
 
-  // APENAS AS 2 ABAS SOLICITADAS
   const TABS = [
     { id: 'editor', label: 'Editor Visual (Páginas)', icon: Palette },
     { id: 'prompts', label: 'Gerenciar Packs', icon: LayoutGrid },
@@ -85,33 +84,12 @@ export default function AdminPanel({ showToast }) {
     }
   };
 
-  // --- ACTIONS EDITOR VISUAL ---
-  const saveIdentity = async () => { 
-      // Remove ID e datas para não dar erro de update
-      const { id, created_at, ...updates } = siteIdentity;
-      const { error } = await supabase.from('site_identity').update(updates).gt('id', 0); 
-      if(!error){ showToast("Identidade Salva!"); refreshIdentity(); } else alert(error.message); 
-  };
-  
-  const savePageConfig = async () => { 
-      const { error } = await supabase.from('pages_config').upsert(pageConfig); 
-      if(!error) showToast("Cabeçalho Salvo!"); else alert(error.message); 
-  };
-
-  const saveBlock = async (e) => {
-    e.preventDefault();
-    const payload = { ...editingBlock, page_id: selectedPage };
-    if (!payload.order_index && !payload.id) payload.order_index = pageContent.length + 1;
-    if (!payload.id) delete payload.id; // Garante insert se for novo
-
-    const { error } = await supabase.from('page_content').upsert(payload);
-    if (!error) { showToast("Bloco Salvo!"); setEditingBlock(null); loadPageData(selectedPage); } else alert(error.message);
-  };
-
-  const deleteBlock = async (id) => {
-    if(!confirm("Excluir?")) return;
-    await supabase.from('page_content').delete().eq('id', id);
-    loadPageData(selectedPage);
+  // --- HELPER: LIMPAR ID PARA INSERÇÃO (CORRIGE O ERRO DE ID) ---
+  const cleanPayload = (data) => {
+      const payload = { ...data };
+      // Se ID for falsy (0, null, undefined, string vazia), remove a chave para o Supabase criar
+      if (!payload.id) delete payload.id;
+      return payload;
   };
 
   // --- DRAG AND DROP ---
@@ -136,7 +114,36 @@ export default function AdminPanel({ showToast }) {
     showToast("Ordem atualizada!");
   };
 
-  // --- ACTIONS PACKS ---
+  // --- ACTIONS EDITOR VISUAL ---
+  const saveIdentity = async () => { 
+      const { id, created_at, ...updates } = siteIdentity;
+      const { error } = await supabase.from('site_identity').update(updates).gt('id', 0); 
+      if(!error){ showToast("Identidade Salva!"); refreshIdentity(); } else alert(error.message); 
+  };
+  
+  const savePageConfig = async () => { 
+      const { error } = await supabase.from('pages_config').upsert(pageConfig); 
+      if(!error) showToast("Cabeçalho Salvo!"); else alert(error.message); 
+  };
+
+  const saveBlock = async (e) => {
+    e.preventDefault();
+    let payload = { ...editingBlock, page_id: selectedPage };
+    if (!payload.order_index && !payload.id) payload.order_index = pageContent.length + 1;
+    
+    payload = cleanPayload(payload); // <--- CORREÇÃO AQUI
+
+    const { error } = await supabase.from('page_content').upsert(payload);
+    if (!error) { showToast("Bloco Salvo!"); setEditingBlock(null); loadPageData(selectedPage); } else alert(error.message);
+  };
+
+  const deleteBlock = async (id) => {
+    if(!confirm("Excluir?")) return;
+    await supabase.from('page_content').delete().eq('id', id);
+    loadPageData(selectedPage);
+  };
+
+  // --- ACTIONS PACKS/ITEMS ---
   const handleSaveItem = async (e) => {
     e.preventDefault();
     let table = selectedPack ? 'pack_items' : 'products';
@@ -147,7 +154,8 @@ export default function AdminPanel({ showToast }) {
         payload.pack_id = selectedPack.id;
         if (!payload.id) payload.order_index = items.length;
     }
-    if (!payload.id) delete payload.id;
+    
+    payload = cleanPayload(payload); // <--- CORREÇÃO AQUI
 
     const { error } = await supabase.from(table).upsert(payload);
     if (!error) { showToast("Salvo!"); setEditingItem(null); fetchData(); } 
@@ -176,8 +184,6 @@ export default function AdminPanel({ showToast }) {
       {/* === ABA 1: EDITOR VISUAL === */}
       {activeTab === 'editor' && (
         <div className="max-w-6xl space-y-12">
-            
-            {/* SELETOR */}
             <div className="flex items-center gap-4 mb-6 bg-gray-900 p-4 rounded-xl border border-gray-800">
                 <span className="text-white font-bold">Editando Página:</span>
                 <select value={selectedPage} onChange={e => {setSelectedPage(e.target.value); loadPageData(e.target.value);}} className="bg-transparent text-white font-bold outline-none cursor-pointer text-lg">
@@ -191,7 +197,6 @@ export default function AdminPanel({ showToast }) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* IDENTIDADE & HEADER */}
                 <div className="lg:col-span-1 space-y-6">
-                    {/* Identidade Global */}
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
                         <h3 className="text-purple-500 font-bold uppercase text-xs mb-2">Identidade Global</h3>
                         <div className="grid grid-cols-2 gap-2">
@@ -204,7 +209,6 @@ export default function AdminPanel({ showToast }) {
                         <button onClick={saveIdentity} className="w-full bg-purple-600 text-white font-bold py-2 rounded text-sm">Salvar Cores/Logos</button>
                     </div>
 
-                    {/* Cabeçalho da Página */}
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
                         <h3 className="text-blue-500 font-bold uppercase text-xs mb-2">Cabeçalho ({selectedPage})</h3>
                         <div className="flex items-center gap-2 mb-2"><input type="checkbox" checked={pageConfig.show_header||false} onChange={e=>setPageConfig({...pageConfig, show_header:e.target.checked})}/> <span className="text-white text-sm">Exibir Cabeçalho</span></div>
@@ -218,7 +222,7 @@ export default function AdminPanel({ showToast }) {
                 {/* CONTEÚDO (VIDEOS/BANNERS) */}
                 <div className="lg:col-span-2">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-white font-bold text-sm uppercase">Conteúdo ({selectedPage})</h3>
+                        <h3 className="text-white font-bold text-sm uppercase">Vídeos e Banners</h3>
                         <button onClick={() => setEditingBlock({ type: 'video' })} className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2"><Plus size={14}/> Adicionar</button>
                     </div>
                     <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-2 pb-20">
@@ -247,7 +251,7 @@ export default function AdminPanel({ showToast }) {
                                 </div>
                             </div>
                         ))}
-                        {pageContent.length === 0 && <div className="text-gray-500 text-center text-sm py-10 border border-dashed border-gray-800 rounded-xl">Sem conteúdo extra (Banners/Vídeos).</div>}
+                        {pageContent.length === 0 && <div className="text-gray-500 text-center text-sm py-10 border border-dashed border-gray-800 rounded-xl">Sem conteúdo extra.</div>}
                     </div>
                 </div>
             </div>
@@ -295,8 +299,21 @@ export default function AdminPanel({ showToast }) {
                 <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white uppercase">{editingItem.id ? 'Editar' : 'Novo'} Item</h3><button onClick={() => setEditingItem(null)}><X className="text-gray-400"/></button></div>
                 <form onSubmit={handleSaveItem} className="overflow-y-auto custom-scrollbar space-y-4">
                     <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Título</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.title || ''} onChange={e => setEditingItem({...editingItem, title: e.target.value})} required/></div>
-                    {!selectedPack && (<><ImageUploader label="Capa" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Checkout</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div></>)}
-                    {selectedPack && (<><ImageUploader label="Imagem" currentImage={editingItem.url} onUploadComplete={url => setEditingItem({...editingItem, url: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Prompt</label><textarea rows={5} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})}/></div><div className="flex items-center gap-2"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})}/> <span className="text-white text-sm">Destaque</span></div></>)}
+                    
+                    {!selectedPack && (<><ImageUploader label="Capa" currentImage={editingItem.cover} onUploadComplete={url => setEditingItem({...editingItem, cover: url})}/><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Descrição</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Preço</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: e.target.value})}/></div><div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Checkout (Para o Pack inteiro)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.checkout_url || ''} onChange={e => setEditingItem({...editingItem, checkout_url: e.target.value})}/></div></>)}
+                    
+                    {selectedPack && (
+                        <>
+                            <ImageUploader label="Imagem" currentImage={editingItem.url} onUploadComplete={url => setEditingItem({...editingItem, url: url})}/>
+                            <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Prompt</label><textarea rows={5} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})}/></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Link Checkout (Item Individual)</label><input className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white" value={editingItem.item_checkout_url || ''} onChange={e => setEditingItem({...editingItem, item_checkout_url: e.target.value})}/></div>
+                                <div className="flex items-center gap-2 mt-6"><input type="checkbox" checked={editingItem.is_free || false} onChange={e => setEditingItem({...editingItem, is_free: e.target.checked})} className="w-5 h-5"/> <span className="text-white text-sm font-bold">É Gratuito? (Free)</span></div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2"><input type="checkbox" checked={editingItem.is_featured || false} onChange={e => setEditingItem({...editingItem, is_featured: e.target.checked})}/> <span className="text-white text-sm">Destaque (Home)</span></div>
+                        </>
+                    )}
+
                     <div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setEditingItem(null)} className="px-6 py-2 text-gray-400 font-bold hover:text-white">Cancelar</button><button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2 rounded-lg font-bold">Salvar</button></div>
                 </form>
             </div>

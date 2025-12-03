@@ -58,6 +58,14 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleLockedClick = (item) => {
+      if (item.item_checkout_url) {
+          window.open(item.item_checkout_url, '_blank');
+      } else {
+          alert("Este conteúdo é exclusivo para assinantes PRO!");
+      }
+  };
+
   let filteredPrompts = prompts;
   if (onlyFavorites) filteredPrompts = prompts.filter(p => likedIds.has(p.id));
   else if (selectedPack) filteredPrompts = prompts.filter(p => p.pack_id === selectedPack.id);
@@ -89,10 +97,20 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
         {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center">Nenhum favorito.</div>}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
           {filteredPrompts.map((item, index) => {
+             // Lógica de Bloqueio Individual
              let isLocked = false;
-             if (!isPro && !onlyFavorites) { if (selectedPack) { if (index >= 3) isLocked = true; } else { if (index % 2 !== 0) isLocked = true; } }
+             if (!isPro && !onlyFavorites) { 
+                 if (!item.is_free) isLocked = true; // Se não é free, bloqueia
+             }
              if (onlyFavorites) isLocked = false; 
-             if (isLocked) return <div key={item.id} className="aspect-[3/4] cursor-pointer" onClick={() => alert("Assine o PRO!")}><LockedCard item={item} /></div>;
+             
+             if (isLocked) {
+                 return (
+                    <div key={item.id} className="aspect-[3/4] cursor-pointer" onClick={() => handleLockedClick(item)}>
+                        <LockedCard item={item} />
+                    </div>
+                 );
+             }
              
              const isLiked = likedIds.has(item.id);
              return (
