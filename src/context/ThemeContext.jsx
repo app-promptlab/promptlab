@@ -5,7 +5,7 @@ const ThemeContext = createContext();
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }) => {
-  // Padrão de segurança (para não quebrar se o banco demorar)
+  // Fallback seguro
   const defaultIdentity = {
     app_name: 'PromptLab',
     primary_color: '#2563eb',
@@ -13,14 +13,11 @@ export const ThemeProvider = ({ children }) => {
     background_color: '#000000',
     surface_color: '#111827',
     text_color: '#ffffff',
-    
-    // Cores Novas
     sidebar_color: '#000000',
     sidebar_text_color: '#9ca3af',
     card_color: '#111827',
     card_text_color: '#ffffff',
     modal_color: '#111827',
-    
     border_radius: '0.75rem',
     logo_header_url: '',
     logo_menu_url: '',
@@ -33,9 +30,10 @@ export const ThemeProvider = ({ children }) => {
   const fetchIdentity = async () => {
     try {
       const { data } = await supabase.from('site_identity').select('*').single();
-      if (data) setIdentity(data);
+      // Se data existir, mescla com default para garantir que nenhum campo fique undefined
+      if (data) setIdentity({ ...defaultIdentity, ...data });
     } catch (error) { 
-      console.error("Erro ao carregar tema:", error); 
+      console.error("Erro tema:", error); 
     } finally { 
       setLoading(false); 
     }
@@ -43,30 +41,25 @@ export const ThemeProvider = ({ children }) => {
 
   useEffect(() => { fetchIdentity(); }, []);
 
-  // Injetar CSS Variables no HTML
   useEffect(() => {
     const root = document.documentElement;
-    const theme = identity || defaultIdentity;
+    const theme = identity;
 
-    // Cores Principais
-    root.style.setProperty('--color-primary', theme.primary_color || '#2563eb');
-    root.style.setProperty('--color-secondary', theme.secondary_color || '#9333ea');
-    root.style.setProperty('--color-bg', theme.background_color || '#000000');
-    root.style.setProperty('--color-surface', theme.surface_color || '#111827'); // Fallback visual
-    root.style.setProperty('--color-text', theme.text_color || '#ffffff');
+    root.style.setProperty('--color-primary', theme.primary_color);
+    root.style.setProperty('--color-secondary', theme.secondary_color);
+    root.style.setProperty('--color-bg', theme.background_color);
+    root.style.setProperty('--color-surface', theme.surface_color);
+    root.style.setProperty('--color-text', theme.text_color);
     
-    // Cores Específicas (Menu, Card, Modal)
-    root.style.setProperty('--color-sidebar', theme.sidebar_color || '#000000');
-    root.style.setProperty('--color-sidebar-text', theme.sidebar_text_color || '#9ca3af');
-    root.style.setProperty('--color-card', theme.card_color || '#111827');
-    root.style.setProperty('--color-card-text', theme.card_text_color || '#ffffff');
-    root.style.setProperty('--color-modal', theme.modal_color || '#111827');
+    root.style.setProperty('--color-sidebar', theme.sidebar_color);
+    root.style.setProperty('--color-sidebar-text', theme.sidebar_text_color);
+    root.style.setProperty('--color-card', theme.card_color);
+    root.style.setProperty('--color-card-text', theme.card_text_color);
+    root.style.setProperty('--color-modal', theme.modal_color);
+    
+    root.style.setProperty('--radius', theme.border_radius);
+    document.title = theme.app_name;
 
-    // Configs
-    root.style.setProperty('--radius', theme.border_radius || '0.75rem');
-    document.title = theme.app_name || 'PromptLab';
-
-    // Favicon
     if (theme.favicon_url) {
       let link = document.querySelector("link[rel~='icon']");
       if (!link) {

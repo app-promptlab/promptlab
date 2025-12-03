@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { Loader2, Check } from 'lucide-react';
-import { ThemeProvider } from './context/ThemeContext'; // Importar Contexto
+import { Loader2, Check, Menu } from 'lucide-react';
+import { ThemeProvider } from './context/ThemeContext';
 
 import Sidebar from './components/Sidebar';
 import AuthScreen from './components/AuthScreen';
@@ -12,7 +12,6 @@ import TutorialsPage from './screens/TutorialsPage';
 import Profile from './screens/Profile';
 import AdminPanel from './screens/AdminPanel';
 
-// Componente Wrapper para injetar o tema antes de carregar o resto
 export default function AppWrapper() {
   return (
     <ThemeProvider>
@@ -28,8 +27,6 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // Não precisamos mais carregar appSettings aqui, o ThemeContext cuida disso!
-  
   const showToast = (message) => { setToast(message); setTimeout(() => setToast(null), 3000); };
 
   useEffect(() => {
@@ -77,16 +74,14 @@ function App() {
             onLogout={async () => { await supabase.auth.signOut(); window.location.reload(); }}
         />
 
-        {/* CORREÇÃO AQUI: Removemos paddings extras no container principal */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-theme-bg relative">
-            {/* Header Mobile (Só aparece em telas pequenas para abrir o menu) */}
+            {/* Header Mobile (Visível apenas em telas pequenas) */}
             <div className="md:hidden h-16 bg-theme-sidebar border-b border-white/10 flex items-center px-4 justify-between flex-shrink-0">
-                 {/* Espaço reservado para logo ou título se quiser */}
-                 <span className="font-bold text-theme-primary">PromptLab</span>
+                 <span className="font-bold text-theme-primary">Menu</span>
                  <button onClick={() => setSidebarOpen(true)} className="text-theme-text p-2"><Menu size={24}/></button>
             </div>
 
-            {/* Conteúdo Principal: p-0 no mobile para ocupar tudo */}
+            {/* Conteúdo Principal (p-0 para encostar nas bordas no mobile) */}
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800">
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
                 {activeTab === 'generator' && <Generator />}
