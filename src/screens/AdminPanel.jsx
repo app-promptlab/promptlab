@@ -3,10 +3,10 @@ import { supabase } from '../supabaseClient';
 import { useTheme } from '../context/ThemeContext';
 import { 
   Plus, Edit3, Trash2, X, ChevronLeft, UploadCloud, Loader2, Save, 
-  LayoutDashboard, Zap, LayoutGrid, Play, Heart, Palette, GripVertical 
+  LayoutDashboard, Zap, LayoutGrid, Play, Heart, Palette, Smartphone, Image as ImageIcon, GripVertical 
 } from 'lucide-react';
 
-// ... (Mantenha o ImageUploader igual) ...
+// --- Componente de Upload ---
 function ImageUploader({ currentImage, onUploadComplete, label }) {
   const [uploading, setUploading] = useState(false);
   const uploadImage = async (event) => {
@@ -35,12 +35,15 @@ function ImageUploader({ currentImage, onUploadComplete, label }) {
   );
 }
 
+// --- Painel Admin Principal ---
 export default function AdminPanel({ showToast }) {
-  const { config, refreshConfig } = useTheme();
+  // CORREÇÃO: Usando 'identity' corretamente
+  const { identity, refreshIdentity } = useTheme();
 
+  // TABS (Sem Notícias/Dashboard)
   const TABS = [
-    { id: 'editor', label: 'Editor Visual (Home)', icon: Palette },
-    { id: 'generator', label: 'Gerador', icon: Zap }, // Nova aba explícita
+    { id: 'editor', label: 'Editor Visual (Banners)', icon: Palette },
+    { id: 'generator', label: 'Gerador', icon: Zap },
     { id: 'prompts', label: 'Gerenciar Packs', icon: LayoutGrid },
     { id: 'tutorials', label: 'Tutoriais', icon: Play },
     { id: 'favorites', label: 'Favoritos', icon: Heart },
@@ -57,18 +60,25 @@ export default function AdminPanel({ showToast }) {
   const [pageContent, setPageContent] = useState([]);
   const [editingBlock, setEditingBlock] = useState(null);
   
+  // CORREÇÃO: Inicializa siteIdentity com identity do contexto
+  const [siteIdentity, setSiteIdentity] = useState(identity || {});
+  
   // Drag and Drop State
   const [draggedItem, setDraggedItem] = useState(null);
 
   // --- CARREGAMENTO ---
   useEffect(() => {
-    // Se clicar na aba Gerador, força o editor visual para a página 'generator'
+    // Atualiza identity se mudar no contexto
+    if (identity) setSiteIdentity(identity);
+  }, [identity]);
+
+  useEffect(() => {
+    // Lógica de carregamento por aba
     if (activeTab === 'generator') {
         setSelectedPage('generator');
         loadPageData('generator');
     }
     else if (activeTab === 'editor') {
-        // Se clicar em Editor Visual, garante que não está preso no gerador
         if (selectedPage === 'generator') setSelectedPage('dashboard');
         loadPageData(selectedPage === 'generator' ? 'dashboard' : selectedPage);
     }
@@ -89,7 +99,7 @@ export default function AdminPanel({ showToast }) {
     try {
         if (activeTab === 'prompts') {
             if (selectedPack) {
-                // Ordena por index para o drag and drop funcionar
+                // Ordena por index para drag & drop
                 const { data } = await supabase.from('pack_items').select('*').eq('pack_id', selectedPack.id).order('order_index', {ascending: true});
                 setItems(data || []);
             } else {
@@ -98,7 +108,7 @@ export default function AdminPanel({ showToast }) {
             }
         }
         else if (activeTab === 'tutorials') {
-            const { data } = await supabase.from('tutorials_videos').select('*').order('id', {ascending: true});
+            const { data } = await supabase.from('tutorials_videos').select('*').order('order_index', {ascending: true});
             setItems(data || []);
         }
         else if (activeTab === 'favorites') {
@@ -108,51 +118,45 @@ export default function AdminPanel({ showToast }) {
     } catch (error) { console.error(error); }
   };
 
-  // --- DRAG AND DROP (Reordenar) ---
+  // --- DRAG AND DROP ---
   const handleDragStart = (e, index) => {
     setDraggedItem(items[index]);
     e.dataTransfer.effectAllowed = "move";
   };
-
-  const handleDragOver = (e, index) => {
-    e.preventDefault(); // Necessário para permitir o drop
-  };
-
+  const handleDragOver = (e, index) => e.preventDefault();
   const handleDrop = async (e, dropIndex) => {
     e.preventDefault();
     const draggedItemIndex = items.findIndex(i => i.id === draggedItem.id);
     if (draggedItemIndex === dropIndex) return;
 
-    // Reorganiza o array localmente
     const newItems = [...items];
     const [removed] = newItems.splice(draggedItemIndex, 1);
     newItems.splice(dropIndex, 0, removed);
-    setItems(newItems); // Feedback visual instantâneo
+    setItems(newItems);
 
-    // Atualiza o banco (ordem = index)
-    // Para performance, atualizamos todos. Em produção ideal seria batch update.
-    const updates = newItems.map((item, idx) => ({
-        id: item.id,
-        order_index: idx
-    }));
-
-    // Upsert em massa não é suportado diretamente com array de objetos simples no client js v2 sem RPC as vezes, 
-    // mas vamos tentar iterar ou usar upsert se a tabela permitir.
-    // Vamos iterar por segurança.
+    // Atualiza ordem no banco
+    const updates = newItems.map((item, idx) => ({ id: item.id, order_index: idx }));
+    // Determina a tabela correta
+    let table = activeTab === 'prompts' ? 'pack_items' : 'tutorials_videos';
+    
     for (const update of updates) {
-        await supabase.from('pack_items').update({ order_index: update.order_index }).eq('id', update.id);
+        await supabase.from(table).update({ order_index: update.order_index }).eq('id', update.id);
     }
     showToast("Ordem atualizada!");
   };
 
-  // --- ACTIONS EDITOR VISUAL (Blocos/Banners) ---
+  // --- ACTIONS (VISUAL / IDENTITY) ---
+  const saveIdentity = async () => {
+    const { error } = await supabase.from('site_identity').update(siteIdentity).gt('id', 0);
+    if (!error) { showToast("Identidade Salva!"); refreshIdentity(); } else alert(error.message);
+  };
   const savePageConfig = async () => {
     const { error } = await supabase.from('pages_config').upsert(pageConfig);
     if (!error) showToast("Salvo!"); else alert(error.message);
   };
   const saveBlock = async (e) => {
     e.preventDefault();
-    const payload = { ...editingBlock, page_id: selectedPage }; // Usa a página selecionada (pode ser 'generator')
+    const payload = { ...editingBlock, page_id: selectedPage };
     if (!payload.order_index) payload.order_index = pageContent.length + 1;
     const { error } = await supabase.from('page_content').upsert(payload);
     if (!error) { showToast("Bloco Salvo!"); setEditingBlock(null); loadPageData(selectedPage); } else alert(error.message);
@@ -163,7 +167,7 @@ export default function AdminPanel({ showToast }) {
     loadPageData(selectedPage);
   };
 
-  // --- ACTIONS CONTEÚDO (Packs/Items) ---
+  // --- ACTIONS (CONTEÚDO) ---
   const handleSaveItem = async (e) => {
     e.preventDefault();
     let table = '';
@@ -175,9 +179,10 @@ export default function AdminPanel({ showToast }) {
         if (selectedPack) { 
             table = 'pack_items'; 
             payload.pack_id = selectedPack.id;
-            if(!payload.order_index) payload.order_index = items.length; // Novo item vai pro fim
-        } 
-        else table = 'products';
+            if(!payload.order_index) payload.order_index = items.length;
+        } else { 
+            table = 'products'; 
+        }
     }
 
     const { error } = await supabase.from(table).upsert(payload);
@@ -207,41 +212,54 @@ export default function AdminPanel({ showToast }) {
         ))}
       </div>
 
-      {/* === ABA 1: EDITOR VISUAL (HOME) & ABA 2: GERADOR (Reutilizam lógica) === */}
+      {/* === ABA 1 & 2: EDITOR VISUAL & GERADOR === */}
       {(activeTab === 'editor' || activeTab === 'generator') && (
         <div className="max-w-5xl space-y-12">
-            {/* Se for Editor Visual, mostra seletor. Se for Gerador, esconde (já está fixo) */}
             {activeTab === 'editor' && (
                 <div className="flex items-center gap-4 mb-6 bg-gray-900 p-4 rounded-xl border border-gray-800">
                     <span className="text-white font-bold">Editando:</span>
                     <select value={selectedPage} onChange={e => {setSelectedPage(e.target.value); loadPageData(e.target.value);}} className="bg-transparent text-white font-bold outline-none cursor-pointer">
                         <option value="dashboard">Dashboard</option>
                         <option value="prompts">Prompts (Topo)</option>
-                        <option value="tutorials">Tutoriais</option>
+                        <option value="tutorials">Tutoriais (Topo)</option>
                     </select>
                 </div>
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Configuração do Cabeçalho */}
                 <div className="lg:col-span-1 space-y-4">
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
-                        <h3 className="text-blue-500 font-bold uppercase text-xs">Cabeçalho</h3>
-                        <div className="flex items-center gap-2"><input type="checkbox" checked={pageConfig.show_header||false} onChange={e=>setPageConfig({...pageConfig, show_header:e.target.checked})}/> <span className="text-white text-sm">Exibir</span></div>
+                        <h3 className="text-blue-500 font-bold uppercase text-xs mb-2">Cabeçalho (Hero)</h3>
+                        <div className="flex items-center gap-2 mb-2"><input type="checkbox" checked={pageConfig.show_header||false} onChange={e=>setPageConfig({...pageConfig, show_header:e.target.checked})}/> <span className="text-white text-sm">Exibir Cabeçalho</span></div>
                         <input className="w-full bg-black border border-gray-700 p-2 text-white rounded text-sm" placeholder="Título" value={pageConfig.title||''} onChange={e=>setPageConfig({...pageConfig, title:e.target.value})}/>
                         <input className="w-full bg-black border border-gray-700 p-2 text-white rounded text-sm" placeholder="Subtítulo" value={pageConfig.subtitle||''} onChange={e=>setPageConfig({...pageConfig, subtitle:e.target.value})}/>
-                        <ImageUploader label="Capa" currentImage={pageConfig.cover_url} onUploadComplete={url=>setPageConfig({...pageConfig, cover_url:url})}/>
-                        <button onClick={savePageConfig} className="w-full bg-blue-600 text-white font-bold py-2 rounded text-sm">Salvar</button>
+                        <ImageUploader label="Capa de Fundo" currentImage={pageConfig.cover_url} onUploadComplete={url=>setPageConfig({...pageConfig, cover_url:url})}/>
+                        <button onClick={savePageConfig} className="w-full bg-blue-600 text-white font-bold py-2 rounded text-sm hover:bg-blue-500">Salvar Cabeçalho</button>
                     </div>
+                    {/* Se estiver no Editor Visual, mostra também Identidade Global */}
+                    {activeTab === 'editor' && (
+                        <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
+                            <h3 className="text-purple-500 font-bold uppercase text-xs mb-2">Identidade Global</h3>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><label className="text-xs text-gray-500">Primária</label><input type="color" className="w-full h-8 cursor-pointer rounded" value={siteIdentity.primary_color || '#2563eb'} onChange={e=>setSiteIdentity({...siteIdentity, primary_color:e.target.value})}/></div>
+                                <div><label className="text-xs text-gray-500">Fundo</label><input type="color" className="w-full h-8 cursor-pointer rounded" value={siteIdentity.background_color || '#000000'} onChange={e=>setSiteIdentity({...siteIdentity, background_color:e.target.value})}/></div>
+                            </div>
+                            <ImageUploader label="Logo Menu" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_menu_url:url})}/>
+                            <button onClick={saveIdentity} className="w-full bg-purple-600 text-white font-bold py-2 rounded text-sm">Salvar Cores/Logos</button>
+                        </div>
+                    )}
                 </div>
 
+                {/* Blocos de Conteúdo */}
                 <div className="lg:col-span-2">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-white font-bold text-sm uppercase">Vídeos e Banners</h3>
                         <button onClick={() => setEditingBlock({ type: 'video' })} className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-2"><Plus size={14}/> Adicionar</button>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
                         {pageContent.map((block, idx) => (
-                            <div key={block.id} className="bg-black border border-gray-800 p-3 rounded-lg flex items-center justify-between group">
+                            <div key={block.id} className="bg-black border border-gray-800 p-3 rounded-lg flex items-center justify-between group hover:border-blue-500">
                                 <div className="flex items-center gap-3">
                                     <div className="bg-gray-800 px-2 py-1 rounded text-gray-400 font-mono text-xs">{idx + 1}</div>
                                     <div className="w-12 h-8 bg-gray-900 rounded overflow-hidden flex items-center justify-center">
@@ -250,19 +268,19 @@ export default function AdminPanel({ showToast }) {
                                     <div><h4 className="text-white font-bold text-sm line-clamp-1">{block.title || 'Sem título'}</h4><p className="text-gray-500 text-[10px] uppercase">{block.type}</p></div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={()=>setEditingBlock(block)} className="text-blue-500"><Edit3 size={16}/></button>
-                                    <button onClick={()=>deleteBlock(block.id)} className="text-red-500"><Trash2 size={16}/></button>
+                                    <button onClick={()=>setEditingBlock(block)} className="text-blue-500 hover:text-white"><Edit3 size={16}/></button>
+                                    <button onClick={()=>deleteBlock(block.id)} className="text-red-500 hover:text-white"><Trash2 size={16}/></button>
                                 </div>
                             </div>
                         ))}
-                        {pageContent.length === 0 && <div className="text-gray-500 text-center text-sm py-4">Vazio.</div>}
+                        {pageContent.length === 0 && <div className="text-gray-500 text-center text-sm py-4">Nenhum bloco.</div>}
                     </div>
                 </div>
             </div>
         </div>
       )}
 
-      {/* ================= ABA: PACKS & PROMPTS (COM DRAG & DROP) ================= */}
+      {/* ================= ABA: PACKS & PROMPTS (CRUD + DRAG) ================= */}
       {activeTab === 'prompts' && (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -273,73 +291,59 @@ export default function AdminPanel({ showToast }) {
                 <button onClick={() => setEditingItem({})} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center shadow-lg"><Plus size={18} className="mr-2"/> Novo {selectedPack ? 'Prompt' : 'Pack'}</button>
             </div>
             
-            {/* LISTA DE PACKS (Sem drag) */}
+            {/* Lista Packs */}
             {!selectedPack && (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {items.map(item => (
                         <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group relative cursor-pointer" onClick={() => setSelectedPack(item)}>
-                            <div className="aspect-[3/4] relative bg-black">
-                                <img src={item.cover} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"/>
-                                <div className="absolute bottom-0 w-full p-2 bg-black/80 text-white text-xs font-bold text-center truncate">{item.title}</div>
-                            </div>
-                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={(e) => {e.stopPropagation(); setEditingItem(item)}} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button>
-                                <button onClick={(e) => {e.stopPropagation(); handleDeleteItem(item.id)}} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button>
-                            </div>
+                            <div className="aspect-[3/4] relative bg-black"><img src={item.cover} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"/><div className="absolute bottom-0 w-full p-2 bg-black/80 text-white text-xs font-bold text-center truncate">{item.title}</div></div>
+                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e) => {e.stopPropagation(); setEditingItem(item)}} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button><button onClick={(e) => {e.stopPropagation(); handleDeleteItem(item.id)}} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button></div>
                         </div>
                     ))}
                 </div>
             )}
 
-            {/* LISTA DE ITEMS (COM DRAG & DROP) */}
+            {/* Lista Itens (Drag & Drop) */}
             {selectedPack && (
-                <div>
-                    <p className="text-gray-400 text-sm mb-4 bg-gray-900 p-2 rounded inline-block">💡 Arraste os cards para mudar a ordem de exibição.</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {items.map((item, index) => (
-                            <div 
-                                key={item.id} 
-                                draggable 
-                                onDragStart={(e) => handleDragStart(e, index)}
-                                onDragOver={(e) => handleDragOver(e, index)}
-                                onDrop={(e) => handleDrop(e, index)}
-                                className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group relative cursor-move hover:border-blue-500 transition-colors"
-                            >
-                                <div className="aspect-[3/4] relative bg-black">
-                                    <img src={item.url} className="w-full h-full object-cover"/>
-                                    <div className="absolute top-2 left-2 bg-black/60 p-1 rounded text-white"><GripVertical size={16}/></div>
-                                </div>
-                                <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => setEditingItem(item)} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button>
-                                    <button onClick={() => handleDeleteItem(item.id)} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button>
-                                </div>
-                                <div className="p-2 text-xs text-gray-400 bg-gray-900 truncate border-t border-gray-800 flex justify-between">
-                                    <span>{item.title || 'Sem título'}</span>
-                                    <span className="font-mono text-gray-600">#{index+1}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {items.map((item, index) => (
+                        <div 
+                            key={item.id} 
+                            draggable 
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={(e) => handleDragOver(e, index)}
+                            onDrop={(e) => handleDrop(e, index)}
+                            className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group relative cursor-move hover:border-blue-500"
+                        >
+                            <div className="aspect-[3/4] relative bg-black"><img src={item.url} className="w-full h-full object-cover"/><div className="absolute top-2 left-2 bg-black/60 p-1 rounded text-white"><GripVertical size={16}/></div></div>
+                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditingItem(item)} className="bg-blue-600 p-1.5 rounded text-white shadow-lg"><Edit3 size={14}/></button><button onClick={() => handleDeleteItem(item.id)} className="bg-red-600 p-1.5 rounded text-white shadow-lg"><Trash2 size={14}/></button></div>
+                            <div className="p-2 text-xs text-gray-400 bg-gray-900 border-t border-gray-800 flex justify-between"><span>{index+1}.</span><span className="truncate">{item.title}</span></div>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>
       )}
 
-      {/* ... (TUTORIAIS E FAVORITOS PERMANECEM IGUAIS AO ANTERIOR - SEM MUDANÇAS) ... */}
+      {/* ================= ABA: TUTORIAIS ================= */}
       {activeTab === 'tutorials' && (
         <div>
             <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold text-white">Gerenciar Tutoriais</h2><button onClick={() => setEditingItem({})} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold flex items-center"><Plus size={18} className="mr-2"/> Novo Vídeo</button></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{items.map(item => (<div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group"><div className="aspect-video bg-black relative"><img src={item.thumbnail} className="w-full h-full object-cover opacity-60"/><div className="absolute inset-0 flex items-center justify-center"><Play className="text-white"/></div></div><div className="p-4"><h3 className="text-white font-bold mb-2 truncate">{item.title}</h3><div className="flex gap-2"><button onClick={()=>setEditingItem(item)} className="flex-1 bg-gray-800 py-2 rounded text-blue-400 text-xs font-bold">EDITAR</button><button onClick={()=>handleDeleteItem(item.id)} className="flex-1 bg-gray-800 py-2 rounded text-red-400 text-xs font-bold">EXCLUIR</button></div></div></div>))}</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{items.map((item, index) => (
+                <div key={item.id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={(e) => handleDragOver(e, index)} onDrop={(e) => handleDrop(e, index)} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group cursor-move">
+                    <div className="aspect-video bg-black relative"><img src={item.thumbnail} className="w-full h-full object-cover opacity-60"/><div className="absolute inset-0 flex items-center justify-center"><Play className="text-white"/></div><div className="absolute top-2 left-2 bg-black/60 p-1 rounded text-white"><GripVertical size={16}/></div></div>
+                    <div className="p-4"><h3 className="text-white font-bold mb-2 truncate">{item.title}</h3><div className="flex gap-2"><button onClick={()=>setEditingItem(item)} className="flex-1 bg-gray-800 py-2 rounded text-blue-400 text-xs font-bold">EDITAR</button><button onClick={()=>handleDeleteItem(item.id)} className="flex-1 bg-gray-800 py-2 rounded text-red-400 text-xs font-bold">EXCLUIR</button></div></div>
+                </div>
+            ))}</div>
         </div>
       )}
 
+      {/* ================= ABA: FAVORITOS ================= */}
       {activeTab === 'favorites' && (
         <div><h2 className="text-xl font-bold text-white mb-6">Monitoramento</h2><div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden"><table className="w-full text-left text-sm text-gray-400"><thead className="bg-black text-white font-bold"><tr><th className="p-4">Usuário</th><th className="p-4">Item</th><th className="p-4">Data</th></tr></thead><tbody className="divide-y divide-gray-800">{items.map(fav => (<tr key={fav.id}><td className="p-4">{fav.profile?.email||'N/A'}</td><td className="p-4 text-white">{fav.item?.title||'Item Excluído'}</td><td className="p-4">{new Date(fav.created_at).toLocaleDateString()}</td></tr>))}</tbody></table></div></div>
       )}
 
-      {/* ================= MODAIS DE EDIÇÃO (Mantidos iguais ao anterior) ================= */}
-      {/* ... (Use o mesmo bloco de Modal Genérico e Modal de Blocos do arquivo anterior, pois não mudou a lógica de salvar) ... */}
-      {/* Para garantir que funcione, vou reincluir o Modal Genérico resumido aqui */}
+      {/* ================= MODAIS ================= */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 p-6 overflow-hidden flex flex-col max-h-[90vh]">
@@ -362,7 +366,7 @@ export default function AdminPanel({ showToast }) {
       {editingBlock && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-gray-900 w-full max-w-lg rounded-xl border border-gray-700 p-6 space-y-4">
-                <h3 className="text-white font-bold uppercase">Editar Bloco ({selectedPage})</h3>
+                <h3 className="text-white font-bold uppercase">Editar Bloco</h3>
                 <div><label className="text-gray-500 text-xs block mb-1">Tipo</label><select className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.type} onChange={e => setEditingBlock({...editingBlock, type: e.target.value})}><option value="video">Vídeo</option><option value="banner_large">Banner Grande</option><option value="banner_small">Botão/Banner Peq.</option></select></div>
                 <div><label className="text-gray-500 text-xs block mb-1">Título</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.title || ''} onChange={e => setEditingBlock({...editingBlock, title: e.target.value})}/></div>
                 {editingBlock.type === 'video' ? (<div><label className="text-gray-500 text-xs block mb-1">ID YouTube</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded" value={editingBlock.media_url || ''} onChange={e => setEditingBlock({...editingBlock, media_url: e.target.value})}/></div>) : (<ImageUploader label="Imagem" currentImage={editingBlock.media_url} onUploadComplete={url => setEditingBlock({...editingBlock, media_url: url})} />)}
