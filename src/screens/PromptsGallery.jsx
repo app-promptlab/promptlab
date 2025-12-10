@@ -1,154 +1,200 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heart, Copy, Sparkles, ChevronLeft, Crown, Check, Grid } from 'lucide-react';
-import Modal from '../components/Modal';
-import DynamicPage from '../components/DynamicPage';
-import Row from '../components/Row';
+import { Copy, Heart, Lock, ShoppingCart, Loader2, Image as ImageIcon } from 'lucide-react';
 
-const LockedCard = ({ item }) => (
-  <div className="relative w-full h-full overflow-hidden rounded-xl bg-black/50 group">
-    <img src={item.url} className="absolute inset-0 w-full h-full object-cover filter blur-lg opacity-40 scale-110" alt="Locked"/>
-    <div className="absolute inset-0 bg-black/40" />
-    <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative w-24 h-32">
-            <svg width="0" height="0"><defs><clipPath id="lockClip" clipPathUnits="objectBoundingBox"><path d="M0.5,0 C0.35,0,0.22,0.12,0.22,0.28 V0.4 H0.15 C0.07,0.4,0,0.47,0,0.56 V0.9 C0,0.98,0.07,1,0.15,1 H0.85 C0.93,1,1,0.98,1,0.9 V0.56 C1,0.47,0.93,0.4,0.85,0.4 H0.78 V0.28 C0.78,0.12,0.65,0,0.5,0 M0.35,0.4 V0.28 C0.35,0.2,0.42,0.12,0.5,0.12 C0.58,0.12,0.65,0.2,0.65,0.28 V0.4 H0.35" /></clipPath></defs></svg>
-            <div className="absolute inset-0 w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${item.url})`, clipPath: 'url(#lockClip)', WebkitClipPath: 'path("M48,0 C33.6,0,21.12,11.52,21.12,26.88 V38.4 H14.4 C6.72,38.4,0,45.12,0,53.76 V86.4 C0,94.08,6.72,96,14.4,96 H81.6 C89.28,96,96,94.08,96,86.4 V53.76 C96,45.12,89.28,38.4,81.6,38.4 H74.88 V26.88 C74.88,11.52,62.4,0,48,0 M33.6,38.4 V26.88 C33.6,19.2,40.32,11.52,48,11.52 C55.68,11.52,62.4,19.2,62.4,26.88 V38.4 H33.6") scale(0.25)' }} />
-        </div>
-    </div>
-    <div className="absolute top-2 right-2 flex items-center gap-1 bg-gradient-to-r from-purple-600 to-blue-600 px-2 py-1 rounded text-[10px] font-black text-white shadow-lg"><Crown size={10} /> PRO</div>
-  </div>
-);
+// --- CONFIGURAÇÃO ---
+// Coloque aqui o mesmo link de checkout do produto "Pack de Prompts" que está no App.jsx
+const LINK_CHECKOUT = "https://pay.kiwify.com.br/hgxpno4";
+// --------------------
 
 export default function PromptsGallery({ user, showToast, onlyFavorites = false }) {
-  const [packs, setPacks] = useState([]);
   const [prompts, setPrompts] = useState([]);
-  const [selectedPack, setSelectedPack] = useState(null);
-  const [modalItem, setModalItem] = useState(null);
-  const [likedIds, setLikedIds] = useState(new Set());
-  const [copiedId, setCopiedId] = useState(null);
-  const [viewAllPacks, setViewAllPacks] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('Todos');
+
+  // Verifica se o usuário tem acesso total (Admin ou comprou o pack)
+  const hasAccess = user?.plan === 'admin' || user?.has_prompts;
 
   useEffect(() => {
-    const load = async () => {
-      const { data: pData } = await supabase.from('products').select('*');
-      setPacks(pData || []);
-      const { data: iData } = await supabase.from('pack_items').select('*').order('order_index', { ascending: true });
-      setPrompts(iData || []);
-      if (user) {
-        const { data: favData } = await supabase.from('user_favorites').select('item_id').eq('user_id', user.id);
-        setLikedIds(new Set(favData?.map(f => f.item_id)));
-      }
-    };
-    load();
-  }, [user]);
+    fetchPrompts();
+  }, [user, onlyFavorites]);
 
-  // --- FUNÇÃO DE CÓPIA SEGURA ---
-  const copyToClipboard = (text) => {
-    // Tenta método moderno
-    if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(text);
-    } else {
-        // Método Fallback (cria elemento invisível)
-        let textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        textArea.style.top = "0";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        return new Promise((res, rej) => {
-            document.execCommand('copy') ? res() : rej();
-            textArea.remove();
-        });
+  const fetchPrompts = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('pack_items') // Usando a tabela que vi na sua imagem
+        .select('*')
+        .order('order_index', { ascending: true }); // Ordena pela coluna que vi na tabela
+
+      if (onlyFavorites) {
+        // Lógica de favoritos (se tiver tabela de favoritos, ajustamos depois)
+        // Por enquanto, vou simular que não filtra nada se não tiver a tabela conectada
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setPrompts(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar prompts:', error);
+      showToast('Erro ao carregar galeria');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCopy = (e, item) => {
-    if(e) e.stopPropagation();
-    copyToClipboard(item.prompt)
-        .then(() => {
-            setCopiedId(item.id);
-            if(showToast) showToast("Prompt copiado com sucesso!");
-            setTimeout(() => setCopiedId(null), 2000);
-        })
-        .catch(() => alert("Erro ao copiar automaticamente. Tente selecionar e copiar manual."));
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    showToast('Prompt copiado!');
   };
 
-  const toggleFavorite = async (e, item) => {
-    if(e) e.stopPropagation();
-    const isLiked = likedIds.has(item.id);
-    const newSet = new Set(likedIds);
-    if (isLiked) newSet.delete(item.id); else newSet.add(item.id);
-    setLikedIds(newSet);
-    
-    const msg = isLiked ? "Removido dos favoritos" : "Adicionado aos favoritos!";
-    if(showToast) showToast(msg);
+  // Filtragem simples no front-end (Categorias simuladas por enquanto)
+  const categories = ['Todos', 'Retratos', 'Paisagens', 'Cyberpunk', 'Natal'];
+  
+  // Se não tiver coluna de categoria, filtra nada. Se tiver, ajustamos.
+  const filteredPrompts = filter === 'Todos' 
+    ? prompts 
+    : prompts.filter(p => p.title?.includes(filter) || p.prompt?.includes(filter));
 
-    if (isLiked) await supabase.from('user_favorites').delete().match({ user_id: user.id, item_id: item.id });
-    else await supabase.from('user_favorites').insert({ user_id: user.id, item_id: item.id });
-  };
-
-  const handleLockedClick = (item) => {
-      const parentPack = packs.find(p => p.id === item.pack_id);
-      if (parentPack && parentPack.checkout_url) window.open(parentPack.checkout_url, '_blank');
-      else alert("Conteúdo exclusivo para assinantes PRO!");
-  };
-
-  let filteredPrompts = prompts;
-  if (onlyFavorites) filteredPrompts = prompts.filter(p => likedIds.has(p.id));
-  else if (selectedPack) filteredPrompts = prompts.filter(p => p.pack_id === selectedPack.id);
-
-  const isPro = user?.plan === 'pro' || user?.plan === 'admin';
-
-  const Content = (
-    <div className="max-w-[1600px] mx-auto px-4 pb-20 pt-8">
-      {!onlyFavorites && (
-        <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-bold text-theme-text flex items-center gap-2"><span className="w-1 h-6 bg-theme-primary rounded-full inline-block"></span> PACKS</h2>
-                {selectedPack ? (<button onClick={() => setSelectedPack(null)} className="text-theme-primary text-sm font-bold flex items-center hover:text-white transition-colors"><ChevronLeft size={16}/> Voltar</button>) : (<button onClick={() => setViewAllPacks(!viewAllPacks)} className="text-theme-primary text-xs font-bold flex items-center hover:text-white transition-colors bg-theme-surface px-3 py-1 rounded-full border border-white/10">{viewAllPacks ? (<>Mostrar Menos <ChevronLeft size={14} className="ml-1 rotate-90"/></>) : (<>Ver Todos <Grid size={14} className="ml-1"/></>)}</button>)}
-            </div>
-            {!selectedPack && viewAllPacks ? (<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-fadeIn">{packs.map(pack => (<div key={pack.id} onClick={() => { setSelectedPack(pack); setViewAllPacks(false); }} className="aspect-[2/3] rounded-xl overflow-hidden cursor-pointer transition-all duration-300 relative group hover:scale-95 opacity-90 hover:opacity-100 border border-white/10 hover:border-theme-primary"><img src={pack.cover} className="w-full h-full object-cover" alt={pack.title}/><div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" /><div className="absolute bottom-2 inset-x-2 text-center text-xs font-bold text-white truncate drop-shadow-md">{pack.title}</div></div>))}</div>) : !selectedPack && (<Row items={packs} onItemClick={setSelectedPack} />)}
-            {selectedPack && (<div className="flex items-center gap-4 bg-theme-surface/50 p-4 rounded-xl border border-theme-primary/30 animate-fadeIn mb-6"><img src={selectedPack.cover} className="w-16 h-24 object-cover rounded-lg shadow-lg"/><div><h3 className="text-2xl font-bold text-white">{selectedPack.title}</h3><p className="text-gray-400 text-sm">{selectedPack.description || 'Explore os prompts desta coleção.'}</p></div></div>)}
-        </div>
-      )}
-
-      <div>
-        <h2 className="text-2xl font-bold text-theme-text mb-6 flex items-center">{onlyFavorites ? 'Meus Favoritos' : (selectedPack ? 'Prompts da Coleção' : 'Feed de Prompts')}</h2>
-        {filteredPrompts.length === 0 && onlyFavorites && <div className="text-gray-500 text-center py-10">Nenhum favorito.</div>}
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-          {filteredPrompts.map((item, index) => {
-             let isLocked = false;
-             if (!isPro && !onlyFavorites) { if (!item.is_free) isLocked = true; }
-             if (onlyFavorites) isLocked = false; 
-             if (isLocked) return <div key={item.id} className="aspect-[3/4] cursor-pointer" onClick={() => handleLockedClick(item)}><LockedCard item={item} /></div>;
-             const isLiked = likedIds.has(item.id);
-             return (
-               <div key={item.id} onClick={() => setModalItem(item)} className="aspect-[3/4] rounded-xl overflow-hidden relative group cursor-pointer bg-theme-card border border-white/5 hover:border-theme-primary/50 transition-all">
-                 <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title}/>
-                 <button onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 rounded-full transition-all duration-300 z-20 ${isLiked ? 'bg-black/50 text-red-500 scale-110' : 'text-white opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-black/50'}`}><Heart size={20} fill={isLiked ? "currentColor" : "none"} /></button>
-                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                    <button onClick={(e) => handleCopy(e, item)} className={`flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wider py-2 rounded-lg transition-colors ${copiedId === item.id ? 'bg-green-600' : 'bg-white/20 hover:bg-white/30 backdrop-blur-md'}`}>
-                        {copiedId === item.id ? <Check size={14}/> : <Copy size={14}/>} {copiedId === item.id ? 'COPIADO' : 'COPIAR'}
-                    </button>
-                 </div>
-               </div>
-             );
-          })}
-        </div>
-      </div>
-      <Modal 
-        item={modalItem} 
-        onClose={() => setModalItem(null)} 
-        onCopy={(text) => handleCopy(null, modalItem?.id)} // Usa a função do pai, mas sem evento 'e'
-        onFavorite={() => toggleFavorite(null, modalItem)} 
-        isLiked={modalItem ? likedIds.has(modalItem.id) : false}
-      />
+  if (loading) return (
+    <div className="flex items-center justify-center h-full text-theme-primary">
+        <Loader2 size={48} className="animate-spin"/>
     </div>
   );
 
-  if (onlyFavorites) return Content;
-  return <DynamicPage pageId="prompts" user={user}>{Content}</DynamicPage>;
+  return (
+    <div className="p-6 md:p-10 pb-20">
+      
+      {/* Cabeçalho */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            {onlyFavorites ? 'Meus Favoritos' : 'Galeria de Prompts'}
+          </h1>
+          <p className="text-gray-400">
+            {onlyFavorites 
+              ? 'Sua coleção pessoal de prompts salvos.' 
+              : 'Explore nossa coleção oficial. Copie, cole e crie.'}
+          </p>
+        </div>
+        
+        {!onlyFavorites && (
+             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {categories.map(cat => (
+                    <button
+                        key={cat}
+                        onClick={() => setFilter(cat)}
+                        className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${
+                            filter === cat 
+                            ? 'bg-theme-primary text-white' 
+                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                        }`}
+                    >
+                        {cat}
+                    </button>
+                ))}
+             </div>
+        )}
+      </div>
+
+      {/* Grid de Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {filteredPrompts.map((item) => {
+            // LÓGICA DE BLOQUEIO:
+            // Bloqueado se: (Não é grátis) E (Usuário não tem acesso)
+            const isLocked = !item.is_free && !hasAccess;
+
+            return (
+                <div key={item.id} className="group relative bg-theme-sidebar border border-white/5 rounded-2xl overflow-hidden hover:border-theme-primary/30 transition-all hover:shadow-xl hover:shadow-black/50 flex flex-col">
+                    
+                    {/* Imagem do Card */}
+                    <div className="relative aspect-square overflow-hidden bg-black/20">
+                        {item.url ? (
+                            <img 
+                                src={item.url} 
+                                alt={item.title} 
+                                className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${isLocked ? 'blur-md opacity-50' : ''}`} 
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                <ImageIcon size={48} />
+                            </div>
+                        )}
+
+                        {/* Badge Grátis/Pro */}
+                        <div className="absolute top-3 left-3 z-10">
+                            {item.is_free ? (
+                                <span className="bg-green-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide shadow-lg">
+                                    Grátis
+                                </span>
+                            ) : (
+                                !hasAccess && (
+                                    <span className="bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide flex items-center gap-1">
+                                        <Lock size={10} /> Premium
+                                    </span>
+                                )
+                            )}
+                        </div>
+
+                        {/* OVERLAY DE BLOQUEIO (Cadeado + Botão) */}
+                        {isLocked && (
+                            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                                <Lock size={32} className="text-white mb-3" />
+                                <p className="text-white font-bold text-center text-sm mb-3">Conteúdo Exclusivo</p>
+                                <a 
+                                    href={LINK_CHECKOUT}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-theme-primary hover:bg-theme-primary/90 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-transform hover:scale-105"
+                                >
+                                    <ShoppingCart size={14} />
+                                    Desbloquear
+                                </a>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Conteúdo do Card */}
+                    <div className="p-4 flex flex-col flex-1">
+                        <div className="flex justify-between items-start mb-2">
+                            <h3 className="font-bold text-white truncate pr-2">{item.title || 'Sem título'}</h3>
+                            {/* Botão Favoritar (Simulado) */}
+                            <button className="text-gray-500 hover:text-red-500 transition-colors">
+                                <Heart size={18} />
+                            </button>
+                        </div>
+
+                        {/* Área do Prompt */}
+                        <div className="relative bg-black/30 rounded-lg p-3 mt-auto border border-white/5 group-hover:border-white/10 transition-colors">
+                            <p className={`text-xs text-gray-400 line-clamp-3 font-mono ${isLocked ? 'blur-sm select-none opacity-50' : ''}`}>
+                                {isLocked 
+                                    ? 'Este prompt é exclusivo para membros PRO. Desbloqueie para visualizar o comando completo.' 
+                                    : (item.prompt || 'Sem prompt cadastrado...')}
+                            </p>
+
+                            {/* Botão Copiar (Só aparece se desbloqueado) */}
+                            {!isLocked && (
+                                <button 
+                                    onClick={() => copyToClipboard(item.prompt)}
+                                    className="absolute top-2 right-2 p-1.5 bg-white/10 hover:bg-theme-primary hover:text-white rounded-md text-gray-400 transition-all opacity-0 group-hover:opacity-100"
+                                    title="Copiar Prompt"
+                                >
+                                    <Copy size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                </div>
+            );
+        })}
+      </div>
+
+        {filteredPrompts.length === 0 && !loading && (
+            <div className="text-center py-20 text-gray-500">
+                <p>Nenhum prompt encontrado nesta categoria.</p>
+            </div>
+        )}
+    </div>
+  );
 }

@@ -8,11 +8,15 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
 
   const handleNav = (id) => { setActiveTab(id); setSidebarOpen(false); };
 
-  // Função para verificar se o item deve ter cadeado
+// Função para verificar se o item deve ter cadeado
   const isLocked = (id) => {
-    if (isAdmin) return false; // Admin vê tudo liberado
-    if (id === 'prompts' || id === 'favorites') return !user?.has_prompts;
+    if (isAdmin) return false;
+    
+    // REMOVI A LINHA QUE BLOQUEAVA PROMPTS/FAVORITES
+    
+    // Mantém o bloqueio APENAS no Gerador
     if (id === 'generator') return !user?.has_generators;
+    
     return false;
   };
 
