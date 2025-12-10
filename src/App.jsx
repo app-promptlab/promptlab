@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { Loader2, Check, Menu, Lock, ShoppingCart } from 'lucide-react'; // Adicionei Lock e ShoppingCart
+import { Loader2, Check, Lock, ShoppingCart } from 'lucide-react'; 
 import { ThemeProvider } from './context/ThemeContext';
 
 import Sidebar from './components/Sidebar';
@@ -119,11 +119,7 @@ function App() {
         {/* Layout responsivo ajustado */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-theme-bg relative">
             
-            {/* Header Mobile */}
-            <div className="md:hidden h-16 bg-theme-sidebar border-b border-white/10 flex items-center px-4 justify-between flex-shrink-0 z-40">
-                 <span className="font-bold text-theme-primary text-lg">PromptLab</span>
-                 <button onClick={() => setSidebarOpen(true)} className="text-theme-text p-2"><Menu size={24}/></button>
-            </div>
+            {/* --- CABEÇALHO MOBILE REMOVIDO DAQUI --- */}
 
             {/* Conteúdo Principal */}
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 w-full">
