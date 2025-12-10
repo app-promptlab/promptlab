@@ -58,7 +58,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   };
 
   const toggleFavorite = async (e, item) => {
-    e.stopPropagation(); // Não abrir o modal
+    if (e) e.stopPropagation(); // Não abrir o modal
     const isFav = favorites.has(item.id);
     const newFavs = new Set(favorites);
 
@@ -88,7 +88,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   };
 
   const copyToClipboard = (e, text) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     navigator.clipboard.writeText(text);
     showToast('Prompt copiado!');
   };
@@ -105,6 +105,14 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             {/* Imagem Grande */}
             <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative">
                 <img src={selectedItem.url} alt={selectedItem.title} className="max-h-[50vh] md:max-h-full w-full object-contain" />
+                {/* Coração no Canto Superior Direito do Modal */}
+                <button 
+                    onClick={(e) => toggleFavorite(e, selectedItem)}
+                    className={`absolute top-4 right-4 p-3 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg ${isFav ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    title="Favoritar"
+                >
+                    <Heart size={24} fill={isFav ? "currentColor" : "none"} />
+                </button>
             </div>
 
             {/* Painel Lateral */}
@@ -122,20 +130,13 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                     </p>
                 </div>
 
-                <div className="flex gap-3 mt-auto">
-                    <button 
-                        onClick={(e) => copyToClipboard(e, selectedItem.prompt)}
-                        className="flex-1 bg-theme-primary hover:bg-theme-primary/90 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95"
-                    >
-                        <Copy size={18} /> Copiar Prompt
-                    </button>
-                    <button 
-                        onClick={(e) => toggleFavorite(e, selectedItem)}
-                        className={`px-4 py-3 rounded-xl border-2 font-bold transition-all active:scale-95 ${isFav ? 'bg-red-500/10 border-red-500 text-red-500' : 'border-white/10 text-gray-400 hover:text-white hover:border-white'}`}
-                    >
-                        <Heart size={24} fill={isFav ? "currentColor" : "none"} />
-                    </button>
-                </div>
+                {/* Botão COPIAR no Modal */}
+                <button 
+                    onClick={(e) => copyToClipboard(e, selectedItem.prompt)}
+                    className="w-full bg-theme-primary hover:bg-theme-primary/90 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95"
+                >
+                    <Copy size={18} /> COPIAR
+                </button>
             </div>
         </div>
       </div>
@@ -191,22 +192,27 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
                     {/* INTERAÇÃO: ITEM LIBERADO (Aparece no Hover) */}
                     {!isLocked && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 gap-4">
-                            <button 
-                                onClick={(e) => copyToClipboard(e, item.prompt)}
-                                className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-theme-primary hover:scale-110 transition-all shadow-lg"
-                                title="Copiar"
-                            >
-                                <Copy size={20} />
-                            </button>
+                        <>
+                            {/* Coração no Canto Superior Direito */}
                             <button 
                                 onClick={(e) => toggleFavorite(e, item)}
-                                className={`p-3 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg ${isFav ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                className={`absolute top-3 right-3 p-2 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg opacity-0 group-hover:opacity-100 z-10 ${isFav ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                                 title="Favoritar"
                             >
                                 <Heart size={20} fill={isFav ? "currentColor" : "none"} />
                             </button>
-                        </div>
+
+                            {/* Botão COPIAR Centralizado */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                                <button 
+                                    onClick={(e) => copyToClipboard(e, item.prompt)}
+                                    className="px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-white font-bold hover:bg-theme-primary hover:scale-110 transition-all shadow-lg pointer-events-auto flex items-center gap-2"
+                                    title="Copiar"
+                                >
+                                    <Copy size={18} /> COPIAR
+                                </button>
+                            </div>
+                        </>
                     )}
 
                     {/* INTERAÇÃO: ITEM BLOQUEADO (Cadeado Vazado) */}
