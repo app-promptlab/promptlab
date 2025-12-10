@@ -3,16 +3,15 @@ import { supabase } from '../supabaseClient';
 import { Copy, Heart, Lock, X, Loader2, Image as ImageIcon } from 'lucide-react';
 
 // --- CONFIGURAÇÃO ---
-const LINK_CHECKOUT = "https://pay.kiwify.com.br/hgxpno4"; // Seu link de Prompts
+const LINK_CHECKOUT = "https://pay.kiwify.com.br/hgxpno4"; 
 // --------------------
 
 export default function PromptsGallery({ user, showToast, onlyFavorites = false }) {
   const [prompts, setPrompts] = useState([]);
   const [favorites, setFavorites] = useState(new Set());
   const [loading, setLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState(null); // Para o Modal
+  const [selectedItem, setSelectedItem] = useState(null);
 
-  // Verifica acesso
   const hasAccess = user?.plan === 'admin' || user?.has_prompts;
 
   useEffect(() => {
@@ -22,27 +21,25 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Buscar Prompts
-      let query = supabase
+      // 1. Busca os itens
+      const { data: promptsData, error: promptsError } = await supabase
         .from('pack_items')
         .select('*')
         .order('order_index', { ascending: true });
 
-      const { data: promptsData, error: promptsError } = await query;
       if (promptsError) throw promptsError;
 
-      // 2. Buscar Favoritos do usuário para pintar o coração
-      const { data: favsData, error: favsError } = await supabase
+      // 2. Busca os favoritos existentes
+      const { data: favsData } = await supabase
         .from('user_favorites')
         .select('pack_item_id')
         .eq('user_id', user.id);
-
-      if (favsError && favsError.code !== 'PGRST116') console.error(favsError);
       
+      // Cria o conjunto de IDs favoritados
       const favSet = new Set(favsData?.map(f => f.pack_item_id) || []);
       setFavorites(favSet);
 
-      // Se a aba for "Favoritos", filtrar localmente
+      // Filtra se for a aba favoritos
       if (onlyFavorites) {
         setPrompts(promptsData.filter(p => favSet.has(p.id)));
       } else {
@@ -50,50 +47,52 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       }
 
     } catch (error) {
-      console.error('Erro:', error);
-      showToast('Erro ao carregar galeria');
+      console.error('Erro ao carregar:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  // --- FUNÇÃO CORRIGIDA DE FAVORITAR ---
   const toggleFavorite = async (e, item) => {
-    if (e) e.stopPropagation(); // Não abrir o modal
-    const isFav = favorites.has(item.id);
-    const newFavs = new Set(favorites);
+    e.preventDefault();  // Impede recarregar a página
+    e.stopPropagation(); // Impede abrir o modal
 
+    const isFav = favorites.has(item.id);
+    
+    // 1. Atualiza VISUALMENTE agora (sem esperar o banco)
+    const newFavs = new Set(favorites);
+    if (isFav) {
+        newFavs.delete(item.id);
+        if (onlyFavorites) {
+            setPrompts(prev => prev.filter(p => p.id !== item.id));
+        }
+    } else {
+        newFavs.add(item.id);
+    }
+    setFavorites(newFavs);
+
+    // 2. Atualiza no BANCO silenciosamente
     try {
       if (isFav) {
-        // Remover
         await supabase.from('user_favorites').delete().eq('user_id', user.id).eq('pack_item_id', item.id);
-        newFavs.delete(item.id);
-        showToast('Removido dos favoritos');
       } else {
-        // Adicionar
         await supabase.from('user_favorites').insert({ user_id: user.id, pack_item_id: item.id });
-        newFavs.add(item.id);
-        showToast('Salvo nos favoritos!');
       }
-      setFavorites(newFavs);
-      
-      // Se estiver na tela de favoritos e remover, atualiza a lista visualmente
-      if (onlyFavorites && isFav) {
-        setPrompts(prev => prev.filter(p => p.id !== item.id));
-      }
-
     } catch (error) {
-      console.error(error);
-      showToast('Erro ao atualizar favorito');
+      console.error("Erro no banco:", error);
+      // Se der erro no banco, desfaz o visual (opcional)
     }
   };
 
   const copyToClipboard = (e, text) => {
-    if (e) e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
     navigator.clipboard.writeText(text);
     showToast('Prompt copiado!');
   };
 
-  // Renderização do Modal de Detalhes
+  // --- MODAL ---
   const Modal = () => {
     if (!selectedItem) return null;
     const isFav = favorites.has(selectedItem.id);
@@ -102,24 +101,23 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedItem(null)}>
         <div className="bg-theme-sidebar border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl" onClick={e => e.stopPropagation()}>
             
-            {/* Imagem Grande */}
-            <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative">
+            <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative group">
                 <img src={selectedItem.url} alt={selectedItem.title} className="max-h-[50vh] md:max-h-full w-full object-contain" />
-                {/* Coração no Canto Superior Direito do Modal */}
+                
+                {/* CORAÇÃO NO MODAL (Topo Direito) */}
                 <button 
+                    type="button" 
                     onClick={(e) => toggleFavorite(e, selectedItem)}
-                    className={`absolute top-4 right-4 p-3 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg ${isFav ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                    title="Favoritar"
+                    className={`absolute top-4 right-4 p-3 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg border border-white/10 ${isFav ? 'bg-red-500 text-white' : 'bg-black/40 text-white hover:bg-white/20'}`}
                 >
                     <Heart size={24} fill={isFav ? "currentColor" : "none"} />
                 </button>
             </div>
 
-            {/* Painel Lateral */}
             <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col bg-theme-sidebar">
                 <div className="flex justify-between items-start mb-6">
                     <h2 className="text-2xl font-bold text-white">{selectedItem.title}</h2>
-                    <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-white transition-colors">
+                    <button type="button" onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-white transition-colors">
                         <X size={28} />
                     </button>
                 </div>
@@ -130,12 +128,12 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                     </p>
                 </div>
 
-                {/* Botão COPIAR no Modal */}
                 <button 
+                    type="button"
                     onClick={(e) => copyToClipboard(e, selectedItem.prompt)}
-                    className="w-full bg-theme-primary hover:bg-theme-primary/90 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95"
+                    className="w-full bg-theme-primary hover:bg-theme-primary/90 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg"
                 >
-                    <Copy size={18} /> COPIAR
+                    <Copy size={18} /> COPIAR PROMPT
                 </button>
             </div>
         </div>
@@ -143,21 +141,14 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     );
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full text-theme-primary">
-        <Loader2 size={48} className="animate-spin"/>
-    </div>
-  );
+  if (loading) return <div className="flex items-center justify-center h-full text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>;
 
   return (
     <div className="p-4 md:p-8 pb-20">
-      
-      {/* Título simples */}
       <h1 className="text-2xl md:text-3xl font-bold text-white mb-6 pl-2 border-l-4 border-theme-primary">
         {onlyFavorites ? 'Meus Favoritos' : 'Galeria de Inspiração'}
       </h1>
 
-      {/* Grid estilo Pinterest (Masonry-like com aspect ratio vertical) */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {prompts.map((item) => {
             const isLocked = !item.is_free && !hasAccess;
@@ -172,73 +163,8 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                     }}
                     className={`group relative rounded-xl overflow-hidden bg-white/5 border border-white/5 transition-all duration-300 cursor-pointer aspect-[2/3] ${isLocked ? 'hover:border-theme-primary/50' : ''}`}
                 >
-                    {/* Imagem */}
                     {item.url ? (
                         <img 
                             src={item.url} 
                             alt={item.title} 
-                            className={`w-full h-full object-cover transition-transform duration-500 
-                                ${isLocked 
-                                    ? 'filter brightness-[0.25] blur-[2px]' 
-                                    : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'
-                                }
-                            `} 
-                        />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-700">
-                            <ImageIcon size={32} />
-                        </div>
-                    )}
-
-                    {/* INTERAÇÃO: ITEM LIBERADO (Aparece no Hover) */}
-                    {!isLocked && (
-                        <>
-                            {/* Coração no Canto Superior Direito */}
-                            <button 
-                                onClick={(e) => toggleFavorite(e, item)}
-                                className={`absolute top-3 right-3 p-2 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg opacity-0 group-hover:opacity-100 z-10 ${isFav ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                                title="Favoritar"
-                            >
-                                <Heart size={20} fill={isFav ? "currentColor" : "none"} />
-                            </button>
-
-                            {/* Botão COPIAR Centralizado */}
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                                <button 
-                                    onClick={(e) => copyToClipboard(e, item.prompt)}
-                                    className="px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-white font-bold hover:bg-theme-primary hover:scale-110 transition-all shadow-lg pointer-events-auto flex items-center gap-2"
-                                    title="Copiar"
-                                >
-                                    <Copy size={18} /> COPIAR
-                                </button>
-                            </div>
-                        </>
-                    )}
-
-                    {/* INTERAÇÃO: ITEM BLOQUEADO (Cadeado Vazado) */}
-                    {isLocked && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            {/* O cadeado "vazado" (outline) */}
-                            <Lock size={48} className="text-white/30" strokeWidth={1.5} />
-                            {/* Dica sutil visual de que é clicável */}
-                            <div className="mt-2 text-[10px] text-white/30 uppercase tracking-[0.2em] font-light">Locked</div>
-                        </div>
-                    )}
-                </div>
-            );
-        })}
-      </div>
-
-      {prompts.length === 0 && !loading && (
-            <div className="text-center py-20 text-gray-500 flex flex-col items-center">
-                <p>Nenhum prompt encontrado.</p>
-                {onlyFavorites && <p className="text-sm mt-2">Explore a galeria e salve seus favoritos!</p>}
-            </div>
-      )}
-
-      {/* Modal Overlay */}
-      <Modal />
-
-    </div>
-  );
-}
+                            className={`w-full h-full object-cover transition-
