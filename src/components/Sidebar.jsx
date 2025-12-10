@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Zap, LayoutGrid, Play, Heart, Shield, User, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Zap, LayoutGrid, Play, Heart, Shield, User, LogOut, Menu, X, Lock } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, setSidebarOpen, isAdmin, onLogout }) {
@@ -8,22 +8,41 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
 
   const handleNav = (id) => { setActiveTab(id); setSidebarOpen(false); };
 
-  const SidebarItem = ({ icon: Icon, label, id, isLogout }) => (
-    <button 
-      onClick={() => isLogout ? onLogout() : handleNav(id)} 
-      className={`
-        flex items-center w-full transition-all duration-200 group font-medium mb-1 rounded-xl
-        ${minimized ? 'justify-center px-2 py-3' : 'px-4 py-3'} 
-        ${activeTab === id && !isLogout ? 'text-theme-primary bg-theme-primary/10' : 'text-theme-sidebar-text hover:text-theme-primary hover:bg-white/5'}
-        ${!minimized && activeTab === id && !isLogout ? 'border-l-4 border-theme-primary rounded-l-none' : ''}
-        ${isLogout ? 'mt-auto hover:text-red-400 hover:bg-red-500/10 text-theme-sidebar-text' : ''}
-      `}
-      title={minimized ? label : ''}
-    >
-      <Icon size={24} className={`${minimized ? '' : 'mr-3'}`} />
-      {!minimized && <span className="truncate">{label}</span>}
-    </button>
-  );
+  // Função para verificar se o item deve ter cadeado
+  const isLocked = (id) => {
+    if (isAdmin) return false; // Admin vê tudo liberado
+    if (id === 'prompts' || id === 'favorites') return !user?.has_prompts;
+    if (id === 'generator') return !user?.has_generators;
+    return false;
+  };
+
+  const SidebarItem = ({ icon: Icon, label, id, isLogout }) => {
+    const locked = !isLogout && isLocked(id);
+    
+    return (
+      <button 
+        onClick={() => isLogout ? onLogout() : handleNav(id)} 
+        className={`
+          flex items-center w-full transition-all duration-200 group font-medium mb-1 rounded-xl relative
+          ${minimized ? 'justify-center px-2 py-3' : 'px-4 py-3'} 
+          ${activeTab === id && !isLogout ? 'text-theme-primary bg-theme-primary/10' : 'text-theme-sidebar-text hover:text-theme-primary hover:bg-white/5'}
+          ${!minimized && activeTab === id && !isLogout ? 'border-l-4 border-theme-primary rounded-l-none' : ''}
+          ${isLogout ? 'mt-auto hover:text-red-400 hover:bg-red-500/10 text-theme-sidebar-text' : ''}
+          ${locked ? 'opacity-70 hover:opacity-100' : ''} 
+        `}
+        title={minimized ? label : ''}
+      >
+        <Icon size={24} className={`${minimized ? '' : 'mr-3'}`} />
+        
+        {!minimized && (
+            <>
+                <span className="truncate flex-1 text-left">{label}</span>
+                {locked && <Lock size={14} className="text-gray-500 ml-2" />}
+            </>
+        )}
+      </button>
+    );
+  };
 
   const UserProfileWidget = () => (
     <div className={`flex items-center gap-3 py-6 border-b border-white/10 mb-2 transition-all ${minimized ? 'justify-center px-2' : 'px-4'}`}>
@@ -40,7 +59,7 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
             <div className="overflow-hidden">
                 <h4 className="text-theme-sidebar-text text-sm font-bold truncate">{user?.name?.split(' ')[0] || 'Usuário'}</h4>
                 <p className="text-theme-primary text-[10px] uppercase font-bold tracking-wider truncate">
-                    {user?.plan === 'admin' ? 'Administrador' : `Plano ${user?.plan || 'Free'}`}
+                    {user?.plan === 'admin' ? 'Administrador' : (user?.has_prompts ? 'Membro Pro' : 'Visitante')}
                 </p>
             </div>
         )}
@@ -115,6 +134,7 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
         </nav>
       </div>
 
+      {/* FAB: Botão Flutuante Mobile */}
       {!sidebarOpen && (
         <button onClick={() => setSidebarOpen(true)} className="md:hidden fixed bottom-6 right-6 z-50 bg-theme-primary text-white p-4 rounded-full shadow-lg active:scale-95 transition-transform"><Menu size={28} /></button>
       )}

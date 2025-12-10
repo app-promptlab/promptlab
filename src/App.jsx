@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { Loader2, Check, Menu } from 'lucide-react';
+import { Loader2, Check, Menu, Lock, ShoppingCart } from 'lucide-react'; // Adicionei Lock e ShoppingCart
 import { ThemeProvider } from './context/ThemeContext';
 
 import Sidebar from './components/Sidebar';
@@ -11,6 +11,11 @@ import PromptsGallery from './screens/PromptsGallery';
 import TutorialsPage from './screens/TutorialsPage';
 import Profile from './screens/Profile';
 import AdminPanel from './screens/AdminPanel';
+
+// --- CONFIGURAÇÃO: Coloque seus links de checkout da Kiwify aqui ---
+const LINK_CHECKOUT_PROMPTS = "https://pay.kiwify.com.br/hgxpno4";
+const LINK_CHECKOUT_GERADOR = "https://pay.kiwify.com.br/63gP2T1";
+// -------------------------------------------------------------------
 
 export default function AppWrapper() {
   return (
@@ -32,11 +37,24 @@ function App() {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (session) {
+        // Busca os dados do perfil (has_prompts, has_generators, plan)
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        
+        // Verifica se é o Admin Supremo
         const isEmailAdmin = session.user.email === 'app.promptlab@gmail.com'; 
-        const finalPlan = isEmailAdmin ? 'admin' : (profile?.plan || 'free');
-        setUser({ ...session.user, ...profile, plan: finalPlan });
+        
+        // Se for admin, libera tudo na marra. Se não, usa o que tá no banco.
+        const finalUser = {
+            ...session.user,
+            ...profile,
+            plan: isEmailAdmin ? 'admin' : (profile?.plan || 'free'),
+            has_prompts: isEmailAdmin ? true : (profile?.has_prompts || false),
+            has_generators: isEmailAdmin ? true : (profile?.has_generators || false)
+        };
+
+        setUser(finalUser);
       }
       setLoading(false);
     };
@@ -56,6 +74,30 @@ function App() {
       else if (data.user) { window.location.reload(); }
   };
 
+  // Componente de Tela Bloqueada (Paywall)
+  const LockedFeature = ({ title, price, link }) => (
+    <div className="flex flex-col items-center justify-center h-full text-center p-8 animate-fadeIn">
+        <div className="bg-white/5 p-6 rounded-full mb-6">
+            <Lock size={64} className="text-theme-primary" />
+        </div>
+        <h2 className="text-3xl font-bold mb-2 text-white">Acesso Bloqueado</h2>
+        <p className="mb-8 text-gray-400 max-w-md">
+            Você precisa desbloquear o pacote <strong>{title}</strong> para acessar esta ferramenta exclusiva.
+        </p>
+        
+        <a 
+            href={link} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 bg-theme-primary hover:bg-theme-primary/90 text-white px-8 py-4 rounded-xl font-bold text-lg transition-transform hover:scale-105 shadow-lg shadow-theme-primary/20"
+        >
+            <ShoppingCart size={24} />
+            Desbloquear por apenas {price}
+        </a>
+        <p className="mt-4 text-sm text-gray-500">Acesso vitalício & liberação imediata.</p>
+    </div>
+  );
+
   if (loading) return <div className="h-screen bg-theme-bg flex items-center justify-center text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>;
   if (!user) return <AuthScreen onLogin={handleLogin} />;
 
@@ -74,24 +116,49 @@ function App() {
             onLogout={async () => { await supabase.auth.signOut(); window.location.reload(); }}
         />
 
-        {/* CORREÇÃO: p-0 no mobile para remover moldura */}
+        {/* Layout responsivo ajustado */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-theme-bg relative">
             
             {/* Header Mobile */}
             <div className="md:hidden h-16 bg-theme-sidebar border-b border-white/10 flex items-center px-4 justify-between flex-shrink-0 z-40">
-                 <span className="font-bold text-theme-primary text-lg">App</span>
+                 <span className="font-bold text-theme-primary text-lg">PromptLab</span>
                  <button onClick={() => setSidebarOpen(true)} className="text-theme-text p-2"><Menu size={24}/></button>
             </div>
 
-            {/* Conteúdo: w-full e p-0 no mobile */}
+            {/* Conteúdo Principal com Verificação de Acesso */}
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 w-full">
+                
+                {/* Dashboard: Aberto para todos */}
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
-                {activeTab === 'generator' && <Generator />}
-                {activeTab === 'prompts' && <PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />}
-                {activeTab === 'favorites' && <PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />}
+                
+                {/* Geradores: Requer user.has_generators */}
+                {activeTab === 'generator' && (
+                    user.has_generators 
+                    ? <Generator /> 
+                    : <LockedFeature title="Gerador Inteligente" price="R$ 19,00" link={LINK_CHECKOUT_GERADOR} />
+                )}
+                
+                {/* Galeria de Prompts: Requer user.has_prompts */}
+                {activeTab === 'prompts' && (
+                    user.has_prompts 
+                    ? <PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />
+                    : <LockedFeature title="Pack de Prompts" price="R$ 27,00" link={LINK_CHECKOUT_PROMPTS} />
+                )}
+                
+                {/* Favoritos: Requer user.has_prompts (pois depende da galeria) */}
+                {activeTab === 'favorites' && (
+                    user.has_prompts 
+                    ? <PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />
+                    : <LockedFeature title="Pack de Prompts" price="R$ 27,00" link={LINK_CHECKOUT_PROMPTS} />
+                )}
+
+                {/* Tutoriais: Liberado ou Bloqueado? Por enquanto deixei liberado para gerar valor */}
                 {activeTab === 'tutorials' && <TutorialsPage />}
+                
+                {/* Admin e Perfil */}
                 {activeTab === 'admin' && isAdmin && <AdminPanel showToast={showToast} />}
                 {activeTab === 'profile' && <Profile user={user} showToast={showToast} />}
+            
             </main>
         </div>
 
