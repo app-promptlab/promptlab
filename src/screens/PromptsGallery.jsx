@@ -1,60 +1,146 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Copy, Heart, Lock, ShoppingCart, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Copy, Heart, Lock, X, Loader2, Image as ImageIcon } from 'lucide-react';
 
 // --- CONFIGURAÇÃO ---
-// Coloque aqui o mesmo link de checkout do produto "Pack de Prompts" que está no App.jsx
-const LINK_CHECKOUT = "https://pay.kiwify.com.br/hgxpno4";
+const LINK_CHECKOUT = "https://pay.kiwify.com.br/hgxpno4"; // Seu link de Prompts
 // --------------------
 
 export default function PromptsGallery({ user, showToast, onlyFavorites = false }) {
   const [prompts, setPrompts] = useState([]);
+  const [favorites, setFavorites] = useState(new Set());
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('Todos');
+  const [selectedItem, setSelectedItem] = useState(null); // Para o Modal
 
-  // Verifica se o usuário tem acesso total (Admin ou comprou o pack)
+  // Verifica acesso
   const hasAccess = user?.plan === 'admin' || user?.has_prompts;
 
   useEffect(() => {
-    fetchPrompts();
+    fetchData();
   }, [user, onlyFavorites]);
 
-  const fetchPrompts = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
+      // 1. Buscar Prompts
       let query = supabase
-        .from('pack_items') // Usando a tabela que vi na sua imagem
+        .from('pack_items')
         .select('*')
-        .order('order_index', { ascending: true }); // Ordena pela coluna que vi na tabela
+        .order('order_index', { ascending: true });
 
+      const { data: promptsData, error: promptsError } = await query;
+      if (promptsError) throw promptsError;
+
+      // 2. Buscar Favoritos do usuário para pintar o coração
+      const { data: favsData, error: favsError } = await supabase
+        .from('user_favorites')
+        .select('pack_item_id')
+        .eq('user_id', user.id);
+
+      if (favsError && favsError.code !== 'PGRST116') console.error(favsError);
+      
+      const favSet = new Set(favsData?.map(f => f.pack_item_id) || []);
+      setFavorites(favSet);
+
+      // Se a aba for "Favoritos", filtrar localmente
       if (onlyFavorites) {
-        // Lógica de favoritos (se tiver tabela de favoritos, ajustamos depois)
-        // Por enquanto, vou simular que não filtra nada se não tiver a tabela conectada
+        setPrompts(promptsData.filter(p => favSet.has(p.id)));
+      } else {
+        setPrompts(promptsData || []);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setPrompts(data || []);
     } catch (error) {
-      console.error('Erro ao buscar prompts:', error);
+      console.error('Erro:', error);
       showToast('Erro ao carregar galeria');
     } finally {
       setLoading(false);
     }
   };
 
-  const copyToClipboard = (text) => {
+  const toggleFavorite = async (e, item) => {
+    e.stopPropagation(); // Não abrir o modal
+    const isFav = favorites.has(item.id);
+    const newFavs = new Set(favorites);
+
+    try {
+      if (isFav) {
+        // Remover
+        await supabase.from('user_favorites').delete().eq('user_id', user.id).eq('pack_item_id', item.id);
+        newFavs.delete(item.id);
+        showToast('Removido dos favoritos');
+      } else {
+        // Adicionar
+        await supabase.from('user_favorites').insert({ user_id: user.id, pack_item_id: item.id });
+        newFavs.add(item.id);
+        showToast('Salvo nos favoritos!');
+      }
+      setFavorites(newFavs);
+      
+      // Se estiver na tela de favoritos e remover, atualiza a lista visualmente
+      if (onlyFavorites && isFav) {
+        setPrompts(prev => prev.filter(p => p.id !== item.id));
+      }
+
+    } catch (error) {
+      console.error(error);
+      showToast('Erro ao atualizar favorito');
+    }
+  };
+
+  const copyToClipboard = (e, text) => {
+    e.stopPropagation();
     navigator.clipboard.writeText(text);
     showToast('Prompt copiado!');
   };
 
-  // Filtragem simples no front-end (Categorias simuladas por enquanto)
-  const categories = ['Todos', 'Retratos', 'Paisagens', 'Cyberpunk', 'Natal'];
-  
-  // Se não tiver coluna de categoria, filtra nada. Se tiver, ajustamos.
-  const filteredPrompts = filter === 'Todos' 
-    ? prompts 
-    : prompts.filter(p => p.title?.includes(filter) || p.prompt?.includes(filter));
+  // Renderização do Modal de Detalhes
+  const Modal = () => {
+    if (!selectedItem) return null;
+    const isFav = favorites.has(selectedItem.id);
+
+    return (
+      <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedItem(null)}>
+        <div className="bg-theme-sidebar border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl" onClick={e => e.stopPropagation()}>
+            
+            {/* Imagem Grande */}
+            <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative">
+                <img src={selectedItem.url} alt={selectedItem.title} className="max-h-[50vh] md:max-h-full w-full object-contain" />
+            </div>
+
+            {/* Painel Lateral */}
+            <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col bg-theme-sidebar">
+                <div className="flex justify-between items-start mb-6">
+                    <h2 className="text-2xl font-bold text-white">{selectedItem.title}</h2>
+                    <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-white transition-colors">
+                        <X size={28} />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto mb-6 bg-black/20 rounded-xl p-4 border border-white/5">
+                    <p className="text-gray-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                        {selectedItem.prompt}
+                    </p>
+                </div>
+
+                <div className="flex gap-3 mt-auto">
+                    <button 
+                        onClick={(e) => copyToClipboard(e, selectedItem.prompt)}
+                        className="flex-1 bg-theme-primary hover:bg-theme-primary/90 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95"
+                    >
+                        <Copy size={18} /> Copiar Prompt
+                    </button>
+                    <button 
+                        onClick={(e) => toggleFavorite(e, selectedItem)}
+                        className={`px-4 py-3 rounded-xl border-2 font-bold transition-all active:scale-95 ${isFav ? 'bg-red-500/10 border-red-500 text-red-500' : 'border-white/10 text-gray-400 hover:text-white hover:border-white'}`}
+                    >
+                        <Heart size={24} fill={isFav ? "currentColor" : "none"} />
+                    </button>
+                </div>
+            </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center h-full text-theme-primary">
@@ -63,138 +149,90 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   );
 
   return (
-    <div className="p-6 md:p-10 pb-20">
+    <div className="p-4 md:p-8 pb-20">
       
-      {/* Cabeçalho */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            {onlyFavorites ? 'Meus Favoritos' : 'Galeria de Prompts'}
-          </h1>
-          <p className="text-gray-400">
-            {onlyFavorites 
-              ? 'Sua coleção pessoal de prompts salvos.' 
-              : 'Explore nossa coleção oficial. Copie, cole e crie.'}
-          </p>
-        </div>
-        
-        {!onlyFavorites && (
-             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {categories.map(cat => (
-                    <button
-                        key={cat}
-                        onClick={() => setFilter(cat)}
-                        className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${
-                            filter === cat 
-                            ? 'bg-theme-primary text-white' 
-                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                        }`}
-                    >
-                        {cat}
-                    </button>
-                ))}
-             </div>
-        )}
-      </div>
+      {/* Título simples */}
+      <h1 className="text-2xl md:text-3xl font-bold text-white mb-6 pl-2 border-l-4 border-theme-primary">
+        {onlyFavorites ? 'Meus Favoritos' : 'Galeria de Inspiração'}
+      </h1>
 
-      {/* Grid de Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredPrompts.map((item) => {
-            // LÓGICA DE BLOQUEIO:
-            // Bloqueado se: (Não é grátis) E (Usuário não tem acesso)
+      {/* Grid estilo Pinterest (Masonry-like com aspect ratio vertical) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {prompts.map((item) => {
             const isLocked = !item.is_free && !hasAccess;
+            const isFav = favorites.has(item.id);
 
             return (
-                <div key={item.id} className="group relative bg-theme-sidebar border border-white/5 rounded-2xl overflow-hidden hover:border-theme-primary/30 transition-all hover:shadow-xl hover:shadow-black/50 flex flex-col">
-                    
-                    {/* Imagem do Card */}
-                    <div className="relative aspect-square overflow-hidden bg-black/20">
-                        {item.url ? (
-                            <img 
-                                src={item.url} 
-                                alt={item.title} 
-                                className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${isLocked ? 'blur-md opacity-50' : ''}`} 
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-600">
-                                <ImageIcon size={48} />
-                            </div>
-                        )}
-
-                        {/* Badge Grátis/Pro */}
-                        <div className="absolute top-3 left-3 z-10">
-                            {item.is_free ? (
-                                <span className="bg-green-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide shadow-lg">
-                                    Grátis
-                                </span>
-                            ) : (
-                                !hasAccess && (
-                                    <span className="bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide flex items-center gap-1">
-                                        <Lock size={10} /> Premium
-                                    </span>
-                                )
-                            )}
+                <div 
+                    key={item.id} 
+                    onClick={() => {
+                        if (isLocked) window.open(LINK_CHECKOUT, '_blank');
+                        else setSelectedItem(item);
+                    }}
+                    className={`group relative rounded-xl overflow-hidden bg-white/5 border border-white/5 transition-all duration-300 cursor-pointer aspect-[2/3] ${isLocked ? 'hover:border-theme-primary/50' : ''}`}
+                >
+                    {/* Imagem */}
+                    {item.url ? (
+                        <img 
+                            src={item.url} 
+                            alt={item.title} 
+                            className={`w-full h-full object-cover transition-transform duration-500 
+                                ${isLocked 
+                                    ? 'filter brightness-[0.25] blur-[2px]' 
+                                    : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'
+                                }
+                            `} 
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-700">
+                            <ImageIcon size={32} />
                         </div>
+                    )}
 
-                        {/* OVERLAY DE BLOQUEIO (Cadeado + Botão) */}
-                        {isLocked && (
-                            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                                <Lock size={32} className="text-white mb-3" />
-                                <p className="text-white font-bold text-center text-sm mb-3">Conteúdo Exclusivo</p>
-                                <a 
-                                    href={LINK_CHECKOUT}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="bg-theme-primary hover:bg-theme-primary/90 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-transform hover:scale-105"
-                                >
-                                    <ShoppingCart size={14} />
-                                    Desbloquear
-                                </a>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Conteúdo do Card */}
-                    <div className="p-4 flex flex-col flex-1">
-                        <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-bold text-white truncate pr-2">{item.title || 'Sem título'}</h3>
-                            {/* Botão Favoritar (Simulado) */}
-                            <button className="text-gray-500 hover:text-red-500 transition-colors">
-                                <Heart size={18} />
+                    {/* INTERAÇÃO: ITEM LIBERADO (Aparece no Hover) */}
+                    {!isLocked && (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 gap-4">
+                            <button 
+                                onClick={(e) => copyToClipboard(e, item.prompt)}
+                                className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-theme-primary hover:scale-110 transition-all shadow-lg"
+                                title="Copiar"
+                            >
+                                <Copy size={20} />
+                            </button>
+                            <button 
+                                onClick={(e) => toggleFavorite(e, item)}
+                                className={`p-3 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg ${isFav ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                title="Favoritar"
+                            >
+                                <Heart size={20} fill={isFav ? "currentColor" : "none"} />
                             </button>
                         </div>
+                    )}
 
-                        {/* Área do Prompt */}
-                        <div className="relative bg-black/30 rounded-lg p-3 mt-auto border border-white/5 group-hover:border-white/10 transition-colors">
-                            <p className={`text-xs text-gray-400 line-clamp-3 font-mono ${isLocked ? 'blur-sm select-none opacity-50' : ''}`}>
-                                {isLocked 
-                                    ? 'Este prompt é exclusivo para membros PRO. Desbloqueie para visualizar o comando completo.' 
-                                    : (item.prompt || 'Sem prompt cadastrado...')}
-                            </p>
-
-                            {/* Botão Copiar (Só aparece se desbloqueado) */}
-                            {!isLocked && (
-                                <button 
-                                    onClick={() => copyToClipboard(item.prompt)}
-                                    className="absolute top-2 right-2 p-1.5 bg-white/10 hover:bg-theme-primary hover:text-white rounded-md text-gray-400 transition-all opacity-0 group-hover:opacity-100"
-                                    title="Copiar Prompt"
-                                >
-                                    <Copy size={14} />
-                                </button>
-                            )}
+                    {/* INTERAÇÃO: ITEM BLOQUEADO (Cadeado Vazado) */}
+                    {isLocked && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            {/* O cadeado "vazado" (outline) */}
+                            <Lock size={48} className="text-white/30" strokeWidth={1.5} />
+                            {/* Dica sutil visual de que é clicável */}
+                            <div className="mt-2 text-[10px] text-white/30 uppercase tracking-[0.2em] font-light">Locked</div>
                         </div>
-                    </div>
-
+                    )}
                 </div>
             );
         })}
       </div>
 
-        {filteredPrompts.length === 0 && !loading && (
-            <div className="text-center py-20 text-gray-500">
-                <p>Nenhum prompt encontrado nesta categoria.</p>
+      {prompts.length === 0 && !loading && (
+            <div className="text-center py-20 text-gray-500 flex flex-col items-center">
+                <p>Nenhum prompt encontrado.</p>
+                {onlyFavorites && <p className="text-sm mt-2">Explore a galeria e salve seus favoritos!</p>}
             </div>
-        )}
+      )}
+
+      {/* Modal Overlay */}
+      <Modal />
+
     </div>
   );
 }
