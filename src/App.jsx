@@ -125,37 +125,31 @@ function App() {
                  <button onClick={() => setSidebarOpen(true)} className="text-theme-text p-2"><Menu size={24}/></button>
             </div>
 
-            {/* Conteúdo Principal com Verificação de Acesso */}
+            {/* Conteúdo Principal */}
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 w-full">
                 
-                {/* Dashboard: Aberto para todos */}
+                {/* Dashboard: Aberto */}
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
                 
-                {/* Geradores: Requer user.has_generators */}
+                {/* Geradores: CONTINUA BLOQUEADO (Esse é o Order Bump exclusivo) */}
                 {activeTab === 'generator' && (
                     user.has_generators 
                     ? <Generator /> 
                     : <LockedFeature title="Gerador Inteligente" price="R$ 19,00" link={LINK_CHECKOUT_GERADOR} />
                 )}
                 
-                {/* Galeria de Prompts: Requer user.has_prompts */}
+                {/* Galeria de Prompts: LIBERADA (O bloqueio agora é dentro da galeria, item por item) */}
                 {activeTab === 'prompts' && (
-                    user.has_prompts 
-                    ? <PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />
-                    : <LockedFeature title="Pack de Prompts" price="R$ 27,00" link={LINK_CHECKOUT_PROMPTS} />
+                    <PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />
                 )}
                 
-                {/* Favoritos: Requer user.has_prompts (pois depende da galeria) */}
+                {/* Favoritos: LIBERADO (Ele só vai ver o que conseguiu favoritar) */}
                 {activeTab === 'favorites' && (
-                    user.has_prompts 
-                    ? <PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />
-                    : <LockedFeature title="Pack de Prompts" price="R$ 27,00" link={LINK_CHECKOUT_PROMPTS} />
+                    <PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />
                 )}
 
-                {/* Tutoriais: Liberado ou Bloqueado? Por enquanto deixei liberado para gerar valor */}
+                {/* Outras páginas */}
                 {activeTab === 'tutorials' && <TutorialsPage />}
-                
-                {/* Admin e Perfil */}
                 {activeTab === 'admin' && isAdmin && <AdminPanel showToast={showToast} />}
                 {activeTab === 'profile' && <Profile user={user} showToast={showToast} />}
             
