@@ -27,16 +27,16 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
       if (promptsError) throw promptsError;
 
-      // 2. Busca os favoritos
+      // 2. Busca os favoritos (CORREÇÃO: item_id em vez de pack_item_id)
       const { data: favsData, error: favError } = await supabase
         .from('user_favorites')
-        .select('pack_item_id')
+        .select('item_id') // <--- MUDANÇA AQUI
         .eq('user_id', user.id);
 
       if (favError && favError.code !== 'PGRST116') console.error(favError);
       
-      // Converte para String para garantir a comparação correta
-      const favSet = new Set(favsData?.map(f => String(f.pack_item_id)) || []);
+      // Ajusta mapeamento para item_id
+      const favSet = new Set(favsData?.map(f => String(f.item_id)) || []);
       setFavorites(favSet);
 
       if (onlyFavorites) {
@@ -53,14 +53,14 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   };
 
   const toggleFavorite = async (e, item) => {
-    e.preventDefault(); // PARAR O PISCA DA TELA
-    e.stopPropagation(); // NÃO ABRIR O MODAL
+    e.preventDefault(); 
+    e.stopPropagation();
 
     const itemId = String(item.id);
     const isFav = favorites.has(itemId);
     const newFavs = new Set(favorites);
 
-    // Atualiza Visualmente (Imediato)
+    // Atualiza Visualmente
     if (isFav) {
         newFavs.delete(itemId);
         if (onlyFavorites) setPrompts(prev => prev.filter(p => String(p.id) !== itemId));
@@ -69,12 +69,12 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     }
     setFavorites(newFavs);
 
-    // Atualiza no Banco
+    // Atualiza no Banco (CORREÇÃO: item_id em vez de pack_item_id)
     try {
       if (isFav) {
-        await supabase.from('user_favorites').delete().eq('user_id', user.id).eq('pack_item_id', item.id);
+        await supabase.from('user_favorites').delete().eq('user_id', user.id).eq('item_id', item.id);
       } else {
-        await supabase.from('user_favorites').insert({ user_id: user.id, pack_item_id: item.id });
+        await supabase.from('user_favorites').insert({ user_id: user.id, item_id: item.id });
       }
     } catch (error) {
       console.error("Erro ao salvar:", error);
@@ -99,7 +99,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative group">
                 <img src={selectedItem.url} alt={selectedItem.title} className="max-h-[50vh] md:max-h-full w-full object-contain" />
                 
-                {/* BOTÃO FAVORITAR MODAL (Topo Direito) */}
+                {/* BOTÃO FAVORITAR MODAL */}
                 <button 
                     type="button"
                     onClick={(e) => toggleFavorite(e, selectedItem)}
@@ -165,7 +165,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
                     {!isLocked && (
                         <>
-                            {/* BOTÃO FAVORITAR CARD (Topo Direito) */}
+                            {/* BOTÃO FAVORITAR CARD */}
                             <button 
                                 type="button"
                                 onClick={(e) => toggleFavorite(e, item)}
@@ -174,7 +174,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                                 <Heart size={20} fill={isFav ? "currentColor" : "none"} />
                             </button>
 
-                            {/* BOTÃO COPIAR CARD (Centralizado) */}
+                            {/* BOTÃO COPIAR CARD */}
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
                                 <button 
                                     type="button"
