@@ -21,7 +21,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Busca os itens
       const { data: promptsData, error: promptsError } = await supabase
         .from('pack_items')
         .select('*')
@@ -29,17 +28,14 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
       if (promptsError) throw promptsError;
 
-      // 2. Busca os favoritos existentes
       const { data: favsData } = await supabase
         .from('user_favorites')
         .select('pack_item_id')
         .eq('user_id', user.id);
       
-      // Cria o conjunto de IDs favoritados
       const favSet = new Set(favsData?.map(f => f.pack_item_id) || []);
       setFavorites(favSet);
 
-      // Filtra se for a aba favoritos
       if (onlyFavorites) {
         setPrompts(promptsData.filter(p => favSet.has(p.id)));
       } else {
@@ -53,26 +49,21 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     }
   };
 
-  // --- FUNÇÃO CORRIGIDA DE FAVORITAR ---
   const toggleFavorite = async (e, item) => {
-    e.preventDefault();  // Impede recarregar a página
-    e.stopPropagation(); // Impede abrir o modal
+    e.preventDefault();
+    e.stopPropagation();
 
     const isFav = favorites.has(item.id);
-    
-    // 1. Atualiza VISUALMENTE agora (sem esperar o banco)
     const newFavs = new Set(favorites);
+    
     if (isFav) {
         newFavs.delete(item.id);
-        if (onlyFavorites) {
-            setPrompts(prev => prev.filter(p => p.id !== item.id));
-        }
+        if (onlyFavorites) setPrompts(prev => prev.filter(p => p.id !== item.id));
     } else {
         newFavs.add(item.id);
     }
     setFavorites(newFavs);
 
-    // 2. Atualiza no BANCO silenciosamente
     try {
       if (isFav) {
         await supabase.from('user_favorites').delete().eq('user_id', user.id).eq('pack_item_id', item.id);
@@ -81,7 +72,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       }
     } catch (error) {
       console.error("Erro no banco:", error);
-      // Se der erro no banco, desfaz o visual (opcional)
     }
   };
 
@@ -92,7 +82,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     showToast('Prompt copiado!');
   };
 
-  // --- MODAL ---
   const Modal = () => {
     if (!selectedItem) return null;
     const isFav = favorites.has(selectedItem.id);
@@ -100,11 +89,8 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     return (
       <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedItem(null)}>
         <div className="bg-theme-sidebar border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl" onClick={e => e.stopPropagation()}>
-            
             <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative group">
                 <img src={selectedItem.url} alt={selectedItem.title} className="max-h-[50vh] md:max-h-full w-full object-contain" />
-                
-                {/* CORAÇÃO NO MODAL (Topo Direito) */}
                 <button 
                     type="button" 
                     onClick={(e) => toggleFavorite(e, selectedItem)}
@@ -113,7 +99,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                     <Heart size={24} fill={isFav ? "currentColor" : "none"} />
                 </button>
             </div>
-
             <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col bg-theme-sidebar">
                 <div className="flex justify-between items-start mb-6">
                     <h2 className="text-2xl font-bold text-white">{selectedItem.title}</h2>
@@ -121,13 +106,11 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                         <X size={28} />
                     </button>
                 </div>
-
                 <div className="flex-1 overflow-y-auto mb-6 bg-black/20 rounded-xl p-4 border border-white/5">
                     <p className="text-gray-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
                         {selectedItem.prompt}
                     </p>
                 </div>
-
                 <button 
                     type="button"
                     onClick={(e) => copyToClipboard(e, selectedItem.prompt)}
@@ -153,6 +136,8 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
         {prompts.map((item) => {
             const isLocked = !item.is_free && !hasAccess;
             const isFav = favorites.has(item.id);
+            // CORREÇÃO: Defini a classe numa string única para evitar erro de quebra de linha
+            const imgClasses = `w-full h-full object-cover transition-transform duration-500 ${isLocked ? 'filter brightness-[0.25] blur-[2px]' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
 
             return (
                 <div 
@@ -167,4 +152,45 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                         <img 
                             src={item.url} 
                             alt={item.title} 
-                            className={`w-full h-full object-cover transition-
+                            className={imgClasses} 
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-700"><ImageIcon size={32} /></div>
+                    )}
+
+                    {!isLocked && (
+                        <>
+                            <button 
+                                type="button" 
+                                onClick={(e) => toggleFavorite(e, item)}
+                                className={`absolute top-3 right-3 p-2 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg z-10 ${isFav ? 'bg-red-500 text-white opacity-100' : 'bg-black/30 text-white hover:bg-white/20 opacity-0 group-hover:opacity-100'}`}
+                            >
+                                <Heart size={20} fill={isFav ? "currentColor" : "none"} />
+                            </button>
+
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                                <button 
+                                    type="button"
+                                    onClick={(e) => copyToClipboard(e, item.prompt)}
+                                    className="px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-white font-bold hover:bg-theme-primary hover:scale-110 transition-all shadow-lg pointer-events-auto flex items-center gap-2 border border-white/10"
+                                >
+                                    <Copy size={18} /> COPIAR
+                                </button>
+                            </div>
+                        </>
+                    )}
+
+                    {isLocked && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <Lock size={48} className="text-white/30" strokeWidth={1.5} />
+                            <div className="mt-2 text-[10px] text-white/30 uppercase tracking-[0.2em] font-light">Locked</div>
+                        </div>
+                    )}
+                </div>
+            );
+        })}
+      </div>
+      <Modal />
+    </div>
+  );
+}
