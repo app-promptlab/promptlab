@@ -8,13 +8,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://egeomuvpkfjpvllzrugc.supabase.co/storage/v1/object/public/promptlab/favicon.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-    {
-      "src": "https://egeomuvpkfjpvllzrugc.supabase.co/storage/v1/object/public/promptlab/favicon.png",
+      "src": "https://egeomuvpkfjpvllzrugc.supabase.co/storage/v1/object/public/promptlab/faviconOK.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
