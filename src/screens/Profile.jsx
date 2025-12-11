@@ -98,10 +98,8 @@ export default function Profile({ user, showToast }) {
   };
 
   return (
-    // AJUSTE FULL BLEED: px-0 no mobile, md:px-6 no PC
     <div className="w-full max-w-5xl mx-auto px-0 md:px-6 py-0 md:py-10 animate-fadeIn pb-32">
       
-      {/* Título com padding manual para não colar na borda */}
       <h1 className="text-3xl font-bold text-white mb-6 md:mb-8 px-6 pt-6 md:pt-0">Meu Perfil</h1>
 
       {/* --- ABAS DE NAVEGAÇÃO --- */}
@@ -133,53 +131,60 @@ export default function Profile({ user, showToast }) {
       {/* 1. ABA PERFIL */}
       {activeTab === 'perfil' && (
         <div className="animate-fadeIn">
-          {/* Capa FULL BLEED no mobile (rounded-none) */}
-          <div className="relative w-full h-48 md:h-64 rounded-none md:rounded-xl overflow-hidden bg-gray-900 group border-b border-gray-800 md:border md:border-gray-800 mb-20 shadow-2xl">
-            {formData.cover ? (
-              <img src={formData.cover} className="w-full h-full object-cover" alt="Cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-r from-gray-900 to-black flex items-center justify-center text-gray-700 font-bold">
-                 ADICIONAR CAPA
-              </div>
-            )}
-            
-            {/* Botões da Capa */}
-            <div className="absolute top-4 right-4 flex gap-2">
-               {formData.cover && (
-                 <button 
-                    onClick={() => { setFormData({...formData, cover: ''}); supabase.from('profiles').update({cover: null}).eq('id', user.id); }}
-                    className="bg-black/60 p-2 rounded-full text-white hover:bg-red-600 transition-colors backdrop-blur-sm"
-                    title="Remover Capa"
-                 >
-                    <Trash2 size={16}/>
-                 </button>
-               )}
-               <label className="bg-black/60 hover:bg-theme-primary text-white p-2 rounded-full cursor-pointer backdrop-blur-sm transition-colors" title="Alterar Capa">
-                  <Camera size={16}/>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'cover')} disabled={uploading}/>
-               </label>
-            </div>
-
-            {/* Avatar (Sobreposto) */}
-            <div className="absolute -bottom-16 left-6 md:left-12">
-               <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-theme-bg bg-gray-800 overflow-hidden relative group shadow-xl">
-                  {formData.avatar ? (
-                      <img src={formData.avatar} className="w-full h-full object-cover" alt="Avatar"/>
-                  ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500">
-                          <User size={48} />
-                      </div>
+          
+          {/* CORREÇÃO: Container Wrapper (Relative) para segurar Capa e Avatar separadamente */}
+          <div className="relative mb-20">
+              
+              {/* CAMADA 1: A CAPA (Com overflow hidden para cortar a imagem nas bordas) */}
+              <div className="relative w-full h-48 md:h-64 rounded-none md:rounded-xl overflow-hidden bg-gray-900 group border-b border-gray-800 md:border md:border-gray-800 shadow-2xl">
+                {formData.cover ? (
+                  <img src={formData.cover} className="w-full h-full object-cover" alt="Cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-r from-gray-900 to-black flex items-center justify-center text-gray-700 font-bold">
+                    ADICIONAR CAPA
+                  </div>
+                )}
+                
+                {/* Botões da Capa (Dentro da capa) */}
+                <div className="absolute top-4 right-4 flex gap-2">
+                  {formData.cover && (
+                    <button 
+                        onClick={() => { setFormData({...formData, cover: ''}); supabase.from('profiles').update({cover: null}).eq('id', user.id); }}
+                        className="bg-black/60 p-2 rounded-full text-white hover:bg-red-600 transition-colors backdrop-blur-sm"
+                        title="Remover Capa"
+                    >
+                        <Trash2 size={16}/>
+                    </button>
                   )}
-                  
-                  <label className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                      <Camera className="text-white" size={24}/>
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatar')} disabled={uploading}/>
+                  <label className="bg-black/60 hover:bg-theme-primary text-white p-2 rounded-full cursor-pointer backdrop-blur-sm transition-colors" title="Alterar Capa">
+                      <Camera size={16}/>
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'cover')} disabled={uploading}/>
                   </label>
-               </div>
-            </div>
-          </div>
+                </div>
+              </div>
 
-          {/* Formulário com Padding Interno */}
+              {/* CAMADA 2: O AVATAR (Fora da div da capa para não ser cortado pelo overflow-hidden) */}
+              <div className="absolute -bottom-16 left-6 md:left-12 z-10">
+                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-theme-bg bg-gray-800 overflow-hidden relative group shadow-xl">
+                      {formData.avatar ? (
+                          <img src={formData.avatar} className="w-full h-full object-cover" alt="Avatar"/>
+                      ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-500">
+                              <User size={48} />
+                          </div>
+                      )}
+                      
+                      <label className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                          <Camera className="text-white" size={24}/>
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatar')} disabled={uploading}/>
+                      </label>
+                  </div>
+              </div>
+
+          </div> 
+          {/* Fim do Container Wrapper */}
+
+          {/* Formulário */}
           <div className="px-6 md:px-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                  <div>

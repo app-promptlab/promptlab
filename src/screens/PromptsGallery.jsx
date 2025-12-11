@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Copy, Heart, Lock, X, Loader2, Image as ImageIcon, Grid, Layers, CheckCircle } from 'lucide-react';
+import { Copy, Heart, Lock, X, Loader2, Image as ImageIcon, Grid, Layers, Users, User } from 'lucide-react';
 
 const LINK_CHECKOUT = "https://pay.kiwify.com.br/hgxpno4"; 
 
@@ -12,6 +12,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   const [selectedItem, setSelectedItem] = useState(null);
   
   const [activePack, setActivePack] = useState('all'); 
+  const [genderFilter, setGenderFilter] = useState('all'); // NOVO: Estado do Filtro de Gênero
   const [showAllPacksModal, setShowAllPacksModal] = useState(false); 
 
   const hasAccess = user?.plan === 'admin' || user?.has_prompts;
@@ -64,6 +65,13 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     }
   };
 
+  // Lógica de Filtragem Local (Gênero)
+  const filteredPrompts = prompts.filter(item => {
+      if (genderFilter === 'all') return true;
+      // Se o item não tiver gênero definido (antigo), assume female ou mostra em todos
+      return item.gender === genderFilter;
+  });
+
   const toggleFavorite = async (e, item) => {
     e.preventDefault(); 
     e.stopPropagation();
@@ -101,6 +109,21 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
   // --- COMPONENTES VISUAIS ---
 
+  const FilterButton = ({ label, value, icon: Icon }) => (
+      <button 
+        onClick={() => setGenderFilter(value)}
+        className={`
+            px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all border
+            ${genderFilter === value 
+                ? 'bg-theme-primary text-white border-theme-primary shadow-[0_0_10px_rgba(168,85,247,0.4)]' 
+                : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'}
+        `}
+      >
+          {Icon && <Icon size={12} />}
+          {label}
+      </button>
+  );
+
   const PackStory = ({ pack, isAll = false, isViewAll = false, isActive }) => {
       const sizeClasses = "w-20 h-28 md:w-28 md:h-40"; 
 
@@ -127,7 +150,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                             <Layers size={32} className={isActive ? 'text-theme-primary' : 'text-gray-400'} />
                         </div>
                     ) : (
-                        <img src={pack.cover} alt={pack.title} className="w-full h-full object-cover" />
+                        <img src={pack.cover} alt={pack.title} className="w-full h-full object-cover select-none pointer-events-none" draggable="false" onContextMenu={(e) => e.preventDefault()} />
                     )}
                     
                     {isActive && (
@@ -160,7 +183,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                         onClick={() => { setActivePack(pack.id); setShowAllPacksModal(false); }}
                         className={`relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer group border-2 ${activePack === pack.id ? 'border-theme-primary' : 'border-transparent hover:border-white/30'}`}
                       >
-                          <img src={pack.cover} className="w-full h-full object-cover" />
+                          <img src={pack.cover} className="w-full h-full object-cover select-none pointer-events-none" draggable="false" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex items-end p-3">
                               <span className="text-white font-bold text-sm">{pack.title}</span>
                           </div>
@@ -189,11 +212,13 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                 <X size={20} />
             </button>
 
-            <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden min-h-0">
+            <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden min-h-0" onContextMenu={(e) => e.preventDefault()}>
                 <img 
                     src={selectedItem.url} 
                     alt={selectedItem.title} 
-                    className="w-full h-full object-contain" 
+                    className="w-full h-full object-contain select-none" 
+                    draggable="false" 
+                    onContextMenu={(e) => e.preventDefault()}
                 />
             </div>
 
@@ -235,9 +260,8 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       
       {/* --- CARROSSEL DE PACKS --- */}
       {!onlyFavorites && (
-          <div className="mb-0"> {/* AJUSTE: Margem zerada para colar em baixo */}
+          <div className="mb-0"> 
               <h2 className="text-white font-bold text-lg mb-0 pl-1">Packs</h2>
-              {/* AJUSTE GAP MOBILE: px-4 pt-4 pb-2 (menos embaixo) */}
               <div className="flex gap-2 overflow-x-auto px-4 pt-4 pb-2 scrollbar-hide items-start"> 
                   <PackStory isAll isActive={activePack === 'all'} />
                   {packs.slice(0, 6).map(pack => (
@@ -248,10 +272,22 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
           </div>
       )}
 
-      {/* AJUSTE GAP TITULO: mb-2 no mobile (era mb-4) */}
-      <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 md:mb-4 pl-2 border-l-4 border-theme-primary flex items-center gap-3">
-        {onlyFavorites ? 'Meus Favoritos' : (activePack === 'all' ? 'Prompts' : `Pack: ${packs.find(p => p.id === activePack)?.title || 'Selecionado'}`)}
-      </h1>
+      {/* CABEÇALHO COM TÍTULO E FILTROS */}
+      <div className="mb-4 pl-2 border-l-4 border-theme-primary">
+          <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
+            {onlyFavorites ? 'Meus Favoritos' : (activePack === 'all' ? 'Prompts' : `Pack: ${packs.find(p => p.id === activePack)?.title || 'Selecionado'}`)}
+          </h1>
+          
+          {/* BARRA DE FILTROS DE GÊNERO */}
+          {!onlyFavorites && (
+              <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
+                  <FilterButton label="Todos" value="all" icon={Layers} />
+                  <FilterButton label="Elas" value="female" icon={User} />
+                  <FilterButton label="Eles" value="male" icon={User} />
+                  <FilterButton label="Casais" value="couple" icon={Users} />
+              </div>
+          )}
+      </div>
 
       {loading ? (
           <div className="flex items-center justify-center h-40 text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>
@@ -259,18 +295,32 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
           <>
             {/* Grade Compacta */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                {prompts.map((item) => {
+                {filteredPrompts.map((item) => {
                     const isLocked = !item.is_free && !hasAccess;
                     const isFav = favorites.has(String(item.id));
                     const imgClasses = `w-full h-full object-cover transition-transform duration-500 ${isLocked ? 'filter brightness-[0.25] blur-[2px]' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
 
                     return (
-                        <div key={item.id} onClick={() => { if (isLocked) window.open(LINK_CHECKOUT, '_blank'); else setSelectedItem(item); }} className={`group relative rounded-xl overflow-hidden bg-white/5 border border-white/5 transition-all duration-300 cursor-pointer aspect-[2/3] ${isLocked ? 'hover:border-theme-primary/50' : ''}`}>
-                            {item.url ? <img src={item.url} alt={item.title} className={imgClasses} /> : <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-700"><ImageIcon size={32} /></div>}
+                        <div 
+                            key={item.id} 
+                            onClick={() => { if (isLocked) window.open(LINK_CHECKOUT, '_blank'); else setSelectedItem(item); }} 
+                            onContextMenu={(e) => e.preventDefault()} 
+                            className={`group relative rounded-xl overflow-hidden bg-white/5 border border-white/5 transition-all duration-300 cursor-pointer aspect-[2/3] ${isLocked ? 'hover:border-theme-primary/50' : ''}`}
+                        >
+                            {item.url ? (
+                                <img 
+                                    src={item.url} 
+                                    alt={item.title} 
+                                    className={`${imgClasses} pointer-events-none select-none`} 
+                                    draggable="false"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-700"><ImageIcon size={32} /></div>
+                            )}
                             
                             {!isLocked && (
                                 <>
-                                    <button type="button" onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg z-50 cursor-pointer border border-white/10 ${isFav ? 'bg-red-500 text-white opacity-100' : 'bg-black/30 text-white hover:bg-white/20 opacity-0 group-hover:opacity-100'}`}>
+                                    <button type="button" onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg z-30 cursor-pointer border border-white/10 ${isFav ? 'bg-red-500 text-white opacity-100' : 'bg-black/30 text-white hover:bg-white/20 opacity-0 group-hover:opacity-100'}`}>
                                         <Heart size={18} fill={isFav ? "currentColor" : "none"} />
                                     </button>
                                 </>
@@ -285,9 +335,9 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                     );
                 })}
             </div>
-            {prompts.length === 0 && (
+            {filteredPrompts.length === 0 && (
                 <div className="text-center py-20 text-gray-500 flex flex-col items-center">
-                    <p>Nenhum prompt encontrado.</p>
+                    <p>Nenhum prompt encontrado para este filtro.</p>
                 </div>
             )}
           </>
