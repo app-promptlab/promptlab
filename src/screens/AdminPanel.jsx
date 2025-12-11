@@ -196,7 +196,14 @@ export default function AdminPanel({ showToast }) {
                             <ColorInput label="Fundo Modal" value={siteIdentity.modal_color} onChange={e=>setSiteIdentity({...siteIdentity, modal_color:e.target.value})} />
                         </div>
                         <div className="pt-2"><label className="text-xs text-gray-500 font-bold mb-1 block">NOME DO APP</label><input className="w-full bg-black border border-gray-700 p-2 text-white rounded text-sm" value={siteIdentity.app_name || ''} onChange={e=>setSiteIdentity({...siteIdentity, app_name:e.target.value})}/></div>
-                        <div className="space-y-3 pt-2"><ImageUploader label="Logo Header" currentImage={siteIdentity.logo_header_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_header_url:url})}/><ImageUploader label="Logo Menu" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_menu_url:url})}/></div>
+                        
+                        {/* NOVOS CAMPOS DE IMAGEM */}
+                        <div className="space-y-3 pt-2">
+                            <ImageUploader label="Logo Header" currentImage={siteIdentity.logo_header_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_header_url:url})}/>
+                            <ImageUploader label="Logo Menu" currentImage={siteIdentity.logo_menu_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, logo_menu_url:url})}/>
+                            <ImageUploader label="Favicon (Ícone Navegador)" currentImage={siteIdentity.favicon_url} onUploadComplete={url=>setSiteIdentity({...siteIdentity, favicon_url:url})}/>
+                        </div>
+                        
                         <button onClick={saveIdentity} className="w-full bg-purple-600 text-white font-bold py-2 rounded text-sm">Salvar Cores/Logos</button>
                     </div>
                     <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4">
@@ -251,7 +258,6 @@ export default function AdminPanel({ showToast }) {
         </div>
       )}
 
-      {/* MODAL PACKS */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 p-6 overflow-hidden flex flex-col max-h-[90vh]">
@@ -279,8 +285,6 @@ export default function AdminPanel({ showToast }) {
                                 <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Prompt</label>
                                 <textarea rows={5} className="w-full bg-black border border-gray-700 p-3 rounded-lg text-white font-mono text-sm" value={editingItem.prompt || ''} onChange={e => setEditingItem({...editingItem, prompt: e.target.value})}/>
                             </div>
-                            
-                            {/* NOVO CAMPO: GÊNERO */}
                             <div>
                                 <label className="text-gray-400 text-xs font-bold uppercase mb-1 flex items-center gap-2">
                                     <Users size={14} /> Gênero do Prompt
@@ -295,7 +299,6 @@ export default function AdminPanel({ showToast }) {
                                     <option value="couple">Casal (Couple)</option>
                                 </select>
                             </div>
-
                             <div className="flex items-center gap-2 mt-4">
                                 <input type="checkbox" checked={editingItem.is_free || false} onChange={e => setEditingItem({...editingItem, is_free: e.target.checked})} className="w-5 h-5 accent-blue-600"/> 
                                 <span className="text-white text-sm font-bold">É Gratuito? (Free)</span>

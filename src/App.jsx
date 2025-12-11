@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Loader2, Check, Lock, ShoppingCart } from 'lucide-react'; 
-import { ThemeProvider } from './context/ThemeContext';
+// IMPORTANTE: Adicionei useTheme aqui para pegar o favicon dinâmico
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 import Sidebar from './components/Sidebar';
 import AuthScreen from './components/AuthScreen';
@@ -32,20 +33,32 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
+  // HOOK DO TEMA (Para pegar o favicon)
+  const { identity } = useTheme();
+
   const showToast = (message) => { setToast(message); setTimeout(() => setToast(null), 3000); };
+
+  // EFEITO DO FAVICON DINÂMICO
+  useEffect(() => {
+    if (identity?.favicon_url) {
+      let link = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = identity.favicon_url;
+    }
+  }, [identity]);
 
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
-        // Busca os dados do perfil (has_prompts, has_generators, plan)
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-        
-        // Verifica se é o Admin Supremo
         const isEmailAdmin = session.user.email === 'app.promptlab@gmail.com'; 
         
-        // Se for admin, libera tudo na marra. Se não, usa o que tá no banco.
         const finalUser = {
             ...session.user,
             ...profile,
@@ -74,7 +87,6 @@ function App() {
       else if (data.user) { window.location.reload(); }
   };
 
-  // Componente de Tela Bloqueada (Paywall)
   const LockedFeature = ({ title, price, link }) => (
     <div className="flex flex-col items-center justify-center h-full text-center p-8 animate-fadeIn">
         <div className="bg-white/5 p-6 rounded-full mb-6">
@@ -84,13 +96,7 @@ function App() {
         <p className="mb-8 text-gray-400 max-w-md">
             Você precisa desbloquear o pacote <strong>{title}</strong> para acessar esta ferramenta exclusiva.
         </p>
-        
-        <a 
-            href={link} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 bg-theme-primary hover:bg-theme-primary/90 text-white px-8 py-4 rounded-xl font-bold text-lg transition-transform hover:scale-105 shadow-lg shadow-theme-primary/20"
-        >
+        <a href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-theme-primary hover:bg-theme-primary/90 text-white px-8 py-4 rounded-xl font-bold text-lg transition-transform hover:scale-105 shadow-lg shadow-theme-primary/20">
             <ShoppingCart size={24} />
             Desbloquear por apenas {price}
         </a>
@@ -107,48 +113,24 @@ function App() {
     <div className="flex h-screen bg-theme-bg text-theme-text font-sans overflow-hidden">
         
         <Sidebar 
-            user={user}
+            user={user} 
             activeTab={activeTab} 
-            setActiveTab={setActiveTab}
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
-            isAdmin={isAdmin}
-            onLogout={async () => { await supabase.auth.signOut(); window.location.reload(); }}
+            setActiveTab={setActiveTab} 
+            sidebarOpen={sidebarOpen} 
+            setSidebarOpen={setSidebarOpen} 
+            isAdmin={isAdmin} 
+            onLogout={async () => { await supabase.auth.signOut(); window.location.reload(); }} 
         />
 
-        {/* Layout responsivo ajustado */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-theme-bg relative">
-            
-            {/* Cabeçalho Mobile removido para Full Bleed */}
-
-            {/* Conteúdo Principal com p-0 (Zero Padding no container pai) */}
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 w-full">
-                
-                {/* Dashboard */}
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
-                
-                {/* Geradores */}
-                {activeTab === 'generator' && (
-                    user.has_generators 
-                    ? <Generator /> 
-                    : <LockedFeature title="Gerador Inteligente" price="R$ 19,00" link={LINK_CHECKOUT_GERADOR} />
-                )}
-                
-                {/* Galeria de Prompts */}
-                {activeTab === 'prompts' && (
-                    <PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />
-                )}
-                
-                {/* Favoritos */}
-                {activeTab === 'favorites' && (
-                    <PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />
-                )}
-
-                {/* Outras páginas */}
+                {activeTab === 'generator' && (user.has_generators ? <Generator /> : <LockedFeature title="Gerador Inteligente" price="R$ 19,00" link={LINK_CHECKOUT_GERADOR} />)}
+                {activeTab === 'prompts' && (<PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />)}
+                {activeTab === 'favorites' && (<PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />)}
                 {activeTab === 'tutorials' && <TutorialsPage />}
                 {activeTab === 'admin' && isAdmin && <AdminPanel showToast={showToast} />}
                 {activeTab === 'profile' && <Profile user={user} showToast={showToast} />}
-            
             </main>
         </div>
 
