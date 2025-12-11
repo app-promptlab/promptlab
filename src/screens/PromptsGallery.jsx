@@ -118,7 +118,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       return (
         <button 
             onClick={() => setActivePack(isAll ? 'all' : pack.id)}
-            // ZOOM RESTAURADO: hover:scale-105 e condicional isActive scale-105
             className={`flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group transition-transform duration-300 p-1 ${isActive ? 'scale-105' : 'hover:scale-105'}`}
         >
             <div className={`rounded-xl transition-all duration-300 ${isActive ? 'ring-2 ring-theme-primary ring-offset-2 ring-offset-theme-bg' : ''}`}>
@@ -236,10 +235,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       
       {/* --- CARROSSEL DE PACKS --- */}
       {!onlyFavorites && (
-          <div className=""> {/* Container sem margem inferior, o padding lida com isso */}
-              <h2 className="text-white font-bold text-lg mb-0 pl-1">Packs</h2> {/* Título próximo */}
-              {/* Padding aumentado para P-4 para evitar corte no zoom */}
-              <div className="flex gap-2 overflow-x-auto p-4 scrollbar-hide items-start">
+          <div className="mb-0"> {/* AJUSTE: Margem zerada para colar em baixo */}
+              <h2 className="text-white font-bold text-lg mb-0 pl-1">Packs</h2>
+              {/* AJUSTE GAP MOBILE: px-4 pt-4 pb-2 (menos embaixo) */}
+              <div className="flex gap-2 overflow-x-auto px-4 pt-4 pb-2 scrollbar-hide items-start"> 
                   <PackStory isAll isActive={activePack === 'all'} />
                   {packs.slice(0, 6).map(pack => (
                       <PackStory key={pack.id} pack={pack} isActive={activePack === pack.id} />
@@ -249,7 +248,8 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
           </div>
       )}
 
-      <h1 className="text-2xl md:text-3xl font-bold text-white mb-4 pl-2 border-l-4 border-theme-primary flex items-center gap-3">
+      {/* AJUSTE GAP TITULO: mb-2 no mobile (era mb-4) */}
+      <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 md:mb-4 pl-2 border-l-4 border-theme-primary flex items-center gap-3">
         {onlyFavorites ? 'Meus Favoritos' : (activePack === 'all' ? 'Prompts' : `Pack: ${packs.find(p => p.id === activePack)?.title || 'Selecionado'}`)}
       </h1>
 
