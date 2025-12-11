@@ -102,13 +102,11 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   // --- COMPONENTES VISUAIS ---
 
   const PackStory = ({ pack, isAll = false, isViewAll = false, isActive }) => {
-      // AJUSTE 1: Aumentei bastante o tamanho (Mobile: w-24 h-36 | PC: w-28 h-40)
-      const sizeClasses = "w-24 h-36 md:w-28 md:h-40"; 
+      const sizeClasses = "w-20 h-28 md:w-28 md:h-40"; 
 
       if (isViewAll) {
           return (
             <button onClick={() => setShowAllPacksModal(true)} className="flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group">
-                {/* Mantive borda simples aqui pois é botão funcional */}
                 <div className={`${sizeClasses} rounded-xl border-2 border-dashed border-white/20 flex items-center justify-center bg-white/5 group-hover:bg-white/10 transition-all`}>
                     <Grid size={24} className="text-gray-400 group-hover:text-white"/>
                 </div>
@@ -120,9 +118,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       return (
         <button 
             onClick={() => setActivePack(isAll ? 'all' : pack.id)}
-            className={`flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group transition-transform active:scale-95 ${isActive ? 'scale-105' : ''}`}
+            // REMOVIDO "scale-105" DAQUI ABAIXO PARA EVITAR ZOOM E CORTE
+            className={`flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group transition-transform active:scale-95`}
         >
-            {/* AJUSTE 2 (O PULO DO GATO): Ring Offset para borda externa não cortar a imagem */}
+            {/* Mantido o Ring Offset para destaque na borda */}
             <div className={`rounded-xl transition-all ${isActive ? 'ring-2 ring-theme-primary ring-offset-2 ring-offset-theme-bg' : ''}`}>
                 <div className={`${sizeClasses} rounded-xl overflow-hidden relative bg-gray-900 border ${isActive ? 'border-transparent' : 'border-transparent group-hover:border-white/30'}`}>
                     {isAll ? (
@@ -133,7 +132,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                         <img src={pack.cover} alt={pack.title} className="w-full h-full object-cover" />
                     )}
                     
-                    {/* Overlay sutil apenas para brilho, sem ícone gigante cobrindo */}
                     {isActive && (
                         <div className="absolute inset-0 bg-theme-primary/10 pointer-events-none"></div>
                     )}
@@ -239,9 +237,9 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       
       {/* --- CARROSSEL DE PACKS --- */}
       {!onlyFavorites && (
-          <div className="mb-2"> {/* AJUSTE 3: Gap reduzido (mb-2) */}
+          <div className="mb-2"> 
               <h2 className="text-white font-bold text-lg mb-2 pl-1">Packs</h2>
-              <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide items-start px-1"> {/* Gap-2 para colar mais os itens */}
+              <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide items-start px-1"> 
                   <PackStory isAll isActive={activePack === 'all'} />
                   {packs.slice(0, 6).map(pack => (
                       <PackStory key={pack.id} pack={pack} isActive={activePack === pack.id} />
@@ -259,7 +257,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
           <div className="flex items-center justify-center h-40 text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>
       ) : (
           <>
-            {/* Grade Compacta */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 {prompts.map((item) => {
                     const isLocked = !item.is_free && !hasAccess;
