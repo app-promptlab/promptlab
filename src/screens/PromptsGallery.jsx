@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Copy, Heart, Lock, X, Loader2, Image as ImageIcon, Grid, Layers, Users, User } from 'lucide-react';
-// IMPORTANTE: Importando o componente que lê o Admin
+import { Copy, Heart, Lock, X, Loader2, Image as ImageIcon, Grid, Layers, Users, User, Key, Eye } from 'lucide-react';
 import DynamicPage from '../components/DynamicPage';
 
 const LINK_CHECKOUT = "https://pay.kiwify.com.br/hgxpno4"; 
@@ -67,7 +66,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     }
   };
 
-  // Lógica de Filtragem Local (Gênero)
   const filteredPrompts = prompts.filter(item => {
       if (genderFilter === 'all') return true;
       return item.gender === genderFilter;
@@ -256,12 +254,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     );
   };
 
-  // --- AQUI A MÁGICA ACONTECE: WRAPPER DO DYNAMIC PAGE ---
   return (
     <DynamicPage pageId="prompts" user={user}>
         <div className="p-4 md:p-8 pb-20">
         
-        {/* --- CARROSSEL DE PACKS --- */}
         {!onlyFavorites && (
             <div className="mb-0"> 
                 <h2 className="text-white font-bold text-lg mb-0 pl-1">Packs</h2>
@@ -275,13 +271,11 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             </div>
         )}
 
-        {/* CABEÇALHO COM TÍTULO E FILTROS */}
         <div className="mb-4 pl-2 border-l-4 border-theme-primary">
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
                 {onlyFavorites ? 'Meus Favoritos' : (activePack === 'all' ? 'Prompts' : `Pack: ${packs.find(p => p.id === activePack)?.title || 'Selecionado'}`)}
             </h1>
             
-            {/* BARRA DE FILTROS DE GÊNERO */}
             {!onlyFavorites && (
                 <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
                     <FilterButton label="Todos" value="all" icon={Layers} />
@@ -296,19 +290,19 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             <div className="flex items-center justify-center h-40 text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>
         ) : (
             <>
-                {/* Grade Compacta */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                     {filteredPrompts.map((item) => {
                         const isLocked = !item.is_free && !hasAccess;
                         const isFav = favorites.has(String(item.id));
-                        const imgClasses = `w-full h-full object-cover transition-transform duration-500 ${isLocked ? 'filter brightness-[0.25] blur-[2px]' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
+                        // Adicionei group-hover:brightness-50 para escurecer ao passar o mouse
+                        const imgClasses = `w-full h-full object-cover transition-all duration-500 ${isLocked ? 'filter brightness-[0.25] blur-[2px]' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
 
                         return (
                             <div 
                                 key={item.id} 
                                 onClick={() => { if (isLocked) window.open(LINK_CHECKOUT, '_blank'); else setSelectedItem(item); }} 
                                 onContextMenu={(e) => e.preventDefault()} 
-                                className={`group relative rounded-xl overflow-hidden bg-white/5 border border-white/5 transition-all duration-300 cursor-pointer aspect-[2/3] ${isLocked ? 'hover:border-theme-primary/50' : ''}`}
+                                className={`group relative rounded-xl overflow-hidden bg-white/5 border border-white/5 transition-all duration-300 cursor-pointer aspect-[2/3] ${isLocked ? 'hover:border-theme-primary hover:shadow-[0_0_20px_rgba(168,85,247,0.3)]' : ''}`}
                             >
                                 {item.url ? (
                                     <img 
@@ -321,17 +315,38 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                                     <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-700"><ImageIcon size={32} /></div>
                                 )}
                                 
+                                {/* INTERATIVIDADE HOVER - LIBERADO */}
                                 {!isLocked && (
                                     <>
+                                        {/* Botão de Favoritar (Sempre visível ou no hover) */}
                                         <button type="button" onClick={(e) => toggleFavorite(e, item)} className={`absolute top-2 right-2 p-2 backdrop-blur-md rounded-full transition-all hover:scale-110 shadow-lg z-30 cursor-pointer border border-white/10 ${isFav ? 'bg-red-500 text-white opacity-100' : 'bg-black/30 text-white hover:bg-white/20 opacity-0 group-hover:opacity-100'}`}>
                                             <Heart size={18} fill={isFav ? "currentColor" : "none"} />
                                         </button>
+
+                                        {/* NOVO: Overlay "ABRIR" no Hover */}
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                                            <div className="flex flex-col items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                                <Eye size={32} className="text-white drop-shadow-lg" />
+                                                <span className="text-white font-bold text-sm tracking-widest drop-shadow-lg">ABRIR</span>
+                                            </div>
+                                        </div>
                                     </>
                                 )}
+
+                                {/* INTERATIVIDADE HOVER - BLOQUEADO */}
                                 {isLocked && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                        <Lock size={48} className="text-white/30" strokeWidth={1.5} />
-                                        <div className="mt-2 text-[10px] text-white/30 uppercase tracking-[0.2em] font-light">Locked</div>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none transition-all group-hover:scale-110">
+                                        {/* Ícone muda de Lock (Normal) para Key (Hover) */}
+                                        <div className="relative">
+                                            <Lock size={48} className="text-white/30 group-hover:opacity-0 transition-opacity absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2" strokeWidth={1.5} />
+                                            <Key size={48} className="text-theme-primary opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2" strokeWidth={2} />
+                                        </div>
+                                        
+                                        {/* Texto muda de LOCKED para DESBLOQUEAR */}
+                                        <div className="mt-14 flex flex-col items-center">
+                                            <span className="text-[10px] text-white/30 uppercase tracking-[0.2em] font-light group-hover:hidden">Locked</span>
+                                            <span className="text-xs text-theme-primary font-bold uppercase tracking-widest hidden group-hover:block animate-pulse">DESBLOQUEAR</span>
+                                        </div>
                                     </div>
                                 )}
                             </div>
