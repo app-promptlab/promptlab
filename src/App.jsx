@@ -119,27 +119,27 @@ function App() {
         {/* Layout responsivo ajustado */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-theme-bg relative">
             
-            {/* --- CABEÇALHO MOBILE REMOVIDO DAQUI --- */}
+            {/* Cabeçalho Mobile removido para Full Bleed */}
 
-            {/* Conteúdo Principal */}
+            {/* Conteúdo Principal com p-0 (Zero Padding no container pai) */}
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 w-full">
                 
-                {/* Dashboard: Aberto */}
+                {/* Dashboard */}
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
                 
-                {/* Geradores: CONTINUA BLOQUEADO (Esse é o Order Bump exclusivo) */}
+                {/* Geradores */}
                 {activeTab === 'generator' && (
                     user.has_generators 
                     ? <Generator /> 
                     : <LockedFeature title="Gerador Inteligente" price="R$ 19,00" link={LINK_CHECKOUT_GERADOR} />
                 )}
                 
-                {/* Galeria de Prompts: LIBERADA (O bloqueio agora é dentro da galeria, item por item) */}
+                {/* Galeria de Prompts */}
                 {activeTab === 'prompts' && (
                     <PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />
                 )}
                 
-                {/* Favoritos: LIBERADO (Ele só vai ver o que conseguiu favoritar) */}
+                {/* Favoritos */}
                 {activeTab === 'favorites' && (
                     <PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />
                 )}

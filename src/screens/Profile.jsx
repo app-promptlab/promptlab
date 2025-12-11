@@ -7,12 +7,11 @@ export default function Profile({ user, showToast }) {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Estado do Formulário Geral
   const [formData, setFormData] = useState({
     name: '',
     last_name: '',
-    email: '', // Read only
-    phone: '', // Vamos usar isso para o WhatsApp
+    email: '', 
+    phone: '', 
     avatar: '',
     cover: '',
     social_facebook: '',
@@ -21,10 +20,8 @@ export default function Profile({ user, showToast }) {
     social_tiktok: ''
   });
 
-  // Estado do Formulário de Senha
   const [passData, setPassData] = useState({ current: '', new: '', confirm: '' });
 
-  // Carregar dados ao montar
   useEffect(() => {
     if (user) {
       setFormData({
@@ -42,7 +39,6 @@ export default function Profile({ user, showToast }) {
     }
   }, [user]);
 
-  // Função de Upload de Imagem (Genérica)
   const handleImageUpload = async (event, field) => {
     try {
       setUploading(true);
@@ -58,7 +54,6 @@ export default function Profile({ user, showToast }) {
 
       const { data } = supabase.storage.from('uploads').getPublicUrl(filePath);
       
-      // Atualiza estado local e salva no banco automaticamente para UX fluida
       setFormData(prev => ({ ...prev, [field]: data.publicUrl }));
       await supabase.from('profiles').update({ [field]: data.publicUrl }).eq('id', user.id);
       
@@ -70,11 +65,9 @@ export default function Profile({ user, showToast }) {
     }
   };
 
-  // Salvar Perfil ou Social
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      // Remove campos que não são do banco para evitar erro
       const { email, ...updates } = formData; 
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
       
@@ -87,7 +80,6 @@ export default function Profile({ user, showToast }) {
     }
   };
 
-  // Salvar Senha
   const handleSavePassword = async () => {
     if (passData.new !== passData.confirm) return alert("As novas senhas não coincidem.");
     if (passData.new.length < 6) return alert("A senha deve ter no mínimo 6 caracteres.");
@@ -106,12 +98,14 @@ export default function Profile({ user, showToast }) {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10 animate-fadeIn pb-32">
+    // AJUSTE FULL BLEED: px-0 no mobile, md:px-6 no PC
+    <div className="w-full max-w-5xl mx-auto px-0 md:px-6 py-0 md:py-10 animate-fadeIn pb-32">
       
-      <h1 className="text-3xl font-bold text-white mb-8">Meu Perfil</h1>
+      {/* Título com padding manual para não colar na borda */}
+      <h1 className="text-3xl font-bold text-white mb-6 md:mb-8 px-6 pt-6 md:pt-0">Meu Perfil</h1>
 
       {/* --- ABAS DE NAVEGAÇÃO --- */}
-      <div className="flex border-b border-gray-800 mb-10 overflow-x-auto">
+      <div className="flex border-b border-gray-800 mb-0 md:mb-10 overflow-x-auto px-2 md:px-0">
         {[
           { id: 'perfil', label: 'Dados Pessoais', icon: User },
           { id: 'senha', label: 'Segurança', icon: Lock },
@@ -139,8 +133,8 @@ export default function Profile({ user, showToast }) {
       {/* 1. ABA PERFIL */}
       {activeTab === 'perfil' && (
         <div className="animate-fadeIn">
-          {/* Capa */}
-          <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden bg-gray-900 group border border-gray-800 mb-20 shadow-2xl">
+          {/* Capa FULL BLEED no mobile (rounded-none) */}
+          <div className="relative w-full h-48 md:h-64 rounded-none md:rounded-xl overflow-hidden bg-gray-900 group border-b border-gray-800 md:border md:border-gray-800 mb-20 shadow-2xl">
             {formData.cover ? (
               <img src={formData.cover} className="w-full h-full object-cover" alt="Cover" />
             ) : (
@@ -167,7 +161,7 @@ export default function Profile({ user, showToast }) {
             </div>
 
             {/* Avatar (Sobreposto) */}
-            <div className="absolute -bottom-16 left-8 md:left-12">
+            <div className="absolute -bottom-16 left-6 md:left-12">
                <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-theme-bg bg-gray-800 overflow-hidden relative group shadow-xl">
                   {formData.avatar ? (
                       <img src={formData.avatar} className="w-full h-full object-cover" alt="Avatar"/>
@@ -177,7 +171,6 @@ export default function Profile({ user, showToast }) {
                       </div>
                   )}
                   
-                  {/* Overlay Upload Avatar */}
                   <label className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                       <Camera className="text-white" size={24}/>
                       <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatar')} disabled={uploading}/>
@@ -186,65 +179,67 @@ export default function Profile({ user, showToast }) {
             </div>
           </div>
 
-          {/* Formulário Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-             <div>
-                <label className="block text-gray-400 text-xs font-bold uppercase mb-2 ml-1">Nome</label>
-                <input 
-                  type="text" 
-                  value={formData.name} 
-                  onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:border-theme-primary outline-none transition-colors"
-                  placeholder="Seu nome"
-                />
-             </div>
-             <div>
-                <label className="block text-gray-400 text-xs font-bold uppercase mb-2 ml-1">Sobrenome</label>
-                <input 
-                  type="text" 
-                  value={formData.last_name} 
-                  onChange={e => setFormData({...formData, last_name: e.target.value})}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:border-theme-primary outline-none transition-colors"
-                  placeholder="Seu sobrenome"
-                />
-             </div>
-             <div>
-                <label className="block text-gray-400 text-xs font-bold uppercase mb-2 ml-1">Email</label>
-                <input 
-                  type="text" 
-                  value={formData.email} 
-                  disabled
-                  className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-gray-500 cursor-not-allowed"
-                />
-             </div>
-             
-             {/* CAMPO WHATSAPP */}
-             <div>
-                <label className="flex items-center gap-2 text-green-500 text-xs font-bold uppercase mb-2 ml-1">
-                    <MessageCircle size={14} /> WhatsApp
-                </label>
-                <input 
-                  type="text" 
-                  value={formData.phone} 
-                  onChange={e => setFormData({...formData, phone: e.target.value})}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:border-green-500 outline-none transition-colors"
-                  placeholder="(11) 99999-9999"
-                />
-             </div>
-          </div>
+          {/* Formulário com Padding Interno */}
+          <div className="px-6 md:px-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                 <div>
+                    <label className="block text-gray-400 text-xs font-bold uppercase mb-2 ml-1">Nome</label>
+                    <input 
+                      type="text" 
+                      value={formData.name} 
+                      onChange={e => setFormData({...formData, name: e.target.value})}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:border-theme-primary outline-none transition-colors"
+                      placeholder="Seu nome"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-gray-400 text-xs font-bold uppercase mb-2 ml-1">Sobrenome</label>
+                    <input 
+                      type="text" 
+                      value={formData.last_name} 
+                      onChange={e => setFormData({...formData, last_name: e.target.value})}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:border-theme-primary outline-none transition-colors"
+                      placeholder="Seu sobrenome"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-gray-400 text-xs font-bold uppercase mb-2 ml-1">Email</label>
+                    <input 
+                      type="text" 
+                      value={formData.email} 
+                      disabled
+                      className="w-full bg-white/5 border border-white/5 rounded-xl p-4 text-gray-500 cursor-not-allowed"
+                    />
+                 </div>
+                 
+                 {/* CAMPO WHATSAPP */}
+                 <div>
+                    <label className="flex items-center gap-2 text-green-500 text-xs font-bold uppercase mb-2 ml-1">
+                        <MessageCircle size={14} /> WhatsApp
+                    </label>
+                    <input 
+                      type="text" 
+                      value={formData.phone} 
+                      onChange={e => setFormData({...formData, phone: e.target.value})}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:border-green-500 outline-none transition-colors"
+                      placeholder="(11) 99999-9999"
+                    />
+                 </div>
+              </div>
 
-          <div className="flex justify-end border-t border-white/10 pt-6">
-             <button onClick={handleSaveProfile} disabled={loading} className="bg-theme-primary hover:bg-theme-primary/90 text-white font-bold py-3 px-8 rounded-xl flex items-center gap-2 transition-all shadow-lg hover:shadow-theme-primary/20">
-                {loading ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>} 
-                Salvar Alterações
-             </button>
+              <div className="flex justify-end border-t border-white/10 pt-6">
+                 <button onClick={handleSaveProfile} disabled={loading} className="bg-theme-primary hover:bg-theme-primary/90 text-white font-bold py-3 px-8 rounded-xl flex items-center gap-2 transition-all shadow-lg hover:shadow-theme-primary/20">
+                    {loading ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>} 
+                    Salvar Alterações
+                 </button>
+              </div>
           </div>
         </div>
       )}
 
       {/* 2. ABA SENHA */}
       {activeTab === 'senha' && (
-        <div className="animate-fadeIn max-w-2xl">
+        <div className="animate-fadeIn max-w-2xl px-6 md:px-0 pt-6">
            <div className="bg-theme-sidebar p-8 rounded-2xl border border-white/5">
                <div className="space-y-6">
                  <div>
@@ -284,14 +279,13 @@ export default function Profile({ user, showToast }) {
 
       {/* 3. ABA PERFIL SOCIAL */}
       {activeTab === 'social' && (
-        <div className="animate-fadeIn max-w-3xl">
+        <div className="animate-fadeIn max-w-3xl px-6 md:px-0 pt-6">
            <div className="bg-theme-sidebar p-8 rounded-2xl border border-white/5">
                <h3 className="text-white font-bold mb-6 flex items-center gap-2">
                    <Share2 size={20} className="text-theme-primary"/> Suas Redes
                </h3>
                
                <div className="space-y-4">
-                 {/* Facebook */}
                  <div className="flex items-center gap-4 bg-black/20 p-2 rounded-xl border border-white/5">
                     <div className="w-10 h-10 flex items-center justify-center bg-[#1877F2]/10 rounded-lg">
                         <Facebook className="text-[#1877F2]" size={20}/>
@@ -305,7 +299,6 @@ export default function Profile({ user, showToast }) {
                     />
                  </div>
 
-                 {/* Instagram */}
                  <div className="flex items-center gap-4 bg-black/20 p-2 rounded-xl border border-white/5">
                     <div className="w-10 h-10 flex items-center justify-center bg-[#E4405F]/10 rounded-lg">
                         <Instagram className="text-[#E4405F]" size={20}/>
@@ -319,7 +312,6 @@ export default function Profile({ user, showToast }) {
                     />
                  </div>
 
-                 {/* Twitter */}
                  <div className="flex items-center gap-4 bg-black/20 p-2 rounded-xl border border-white/5">
                     <div className="w-10 h-10 flex items-center justify-center bg-[#1DA1F2]/10 rounded-lg">
                         <Twitter className="text-[#1DA1F2]" size={20}/>
@@ -333,7 +325,6 @@ export default function Profile({ user, showToast }) {
                     />
                  </div>
 
-                 {/* TikTok */}
                  <div className="flex items-center gap-4 bg-black/20 p-2 rounded-xl border border-white/5">
                     <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-lg">
                         <Video className="text-white" size={20}/>

@@ -9,7 +9,7 @@ export default function Dashboard({ user, showToast }) {
   const [favorites, setFavorites] = useState([]);
   const [trending, setTrending] = useState([]);
   const [modalItem, setModalItem] = useState(null);
-  const [likedIds, setLikedIds] = useState(new Set()); // Precisamos saber o que está favoritado aqui também
+  const [likedIds, setLikedIds] = useState(new Set()); 
 
   useEffect(() => {
     const loadData = async () => {
@@ -20,12 +20,12 @@ export default function Dashboard({ user, showToast }) {
       setNews(newsData || []);
       setFavorites(favData?.map(f => f.item) || []);
       setTrending(trendData || []);
-      setLikedIds(new Set(favData?.map(f => f.item_id))); // Carrega IDs favoritados
+      setLikedIds(new Set(favData?.map(f => f.item_id))); 
     };
     if (user) loadData();
   }, [user]);
 
-  // Função de Favoritar Global (Duplicada para funcionar aqui - Ideal seria Contexto, mas vamos manter simples)
+  // Função de Favoritar Global
   const toggleFavorite = async (item) => {
     const isLiked = likedIds.has(item.id);
     const newSet = new Set(likedIds);
@@ -41,7 +41,8 @@ export default function Dashboard({ user, showToast }) {
 
   return (
     <DynamicPage pageId="dashboard" user={user}>
-        <div className="space-y-2 mt-8 px-4 md:px-12">
+        {/* AJUSTE FULL BLEED: px-0 no mobile, md:px-12 no Desktop */}
+        <div className="space-y-6 mt-4 md:mt-8 px-0 md:px-12 pb-20">
             {news.length > 0 && <Row title="Novidades" items={news} isLarge={true} type="news" />}
             {favorites.length > 0 && <Row title="Meus Favoritos" items={favorites} type="prompt" onItemClick={setModalItem} />}
             <Row title="Populares da Semana" items={trending} type="prompt" onItemClick={setModalItem} />
