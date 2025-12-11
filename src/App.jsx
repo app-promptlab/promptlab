@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Loader2, Check, Lock, ShoppingCart } from 'lucide-react'; 
-// IMPORTANTE: Adicionei useTheme aqui para pegar o favicon dinâmico
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 import Sidebar from './components/Sidebar';
@@ -33,14 +32,15 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // HOOK DO TEMA (Para pegar o favicon)
+  // HOOK DO TEMA
   const { identity } = useTheme();
 
   const showToast = (message) => { setToast(message); setTimeout(() => setToast(null), 3000); };
 
-  // EFEITO DO FAVICON DINÂMICO
+  // --- EFEITO: ATUALIZA ÍCONES (PC, ANDROID E IOS) ---
   useEffect(() => {
     if (identity?.favicon_url) {
+      // 1. Atualiza Favicon (PC)
       let link = document.querySelector("link[rel~='icon']");
       if (!link) {
         link = document.createElement('link');
@@ -48,6 +48,54 @@ function App() {
         document.getElementsByTagName('head')[0].appendChild(link);
       }
       link.href = identity.favicon_url;
+
+      // 2. Atualiza Apple Touch Icon (iOS - iPhone/iPad)
+      let appleLink = document.querySelector("link[rel='apple-touch-icon']");
+      if (!appleLink) {
+        appleLink = document.createElement('link');
+        appleLink.rel = 'apple-touch-icon';
+        document.getElementsByTagName('head')[0].appendChild(appleLink);
+      }
+      appleLink.href = identity.favicon_url;
+
+      // 3. Atualiza Manifest Dinamicamente (Android)
+      // Cria um manifesto virtual on-the-fly com os dados do banco
+      const dynamicManifest = {
+        name: identity.app_name || "PromptLab",
+        short_name: identity.app_name || "PromptLab",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#000000",
+        theme_color: identity.primary_color || "#000000",
+        icons: [
+          {
+            src: identity.favicon_url,
+            sizes: "192x192",
+            type: "image/png"
+          },
+          {
+            src: identity.favicon_url,
+            sizes: "512x512",
+            type: "image/png"
+          }
+        ]
+      };
+
+      const stringManifest = JSON.stringify(dynamicManifest);
+      const blob = new Blob([stringManifest], {type: 'application/json'});
+      const manifestURL = URL.createObjectURL(blob);
+      
+      let manifestLink = document.querySelector('#manifest-placeholder');
+      if (!manifestLink) {
+        // Se não tiver o placeholder, procura qualquer link manifest ou cria um
+        manifestLink = document.querySelector("link[rel='manifest']");
+        if (!manifestLink) {
+            manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            document.getElementsByTagName('head')[0].appendChild(manifestLink);
+        }
+      }
+      manifestLink.setAttribute('href', manifestURL);
     }
   }, [identity]);
 
