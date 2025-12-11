@@ -106,8 +106,8 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
       if (isViewAll) {
           return (
-            <button onClick={() => setShowAllPacksModal(true)} className="flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group">
-                <div className={`${sizeClasses} rounded-xl border-2 border-dashed border-white/20 flex items-center justify-center bg-white/5 group-hover:bg-white/10 transition-all`}>
+            <button onClick={() => setShowAllPacksModal(true)} className="flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group p-1">
+                <div className={`${sizeClasses} rounded-xl border-2 border-dashed border-white/20 flex items-center justify-center bg-white/5 group-hover:bg-white/10 transition-all hover:scale-105`}>
                     <Grid size={24} className="text-gray-400 group-hover:text-white"/>
                 </div>
                 <span className="text-[10px] text-gray-400 font-bold uppercase truncate w-24 text-center">Ver Todos</span>
@@ -118,11 +118,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       return (
         <button 
             onClick={() => setActivePack(isAll ? 'all' : pack.id)}
-            // REMOVIDO "scale-105" DAQUI ABAIXO PARA EVITAR ZOOM E CORTE
-            className={`flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group transition-transform active:scale-95`}
+            // ZOOM RESTAURADO: hover:scale-105 e condicional isActive scale-105
+            className={`flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group transition-transform duration-300 p-1 ${isActive ? 'scale-105' : 'hover:scale-105'}`}
         >
-            {/* Mantido o Ring Offset para destaque na borda */}
-            <div className={`rounded-xl transition-all ${isActive ? 'ring-2 ring-theme-primary ring-offset-2 ring-offset-theme-bg' : ''}`}>
+            <div className={`rounded-xl transition-all duration-300 ${isActive ? 'ring-2 ring-theme-primary ring-offset-2 ring-offset-theme-bg' : ''}`}>
                 <div className={`${sizeClasses} rounded-xl overflow-hidden relative bg-gray-900 border ${isActive ? 'border-transparent' : 'border-transparent group-hover:border-white/30'}`}>
                     {isAll ? (
                         <div className="w-full h-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center">
@@ -138,7 +137,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                 </div>
             </div>
             
-            <span className={`text-[10px] font-bold uppercase truncate w-24 text-center ${isActive ? 'text-theme-primary' : 'text-gray-400 group-hover:text-white'}`}>
+            <span className={`text-[10px] font-bold uppercase truncate w-24 text-center transition-colors ${isActive ? 'text-theme-primary' : 'text-gray-400 group-hover:text-white'}`}>
                 {isAll ? 'Tudo' : pack.title}
             </span>
         </button>
@@ -237,9 +236,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       
       {/* --- CARROSSEL DE PACKS --- */}
       {!onlyFavorites && (
-          <div className="mb-2"> 
-              <h2 className="text-white font-bold text-lg mb-2 pl-1">Packs</h2>
-              <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide items-start px-1"> 
+          <div className=""> {/* Container sem margem inferior, o padding lida com isso */}
+              <h2 className="text-white font-bold text-lg mb-0 pl-1">Packs</h2> {/* Título próximo */}
+              {/* Padding aumentado para P-4 para evitar corte no zoom */}
+              <div className="flex gap-2 overflow-x-auto p-4 scrollbar-hide items-start">
                   <PackStory isAll isActive={activePack === 'all'} />
                   {packs.slice(0, 6).map(pack => (
                       <PackStory key={pack.id} pack={pack} isActive={activePack === pack.id} />
@@ -257,6 +257,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
           <div className="flex items-center justify-center h-40 text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>
       ) : (
           <>
+            {/* Grade Compacta */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 {prompts.map((item) => {
                     const isLocked = !item.is_free && !hasAccess;
