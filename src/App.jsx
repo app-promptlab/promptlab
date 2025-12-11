@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Loader2, Check, Lock, ShoppingCart } from 'lucide-react'; 
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 import Sidebar from './components/Sidebar';
 import AuthScreen from './components/AuthScreen';
@@ -32,7 +32,33 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
+  // HOOK DO TEMA
+  const { identity } = useTheme();
+
   const showToast = (message) => { setToast(message); setTimeout(() => setToast(null), 3000); };
+
+  // --- EFEITO: ATUALIZA ÍCONES (PC, ANDROID E IOS) ---
+  useEffect(() => {
+    if (identity?.favicon_url) {
+      // 1. Atualiza Favicon (PC)
+      let link = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = identity.favicon_url;
+
+      // 2. Atualiza Apple Touch Icon (iOS)
+      let appleLink = document.querySelector("link[rel='apple-touch-icon']");
+      if (!appleLink) {
+        appleLink = document.createElement('link');
+        appleLink.rel = 'apple-touch-icon';
+        document.getElementsByTagName('head')[0].appendChild(appleLink);
+      }
+      appleLink.href = identity.favicon_url;
+    }
+  }, [identity]);
 
   useEffect(() => {
     const init = async () => {
@@ -70,6 +96,7 @@ function App() {
       else if (data.user) { window.location.reload(); }
   };
 
+  // Componente de Bloqueio (Atualizado: Preço Opcional)
   const LockedFeature = ({ title, price, link }) => (
     <div className="flex flex-col items-center justify-center h-full text-center p-8 animate-fadeIn">
         <div className="bg-white/5 p-6 rounded-full mb-6">
@@ -81,7 +108,7 @@ function App() {
         </p>
         <a href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-theme-primary hover:bg-theme-primary/90 text-white px-8 py-4 rounded-xl font-bold text-lg transition-transform hover:scale-105 shadow-lg shadow-theme-primary/20">
             <ShoppingCart size={24} />
-            Desbloquear por apenas {price}
+            {price ? `Desbloquear por apenas ${price}` : 'Desbloquear Agora'}
         </a>
         <p className="mt-4 text-sm text-gray-500">Acesso vitalício & liberação imediata.</p>
     </div>
@@ -108,7 +135,14 @@ function App() {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-theme-bg relative">
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 w-full">
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
-                {activeTab === 'generator' && (user.has_generators ? <Generator /> : <LockedFeature title="Gerador Inteligente" price="R$ 19,00" link={LINK_CHECKOUT_GERADOR} />)}
+                
+                {/* GERADOR: Sem preço fixo, apenas Desbloquear */}
+                {activeTab === 'generator' && (
+                    user.has_generators 
+                    ? <Generator /> 
+                    : <LockedFeature title="Gerador Inteligente" link={LINK_CHECKOUT_GERADOR} />
+                )}
+                
                 {activeTab === 'prompts' && (<PromptsGallery user={user} showToast={showToast} onlyFavorites={false} />)}
                 {activeTab === 'favorites' && (<PromptsGallery user={user} showToast={showToast} onlyFavorites={true} />)}
                 {activeTab === 'tutorials' && <TutorialsPage />}
