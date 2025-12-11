@@ -8,15 +8,11 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
 
   const handleNav = (id) => { setActiveTab(id); setSidebarOpen(false); };
 
-// Função para verificar se o item deve ter cadeado
+  // Função para verificar se o item deve ter cadeado
   const isLocked = (id) => {
     if (isAdmin) return false;
-    
-    // REMOVI A LINHA QUE BLOQUEAVA PROMPTS/FAVORITES
-    
     // Mantém o bloqueio APENAS no Gerador
     if (id === 'generator') return !user?.has_generators;
-    
     return false;
   };
 
@@ -105,10 +101,13 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
         </div>
       </aside>
 
-      {/* MOBILE SIDEBAR */}
-      {sidebarOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden animate-fadeIn" onClick={() => setSidebarOpen(false)} />}
+      {/* MOBILE SIDEBAR OVERLAY (Fundo Escuro) */}
+      {/* Z-INDEX AUMENTADO PARA z-[100] para cobrir os ícones da galeria */}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] md:hidden animate-fadeIn" onClick={() => setSidebarOpen(false)} />}
 
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-theme-sidebar border-r border-white/10 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* MOBILE SIDEBAR (Menu Lateral) */}
+      {/* Z-INDEX AUMENTADO PARA z-[110] para ficar acima do fundo escuro */}
+      <div className={`fixed inset-y-0 left-0 z-[110] w-72 bg-theme-sidebar border-r border-white/10 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-20 flex items-center justify-between px-6 border-b border-white/10">
           <span className="text-xl font-bold text-theme-sidebar-text">Menu</span>
           <button onClick={() => setSidebarOpen(false)} className="text-theme-sidebar-text hover:text-theme-primary"><X size={24} /></button>
@@ -139,8 +138,9 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
       </div>
 
       {/* FAB: Botão Flutuante Mobile */}
+      {/* Z-INDEX REDUZIDO PARA z-40 para ficar atrás do menu quando aberto */}
       {!sidebarOpen && (
-        <button onClick={() => setSidebarOpen(true)} className="md:hidden fixed bottom-6 right-6 z-50 bg-theme-primary text-white p-4 rounded-full shadow-lg active:scale-95 transition-transform"><Menu size={28} /></button>
+        <button onClick={() => setSidebarOpen(true)} className="md:hidden fixed bottom-6 right-6 z-40 bg-theme-primary text-white p-4 rounded-full shadow-lg active:scale-95 transition-transform"><Menu size={28} /></button>
       )}
     </>
   );
