@@ -12,7 +12,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   const [selectedItem, setSelectedItem] = useState(null);
   
   const [activePack, setActivePack] = useState('all'); 
-  const [genderFilter, setGenderFilter] = useState('all'); // NOVO: Estado do Filtro de Gênero
+  const [genderFilter, setGenderFilter] = useState('all'); 
   const [showAllPacksModal, setShowAllPacksModal] = useState(false); 
 
   const hasAccess = user?.plan === 'admin' || user?.has_prompts;
@@ -68,7 +68,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   // Lógica de Filtragem Local (Gênero)
   const filteredPrompts = prompts.filter(item => {
       if (genderFilter === 'all') return true;
-      // Se o item não tiver gênero definido (antigo), assume female ou mostra em todos
       return item.gender === genderFilter;
   });
 
@@ -194,14 +193,16 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       );
   };
 
+  // --- NOVO MODAL CINEMATOGRÁFICO ---
   const ModalDetails = () => {
     if (!selectedItem) return null;
     const isFav = favorites.has(String(selectedItem.id));
 
     return (
       <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={() => setSelectedItem(null)}>
+        {/* LAYOUT: Mobile=Vertical(max-w-md), Desktop=Horizontal(max-w-6xl + flex-row) */}
         <div 
-            className="bg-theme-sidebar border border-white/10 rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative" 
+            className="bg-theme-sidebar border border-white/10 rounded-2xl w-full max-w-md md:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl relative transition-all" 
             onClick={e => e.stopPropagation()}
         >
             <button 
@@ -212,32 +213,37 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                 <X size={20} />
             </button>
 
-            <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden min-h-0" onContextMenu={(e) => e.preventDefault()}>
+            {/* ESQUERDA (PC) / TOPO (Mobile) : IMAGEM */}
+            <div className="w-full md:w-3/5 bg-black relative flex items-center justify-center overflow-hidden min-h-[40vh] md:min-h-full" onContextMenu={(e) => e.preventDefault()}>
                 <img 
                     src={selectedItem.url} 
                     alt={selectedItem.title} 
-                    className="w-full h-full object-contain select-none" 
+                    // CORREÇÃO: object-contain garante que a imagem NUNCA será cortada
+                    className="w-full h-full object-contain select-none max-h-[50vh] md:max-h-full" 
                     draggable="false" 
                     onContextMenu={(e) => e.preventDefault()}
                 />
             </div>
 
-            <div className="p-5 bg-theme-sidebar border-t border-white/10 flex flex-col gap-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-10">
-                <h2 className="text-xl font-bold text-white text-center">{selectedItem.title}</h2>
+            {/* DIREITA (PC) / BAIXO (Mobile) : CONTEÚDO */}
+            <div className="w-full md:w-2/5 p-6 md:p-8 bg-theme-sidebar border-t md:border-t-0 md:border-l border-white/10 flex flex-col gap-4 md:gap-6 overflow-y-auto">
+                <h2 className="text-xl md:text-2xl font-bold text-white md:mt-4 text-center md:text-left">{selectedItem.title}</h2>
                 
-                <div className="bg-white/5 border border-white/10 rounded-xl p-3 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-                    <p className="text-gray-300 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                {/* Caixa de Prompt */}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex-1 min-h-[120px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                    <p className="text-gray-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
                         {selectedItem.prompt}
                     </p>
                 </div>
 
-                <div className="flex flex-col gap-3">
+                {/* Botões de Ação */}
+                <div className="flex flex-col gap-3 mt-auto">
                     <button 
                         type="button"
                         onClick={(e) => copyToClipboard(e, selectedItem.prompt)}
                         className="w-full bg-theme-primary hover:bg-theme-primary/90 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg shadow-theme-primary/20"
                     >
-                        <Copy size={20} /> COPIAR
+                        <Copy size={20} /> COPIAR PROMPT
                     </button>
                     
                     <button 
