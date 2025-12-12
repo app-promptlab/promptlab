@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { Loader2, Check, Lock, ShoppingCart } from 'lucide-react'; 
+import { Loader2, Check, Lock, ShoppingCart, Zap, Bot, Star, ShieldCheck } from 'lucide-react'; 
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 import Sidebar from './components/Sidebar';
@@ -32,15 +32,12 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // HOOK DO TEMA
   const { identity } = useTheme();
 
   const showToast = (message) => { setToast(message); setTimeout(() => setToast(null), 3000); };
 
-  // --- EFEITO: ATUALIZA ÍCONES (PC, ANDROID E IOS) ---
   useEffect(() => {
     if (identity?.favicon_url) {
-      // 1. Atualiza Favicon (PC)
       let link = document.querySelector("link[rel~='icon']");
       if (!link) {
         link = document.createElement('link');
@@ -49,7 +46,6 @@ function App() {
       }
       link.href = identity.favicon_url;
 
-      // 2. Atualiza Apple Touch Icon (iOS)
       let appleLink = document.querySelector("link[rel='apple-touch-icon']");
       if (!appleLink) {
         appleLink = document.createElement('link');
@@ -96,21 +92,62 @@ function App() {
       else if (data.user) { window.location.reload(); }
   };
 
-  // Componente de Bloqueio (Atualizado: Preço Opcional)
+  // --- NOVA TELA DE BLOQUEIO (ESTILO LANDING PAGE) ---
   const LockedFeature = ({ title, price, link }) => (
-    <div className="flex flex-col items-center justify-center h-full text-center p-8 animate-fadeIn">
-        <div className="bg-white/5 p-6 rounded-full mb-6">
-            <Lock size={64} className="text-theme-primary" />
+    <div className="flex flex-col items-center justify-center min-h-full text-center p-6 animate-fadeIn relative overflow-hidden">
+        
+        {/* Fundo Decorativo */}
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-purple-900/10 to-black pointer-events-none"></div>
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-purple-600/20 rounded-full blur-[100px] pointer-events-none"></div>
+
+        <div className="relative z-10 max-w-lg w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 shadow-2xl">
+            
+            {/* Ícone Hero */}
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-500/20">
+                <Bot size={40} className="text-white" />
+            </div>
+
+            <h2 className="text-3xl font-bold mb-3 text-white">
+                Instale o Cérebro do <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">PromptLab</span>
+            </h2>
+            
+            <p className="text-gray-300 mb-8 leading-relaxed">
+                Transforme seu ChatGPT e Gemini em especialistas de criação visual. 
+                Tenha a inteligência do Nano Banana direto na sua conta.
+            </p>
+
+            {/* Lista de Benefícios */}
+            <div className="grid grid-cols-1 gap-3 mb-8 text-left">
+                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <div className="bg-green-500/20 p-1.5 rounded-full"><Check size={16} className="text-green-400"/></div>
+                    <span className="text-sm font-bold text-gray-200">Instalação em 1 Clique (Plug & Play)</span>
+                </div>
+                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <div className="bg-blue-500/20 p-1.5 rounded-full"><Zap size={16} className="text-blue-400"/></div>
+                    <span className="text-sm font-bold text-gray-200">Compatível com Gemini e ChatGPT</span>
+                </div>
+                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <div className="bg-yellow-500/20 p-1.5 rounded-full"><Star size={16} className="text-yellow-400"/></div>
+                    <span className="text-sm font-bold text-gray-200">Geração de Prompts Profissionais</span>
+                </div>
+            </div>
+            
+            <a 
+                href={link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="group relative w-full flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-1"
+            >
+                <div className="absolute inset-0 rounded-xl border border-white/20 group-hover:border-white/40 transition-colors"></div>
+                <ShoppingCart size={22} />
+                {price ? `Liberar Acesso por ${price}` : 'QUERO DESBLOQUEAR AGORA'}
+            </a>
+            
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-500">
+                <ShieldCheck size={14} />
+                <span>Compra segura & Acesso vitalício imediato</span>
+            </div>
         </div>
-        <h2 className="text-3xl font-bold mb-2 text-white">Acesso Bloqueado</h2>
-        <p className="mb-8 text-gray-400 max-w-md">
-            Você precisa desbloquear o pacote <strong>{title}</strong> para acessar esta ferramenta exclusiva.
-        </p>
-        <a href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-theme-primary hover:bg-theme-primary/90 text-white px-8 py-4 rounded-xl font-bold text-lg transition-transform hover:scale-105 shadow-lg shadow-theme-primary/20">
-            <ShoppingCart size={24} />
-            {price ? `Desbloquear por apenas ${price}` : 'Desbloquear Agora'}
-        </a>
-        <p className="mt-4 text-sm text-gray-500">Acesso vitalício & liberação imediata.</p>
     </div>
   );
 
@@ -136,7 +173,7 @@ function App() {
             <main className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-gray-800 w-full">
                 {activeTab === 'dashboard' && <Dashboard user={user} changeTab={setActiveTab} />}
                 
-                {/* GERADOR: Sem preço fixo, apenas Desbloquear */}
+                {/* GERADOR: Versão Nova "Vendedora" */}
                 {activeTab === 'generator' && (
                     user.has_generators 
                     ? <Generator /> 
