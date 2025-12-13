@@ -90,7 +90,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   const FilterButton = ({ label, value, icon: Icon }) => (
       <button 
         onClick={() => setGenderFilter(value)}
-        className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all border ${genderFilter === value ? 'bg-theme-primary text-white border-theme-primary shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'}`}
+        className={`flex-none px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all border ${genderFilter === value ? 'bg-theme-primary text-white border-theme-primary shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'}`}
       >
           {Icon && <Icon size={12} />} {label}
       </button>
@@ -100,7 +100,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
       const sizeClasses = "w-20 h-28 md:w-28 md:h-40"; 
       if (isViewAll) {
           return (
-            <button onClick={() => setShowAllPacksModal(true)} className="flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group p-1">
+            <button onClick={() => setShowAllPacksModal(true)} className="flex flex-col items-center gap-2 min-w-[max-content] cursor-pointer group p-1 pr-4">
                 <div className={`${sizeClasses} rounded-xl border-2 border-dashed border-white/20 flex items-center justify-center bg-white/5 group-hover:bg-white/10 transition-all hover:scale-105`}>
                     <Grid size={24} className="text-gray-400 group-hover:text-white"/>
                 </div>
@@ -147,16 +147,20 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
   return (
     <DynamicPage pageId="prompts" user={user}>
-        {/* BORDA INFINITA: px-0 no mobile, pb-20 para scroll final */}
+        {/* GLOBAL WRAPPER: Remove padding horizontal para Borda Infinita */}
         <div className="w-full pb-20 md:p-8 px-0">
         
         {!onlyFavorites && (
             <div className="mb-0"> 
-                {/* Título com padding (pl-4) para não colar na borda */}
+                {/* Título: Padding-left 4 para alinhar com o design */}
                 <h2 className="text-white font-bold text-lg mb-0 pl-4 md:pl-1">Packs</h2>
                 
-                {/* Scroll Container: px-4 para o primeiro item não colar, mas permite scroll infinito */}
-                <div className="flex gap-2 overflow-x-auto px-4 pt-4 pb-2 scrollbar-hide items-start"> 
+                {/* CARROSSEL DE PACKS: 
+                    - pl-4: Começa com indentação à esquerda
+                    - pr-0: Vai até o infinito na direita
+                    - overflow-x-auto: Permite scroll
+                */}
+                <div className="flex gap-2 overflow-x-auto pl-4 pr-0 pt-4 pb-2 scrollbar-hide items-start"> 
                     <PackStory isAll isActive={activePack === 'all'} />
                     {packs.slice(0, 6).map(pack => <PackStory key={pack.id} pack={pack} isActive={activePack === pack.id} />)}
                     <PackStory isViewAll />
@@ -164,17 +168,28 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             </div>
         )}
 
-        {/* CABEÇALHO: Margem esquerda (ml-4) para alinhar com o título de Packs */}
-        <div className="mb-4 pl-4 md:pl-2 border-l-4 border-theme-primary ml-0 md:ml-0 mr-4 md:mr-0">
+        {/* CABEÇALHO E FILTROS: 
+            - pl-3: Ajuste fino para compensar o border-l-4 e alinhar visualmente com o carrossel (pl-4)
+            - border-l-4: A linha roxa
+            - ml-0/mr-0: GARANTE que não tenha margem direita cortando o conteúdo
+        */}
+        <div className="mb-4 pl-3 md:pl-2 border-l-4 border-theme-primary ml-0 md:ml-0 mr-0">
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
                 {onlyFavorites ? 'Meus Favoritos' : (activePack === 'all' ? 'Prompts' : `Pack: ${packs.find(p => p.id === activePack)?.title || 'Selecionado'}`)}
             </h1>
+            
             {!onlyFavorites && (
-                <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
+                /* LISTA DE FILTROS:
+                   - w-full: Ocupa toda a largura disponível
+                   - pr-0: Scroll infinito na direita
+                */
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide w-full pr-0">
                     <FilterButton label="Todos" value="all" icon={Layers} />
                     <FilterButton label="Elas" value="female" icon={User} />
                     <FilterButton label="Eles" value="male" icon={User} />
                     <FilterButton label="Casais" value="couple" icon={Users} />
+                    {/* Espaçador invisível no final para o último item não colar na borda direita */}
+                    <div className="w-4 shrink-0"></div>
                 </div>
             )}
         </div>
@@ -182,7 +197,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
         {loading ? (
             <div className="flex items-center justify-center h-40 text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>
         ) : (
-            /* GRADE DE IMAGENS: px-0 para tocar a borda real. gap-0.5 para linha fina */
+            /* GRADE DE IMAGENS: 
+               - px-0: Borda infinita real (toca os lados)
+               - gap-[1px]: Linha fina entre imagens
+            */
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-[1px] md:gap-2 px-0 md:px-0">
                 {filteredPrompts.map((item) => {
                     const isLocked = !item.is_free && !hasAccess;
