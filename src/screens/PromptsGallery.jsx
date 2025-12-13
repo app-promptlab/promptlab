@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { Heart, Lock, X, Loader2, Image as ImageIcon, Grid, Layers, Users, User, Key, Eye } from 'lucide-react';
 import DynamicPage from '../components/DynamicPage';
-import PromptModal from '../components/PromptModal'; // <--- Importando o novo Modal
+import PromptModal from '../components/PromptModal'; 
 
 const LINK_CHECKOUT = "https://pay.kiwify.com.br/hgxpno4"; 
 
@@ -60,7 +60,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   });
 
   const toggleFavorite = async (item) => {
-    // Função simplificada para passar pro Modal
     if(!item) return;
     const itemId = String(item.id);
     const isFav = favorites.has(itemId);
@@ -87,8 +86,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     navigator.clipboard.writeText(text);
     if(showToast) showToast('Prompt copiado!');
   };
-
-  // --- SUB-COMPONENTES VISUAIS ---
 
   const FilterButton = ({ label, value, icon: Icon }) => (
       <button 
@@ -150,13 +147,15 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
   return (
     <DynamicPage pageId="prompts" user={user}>
-        {/* BORDA INFINITA: Removi o padding horizontal geral (px-4). Agora é pb-20 md:p-8 */}
-        <div className="pb-20 md:p-8">
+        {/* BORDA INFINITA: px-0 no mobile, pb-20 para scroll final */}
+        <div className="w-full pb-20 md:p-8 px-0">
         
         {!onlyFavorites && (
             <div className="mb-0"> 
-                {/* Adicionei pl-4 aqui para compensar a falta de padding geral */}
+                {/* Título com padding (pl-4) para não colar na borda */}
                 <h2 className="text-white font-bold text-lg mb-0 pl-4 md:pl-1">Packs</h2>
+                
+                {/* Scroll Container: px-4 para o primeiro item não colar, mas permite scroll infinito */}
                 <div className="flex gap-2 overflow-x-auto px-4 pt-4 pb-2 scrollbar-hide items-start"> 
                     <PackStory isAll isActive={activePack === 'all'} />
                     {packs.slice(0, 6).map(pack => <PackStory key={pack.id} pack={pack} isActive={activePack === pack.id} />)}
@@ -165,7 +164,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             </div>
         )}
 
-        {/* CABEÇALHO: Adicionei margem esquerda para alinhar */}
+        {/* CABEÇALHO: Margem esquerda (ml-4) para alinhar com o título de Packs */}
         <div className="mb-4 pl-4 md:pl-2 border-l-4 border-theme-primary ml-0 md:ml-0 mr-4 md:mr-0">
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
                 {onlyFavorites ? 'Meus Favoritos' : (activePack === 'all' ? 'Prompts' : `Pack: ${packs.find(p => p.id === activePack)?.title || 'Selecionado'}`)}
@@ -183,8 +182,8 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
         {loading ? (
             <div className="flex items-center justify-center h-40 text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>
         ) : (
-            /* GRADE DE IMAGENS: px-1 no mobile para "quase" encostar na borda, mas separando levemente */
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 md:gap-2 px-1 md:px-0">
+            /* GRADE DE IMAGENS: px-0 para tocar a borda real. gap-0.5 para linha fina */
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-[1px] md:gap-2 px-0 md:px-0">
                 {filteredPrompts.map((item) => {
                     const isLocked = !item.is_free && !hasAccess;
                     const isFav = favorites.has(String(item.id));
@@ -235,7 +234,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             </div>
         )}
 
-        {/* Novo Modal Centralizado */}
         <PromptModal 
             item={selectedItem} 
             onClose={() => setSelectedItem(null)}

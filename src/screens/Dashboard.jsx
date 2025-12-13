@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Row from '../components/Row';
 import DynamicPage from '../components/DynamicPage';
-import PromptModal from '../components/PromptModal'; // <--- Importando o novo Modal
+import PromptModal from '../components/PromptModal'; 
 
 export default function Dashboard({ user, showToast }) {
   const [news, setNews] = useState([]);
@@ -25,7 +25,6 @@ export default function Dashboard({ user, showToast }) {
     if (user) loadData();
   }, [user]);
 
-  // Função de Favoritar Global
   const toggleFavorite = async (item) => {
     const isLiked = likedIds.has(item.id);
     const newSet = new Set(likedIds);
@@ -41,14 +40,13 @@ export default function Dashboard({ user, showToast }) {
 
   return (
     <DynamicPage pageId="dashboard" user={user}>
-        {/* AJUSTE FULL BLEED: px-0 no mobile, md:px-12 no Desktop */}
+        {/* FULL BLEED: px-0 no mobile, md:px-12 no Desktop */}
         <div className="space-y-6 mt-4 md:mt-8 px-0 md:px-12 pb-20">
             {news.length > 0 && <Row title="Novidades" items={news} isLarge={true} type="news" />}
             {favorites.length > 0 && <Row title="Meus Favoritos" items={favorites} type="prompt" onItemClick={setModalItem} />}
             <Row title="Populares da Semana" items={trending} type="prompt" onItemClick={setModalItem} />
         </div>
 
-        {/* Usando o componente único de Modal */}
         <PromptModal 
             item={modalItem} 
             onClose={() => setModalItem(null)} 

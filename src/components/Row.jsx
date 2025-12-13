@@ -15,7 +15,8 @@ export default function Row({ title, items = [], isLarge = false, onItemClick })
 
   return (
     <div className="mb-8 group">
-      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+      {/* PADDING NO TÍTULO PARA NÃO COLAR NA BORDA */}
+      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2 px-4 md:px-0">
         <span className="w-1 h-6 bg-theme-primary rounded-full inline-block"></span>
         {title}
       </h2>
@@ -23,11 +24,11 @@ export default function Row({ title, items = [], isLarge = false, onItemClick })
       <div className="relative group/slider">
         <button onClick={() => scroll('left')} className="absolute left-0 top-0 bottom-0 z-40 bg-black/50 hover:bg-black/80 w-10 hidden group-hover/slider:flex items-center justify-center text-white transition-all backdrop-blur-sm rounded-r-lg"><ChevronLeft size={28} /></button>
 
-        <div ref={rowRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-4 snap-x">
+        {/* PADDING NO CONTAINER DE SCROLL: px-4 para começar indentado, mas permite scroll total */}
+        <div ref={rowRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-4 snap-x px-4 md:px-0">
           {items.map((item) => (
             <div 
               key={item.id} 
-              // Adicionado onClick
               onClick={() => onItemClick && onItemClick(item)}
               className={`
                 relative flex-none snap-start transition-all duration-300 hover:scale-95 cursor-pointer overflow-hidden rounded-lg bg-theme-card
