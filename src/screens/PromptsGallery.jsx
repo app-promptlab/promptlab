@@ -149,16 +149,18 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   };
 
   return (
-    // CORREÇÃO AQUI: Se for onlyFavorites, o ID da página vira 'favorites'. 
-    // Assim ele não herda o banner de 'prompts'.
     <DynamicPage pageId={onlyFavorites ? 'favorites' : 'prompts'} user={user}>
         {/* GLOBAL WRAPPER: Mantendo Borda Infinita */}
         <div className="w-full pb-20 md:p-8 px-0">
         
         {!onlyFavorites && (
-            <div className="mb-0"> 
-                <h2 className="text-white font-bold text-lg mb-0 pl-4 md:pl-1">Packs</h2>
-                <div className="flex gap-2 overflow-x-auto pl-4 pr-0 pt-4 pb-2 scrollbar-hide items-start"> 
+            <div className="mb-8"> 
+                {/* ALTERAÇÃO: Adicionada div com borda roxa e fonte aumentada para 2xl/3xl */}
+                <div className="mb-4 pl-3 md:pl-2 border-l-4 border-theme-primary ml-0 md:ml-0 mr-0">
+                    <h2 className="text-2xl md:text-3xl font-bold text-white">Packs</h2>
+                </div>
+                
+                <div className="flex gap-2 overflow-x-auto pl-4 pr-0 pt-2 pb-2 scrollbar-hide items-start"> 
                     <PackStory isAll isActive={activePack === 'all'} />
                     {packs.slice(0, 6).map(pack => <PackStory key={pack.id} pack={pack} isActive={activePack === pack.id} />)}
                     <PackStory isViewAll />
@@ -166,6 +168,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             </div>
         )}
 
+        {/* Título Prompts (Mantido igual) */}
         <div className="mb-4 pl-3 md:pl-2 border-l-4 border-theme-primary ml-0 md:ml-0 mr-0">
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
                 {onlyFavorites ? 'Meus Favoritos' : (activePack === 'all' ? 'Prompts' : `Pack: ${packs.find(p => p.id === activePack)?.title || 'Selecionado'}`)}
