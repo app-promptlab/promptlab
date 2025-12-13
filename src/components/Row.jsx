@@ -30,16 +30,21 @@ export default function Row({ title, items = [], isLarge = false, onItemClick })
             <div 
               key={item.id} 
               onClick={() => onItemClick && onItemClick(item)}
+              /* SEGURANÇA EXTRA NO CARD: Bloqueia menu de contexto no card inteiro */
+              onContextMenu={(e) => e.preventDefault()}
               className={`
                 relative flex-none snap-start transition-all duration-300 hover:scale-95 cursor-pointer overflow-hidden rounded-lg bg-theme-card border border-white/5
                 ${isLarge ? 'w-[280px] h-[160px]' : 'w-[140px] h-[210px]'}
               `}
             >
-              {/* IMAGEM NÍTIDA (VITRINE) */}
+              {/* IMAGEM BLINDADA */}
               <img 
                 src={item.image || item.url || item.cover} 
                 alt={item.title} 
-                className="w-full h-full object-cover" // Removido qualquer filtro de blur ou brightness
+                /* AQUI ESTÁ A PROTEÇÃO: */
+                draggable="false"                   // Não deixa arrastar
+                onContextMenu={(e) => e.preventDefault()} // Não deixa clicar com botão direito
+                className="w-full h-full object-cover select-none" // Não deixa selecionar
               />
 
               {/* OVERLAY DE BLOQUEIO ESTILO VITRINE */}
