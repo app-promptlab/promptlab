@@ -42,27 +42,37 @@ export default function DynamicPage({ pageId, children, user }) {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-6 mt-8 space-y-8">
+      {/* CORREÇÃO BORDA INFINITA: 
+         Troquei 'px-6' por 'px-0 md:px-6'. 
+         Troquei 'mt-8' por 'mt-0 md:mt-8'.
+         Isso remove a moldura no mobile.
+      */}
+      <div className="max-w-6xl mx-auto px-0 md:px-6 mt-0 md:mt-8 space-y-8">
+        
         {content.map(block => (
             <div key={block.id} className="animate-fadeIn">
                 
-                {/* BLOCO DE TÍTULO (NOVO) */}
+                {/* BLOCO DE TÍTULO */}
+                {/* Adicionado px-4 no mobile para não colar na borda, já que removemos do pai */}
                 {block.type === 'section_title' && (
-                    <div className={`w-full py-4 border-l-4 border-theme-primary pl-4 mb-6 ${block.action_label || 'text-left'}`}>
+                    <div className={`w-full py-4 border-l-4 border-theme-primary pl-4 mb-6 md:ml-0 mx-4 md:mx-0 ${block.action_label || 'text-left'}`}>
                         <h2 className="text-2xl md:text-3xl font-black text-theme-text uppercase tracking-widest">{replaceVariables(block.title)}</h2>
-                        {/* Subtítulo opcional se existir, mas geralmente título de seção é só uma linha */}
                     </div>
                 )}
 
+                {/* BLOCO DE VÍDEO */}
+                {/* Adicionado px-4 no mobile */}
                 {block.type === 'video' && (
-                    <div className="w-full max-w-4xl mx-auto">
+                    <div className="w-full max-w-4xl mx-auto px-4 md:px-0">
                         <div className="flex items-center gap-3 mb-4"><div className="bg-theme-primary/20 p-2 rounded-lg"><Play className="text-theme-primary" size={20}/></div><h3 className="text-xl font-bold text-white">{replaceVariables(block.title)}</h3></div>
                         <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800"><iframe className="w-full h-full" src={`https://www.youtube.com/embed/${block.media_url}`} title={block.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe></div>
                     </div>
                 )}
 
+                {/* BANNER GRANDE */}
+                {/* Banner grande fica legal encostando na borda, então mantive px-0 no mobile (full bleed) */}
                 {block.type === 'banner_large' && (
-                    <a href={block.action_link || '#'} target="_blank" rel="noreferrer" className={`relative w-full h-64 md:h-80 rounded-2xl overflow-hidden group block border border-gray-800 hover:border-theme-primary transition-all ${!block.action_link && 'cursor-default pointer-events-none'}`}>
+                    <a href={block.action_link || '#'} target="_blank" rel="noreferrer" className={`relative w-full h-64 md:h-80 md:rounded-2xl overflow-hidden group block border-y md:border border-gray-800 hover:border-theme-primary transition-all ${!block.action_link && 'cursor-default pointer-events-none'}`}>
                         <img src={block.media_url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={block.title}/>
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90 flex flex-col justify-end p-8">
                             <h3 className="text-3xl font-bold text-white mb-2">{replaceVariables(block.title)}</h3>
@@ -72,15 +82,21 @@ export default function DynamicPage({ pageId, children, user }) {
                     </a>
                 )}
 
+                {/* BANNER PEQUENO */}
+                {/* Adicionado px-4 no mobile para não ficar esticado demais */}
                 {block.type === 'banner_small' && (
-                     <a href={block.action_link || '#'} target="_blank" rel="noreferrer" className="flex items-center gap-6 p-6 bg-theme-surface border border-gray-700 rounded-xl hover:border-theme-primary transition-all group max-w-2xl mx-auto">
-                        {block.media_url && <img src={block.media_url} className="w-20 h-20 object-cover rounded-lg" alt="Icon"/>}
-                        <div className="flex-1"><h3 className="text-xl font-bold text-white mb-1 group-hover:text-theme-primary transition-colors">{replaceVariables(block.title)}</h3><p className="text-gray-400 text-sm">{replaceVariables(block.subtitle)}</p></div>
-                        {block.action_link && <LinkIcon className="text-gray-500 group-hover:text-white"/>}
-                     </a>
+                     <div className="px-4 md:px-0">
+                        <a href={block.action_link || '#'} target="_blank" rel="noreferrer" className="flex items-center gap-6 p-6 bg-theme-surface border border-gray-700 rounded-xl hover:border-theme-primary transition-all group max-w-2xl mx-auto">
+                            {block.media_url && <img src={block.media_url} className="w-20 h-20 object-cover rounded-lg" alt="Icon"/>}
+                            <div className="flex-1"><h3 className="text-xl font-bold text-white mb-1 group-hover:text-theme-primary transition-colors">{replaceVariables(block.title)}</h3><p className="text-gray-400 text-sm">{replaceVariables(block.subtitle)}</p></div>
+                            {block.action_link && <LinkIcon className="text-gray-500 group-hover:text-white"/>}
+                        </a>
+                     </div>
                 )}
             </div>
         ))}
+        
+        {/* CHILDREN: Aqui entra a PromptsGallery. Como o pai agora tem px-0, ela vai assumir o controle total (Full Bleed) */}
         {children}
       </div>
     </div>
