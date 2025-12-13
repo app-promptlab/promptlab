@@ -14,7 +14,6 @@ export default function Dashboard({ user, showToast }) {
   const [modalItem, setModalItem] = useState(null);
   const [likedIds, setLikedIds] = useState(new Set()); 
 
-  // Verifica se o usuário tem permissão VIP (Admin ou comprou o pacote de prompts)
   const hasAccess = user?.plan === 'admin' || user?.has_prompts;
 
   useEffect(() => {
@@ -22,32 +21,40 @@ export default function Dashboard({ user, showToast }) {
       const { data: newsData } = await supabase.from('news').select('*').limit(5);
       const { data: favData } = await supabase.from('user_favorites').select('*, item:pack_items(*)').eq('user_id', user.id);
       
-      // ALTERAÇÃO AQUI: Ordenando pela sua curadoria (Drag & Drop)
-      // Antes: sem ordem ou limit(10) simples
-      // Agora: order('trending_order', { ascending: true })
+      // 1. Identifica quais IDs são favoritos
+      const currentLikedIds = new Set(favData?.map(f => f.item_id));
+      setLikedIds(currentLikedIds);
+
+      // Carrega populares ordenados pela curadoria
       const { data: trendData } = await supabase
         .from('pack_items')
         .select('*')
         .eq('is_featured', true)
-        .order('trending_order', { ascending: true }) // <--- O SEGREDO DA VITRINE
+        .order('trending_order', { ascending: true }) 
         .limit(20); 
       
       setNews(newsData || []);
-      setFavorites(favData?.map(f => f.item) || []);
+
+      // 2. Prepara os FAVORITOS garantindo as flags visuais
+      const processedFavorites = (favData?.map(f => f.item) || []).map(item => ({
+          ...item,
+          is_locked: !item.is_free && !hasAccess,
+          is_liked: true // Se está na lista de favoritos, é true
+      }));
+      setFavorites(processedFavorites);
       
-      // SEGURANÇA VISUAL:
+      // 3. Prepara os POPULARES injetando is_locked e is_liked
       const processedTrending = (trendData || []).map(item => ({
         ...item,
-        is_locked: !item.is_free && !hasAccess
+        is_locked: !item.is_free && !hasAccess,
+        is_liked: currentLikedIds.has(item.id) // Verifica se este item específico está nos favoritos
       }));
 
       setTrending(processedTrending);
-      setLikedIds(new Set(favData?.map(f => f.item_id))); 
     };
     if (user) loadData();
   }, [user, hasAccess]); 
 
-  // SEGURANÇA DE ACESSO:
   const handlePromptClick = (item) => {
     if (!item.is_free && !hasAccess) {
         window.open(LINK_CHECKOUT, '_blank');
@@ -62,6 +69,9 @@ export default function Dashboard({ user, showToast }) {
     if (isLiked) newSet.delete(item.id); else newSet.add(item.id);
     setLikedIds(newSet);
     
+    // Atualiza visualmente na hora (Optimistic UI)
+    setTrending(prev => prev.map(p => p.id === item.id ? {...p, is_liked: !isLiked} : p));
+    
     const msg = isLiked ? "Removido dos favoritos" : "Adicionado aos favoritos!";
     if(showToast) showToast(msg);
 
@@ -71,15 +81,15 @@ export default function Dashboard({ user, showToast }) {
 
   return (
     <DynamicPage pageId="dashboard" user={user}>
-        {/* FULL BLEED: px-0 no mobile, md:px-12 no Desktop */}
         <div className="space-y-6 mt-4 md:mt-8 px-0 md:px-12 pb-20">
             {news.length > 0 && <Row title="Novidades" items={news} isLarge={true} type="news" />}
             
-            {/* Favoritos */}
-            {favorites.length > 0 && <Row title="Meus Favoritos" items={favorites} type="prompt" onItemClick={handlePromptClick} />}
+            {/* Agora passamos onFavorite para os Rows */}
+            {favorites.length > 0 && (
+                <Row title="Meus Favoritos" items={favorites} type="prompt" onItemClick={handlePromptClick} onFavorite={toggleFavorite} />
+            )}
             
-            {/* Populares da Semana (Ordenados Manualmente) */}
-            <Row title="Populares da Semana" items={trending} type="prompt" onItemClick={handlePromptClick} />
+            <Row title="Populares da Semana" items={trending} type="prompt" onItemClick={handlePromptClick} onFavorite={toggleFavorite} />
         </div>
 
         <PromptModal 
