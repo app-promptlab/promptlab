@@ -27,7 +27,13 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     setLoading(true);
     try {
       if (packs.length === 0) {
-          const { data: packsData } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+          // ALTERAÇÃO AQUI: Ordenando Packs manualmente
+          // Antes: .order('created_at', { ascending: false })
+          // Agora: .order('order_index', { ascending: true })
+          const { data: packsData } = await supabase
+            .from('products')
+            .select('*')
+            .order('order_index', { ascending: true }); // <--- DRAG & DROP FUNCIONANDO
           setPacks(packsData || []);
       }
 
@@ -186,8 +192,6 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                     const isLocked = !item.is_free && !hasAccess;
                     const isFav = favorites.has(String(item.id));
                     
-                    // ALTERAÇÃO: Removido filtro de brightness e blur para itens bloqueados.
-                    // Agora a imagem é nítida (vitrine).
                     const imgClasses = `w-full h-full object-cover transition-all duration-500 ${isLocked ? '' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
 
                     return (
@@ -219,11 +223,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
                             {isLocked && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none transition-all group-hover:scale-110">
-                                    {/* VINHETA: Camada preta suave (20%) para garantir contraste do ícone branco */}
+                                    {/* VINHETA */}
                                     <div className="absolute inset-0 bg-black/20"></div>
 
                                     <div className="relative z-10">
-                                        {/* ÍCONE: Aumentei a visibilidade e adicionei sombra */}
                                         <Lock size={48} className="text-white/90 drop-shadow-lg group-hover:opacity-0 transition-opacity absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2" strokeWidth={2} />
                                         <Key size={48} className="text-theme-primary drop-shadow-lg opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2" strokeWidth={2} />
                                     </div>

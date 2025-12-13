@@ -21,14 +21,21 @@ export default function Dashboard({ user, showToast }) {
     const loadData = async () => {
       const { data: newsData } = await supabase.from('news').select('*').limit(5);
       const { data: favData } = await supabase.from('user_favorites').select('*, item:pack_items(*)').eq('user_id', user.id);
-      const { data: trendData } = await supabase.from('pack_items').select('*').eq('is_featured', true).limit(10);
+      
+      // ALTERAÇÃO AQUI: Ordenando pela sua curadoria (Drag & Drop)
+      // Antes: sem ordem ou limit(10) simples
+      // Agora: order('trending_order', { ascending: true })
+      const { data: trendData } = await supabase
+        .from('pack_items')
+        .select('*')
+        .eq('is_featured', true)
+        .order('trending_order', { ascending: true }) // <--- O SEGREDO DA VITRINE
+        .limit(20); 
       
       setNews(newsData || []);
       setFavorites(favData?.map(f => f.item) || []);
       
       // SEGURANÇA VISUAL:
-      // Processamos os dados para adicionar a flag 'is_locked'.
-      // Isso faz o componente Row desenhar o cadeado em cima da imagem.
       const processedTrending = (trendData || []).map(item => ({
         ...item,
         is_locked: !item.is_free && !hasAccess
@@ -41,14 +48,10 @@ export default function Dashboard({ user, showToast }) {
   }, [user, hasAccess]); 
 
   // SEGURANÇA DE ACESSO:
-  // Essa função age como um "porteiro". Ela verifica o crachá antes de abrir o modal.
   const handlePromptClick = (item) => {
-    // Se o item é pago E o usuário não tem acesso...
     if (!item.is_free && !hasAccess) {
-        // ...Manda para a loja!
         window.open(LINK_CHECKOUT, '_blank');
     } else {
-        // ...Caso contrário, libera o acesso.
         setModalItem(item);
     }
   };
@@ -72,10 +75,10 @@ export default function Dashboard({ user, showToast }) {
         <div className="space-y-6 mt-4 md:mt-8 px-0 md:px-12 pb-20">
             {news.length > 0 && <Row title="Novidades" items={news} isLarge={true} type="news" />}
             
-            {/* Favoritos também passam pela verificação de clique por segurança extra */}
+            {/* Favoritos */}
             {favorites.length > 0 && <Row title="Meus Favoritos" items={favorites} type="prompt" onItemClick={handlePromptClick} />}
             
-            {/* AQUI A CORREÇÃO PRINCIPAL: Trocamos 'setModalItem' por 'handlePromptClick' */}
+            {/* Populares da Semana (Ordenados Manualmente) */}
             <Row title="Populares da Semana" items={trending} type="prompt" onItemClick={handlePromptClick} />
         </div>
 
