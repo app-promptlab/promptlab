@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Row from '../components/Row';
 import DynamicPage from '../components/DynamicPage';
-import Modal from '../components/Modal';
+import PromptModal from '../components/PromptModal'; // <--- Importando o novo Modal
 
 export default function Dashboard({ user, showToast }) {
   const [news, setNews] = useState([]);
@@ -48,7 +48,8 @@ export default function Dashboard({ user, showToast }) {
             <Row title="Populares da Semana" items={trending} type="prompt" onItemClick={setModalItem} />
         </div>
 
-        <Modal 
+        {/* Usando o componente único de Modal */}
+        <PromptModal 
             item={modalItem} 
             onClose={() => setModalItem(null)} 
             onCopy={(text) => { 
