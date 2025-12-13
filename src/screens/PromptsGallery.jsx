@@ -27,13 +27,10 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
     setLoading(true);
     try {
       if (packs.length === 0) {
-          // ALTERAÇÃO AQUI: Ordenando Packs manualmente
-          // Antes: .order('created_at', { ascending: false })
-          // Agora: .order('order_index', { ascending: true })
           const { data: packsData } = await supabase
             .from('products')
             .select('*')
-            .order('order_index', { ascending: true }); // <--- DRAG & DROP FUNCIONANDO
+            .order('order_index', { ascending: true });
           setPacks(packsData || []);
       }
 
@@ -152,7 +149,9 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
   };
 
   return (
-    <DynamicPage pageId="prompts" user={user}>
+    // CORREÇÃO AQUI: Se for onlyFavorites, o ID da página vira 'favorites'. 
+    // Assim ele não herda o banner de 'prompts'.
+    <DynamicPage pageId={onlyFavorites ? 'favorites' : 'prompts'} user={user}>
         {/* GLOBAL WRAPPER: Mantendo Borda Infinita */}
         <div className="w-full pb-20 md:p-8 px-0">
         
