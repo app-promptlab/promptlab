@@ -220,6 +220,7 @@ export default function AdminPanel({ showToast }) {
                     <option value="dashboard">Dashboard (Home)</option>
                     <option value="generator">Gerador</option>
                     <option value="prompts">Prompts (Galeria)</option>
+                    <option value="favorites">Favoritos</option> {/* NOVA OPÇÃO */}
                     <option value="tutorials">Tutoriais</option>
                 </select>
             </div>
