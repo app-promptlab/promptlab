@@ -147,19 +147,12 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
   return (
     <DynamicPage pageId="prompts" user={user}>
-        {/* GLOBAL WRAPPER: Remove padding horizontal para Borda Infinita */}
+        {/* GLOBAL WRAPPER: Mantendo Borda Infinita */}
         <div className="w-full pb-20 md:p-8 px-0">
         
         {!onlyFavorites && (
             <div className="mb-0"> 
-                {/* Título: Padding-left 4 para alinhar com o design */}
                 <h2 className="text-white font-bold text-lg mb-0 pl-4 md:pl-1">Packs</h2>
-                
-                {/* CARROSSEL DE PACKS: 
-                    - pl-4: Começa com indentação à esquerda
-                    - pr-0: Vai até o infinito na direita
-                    - overflow-x-auto: Permite scroll
-                */}
                 <div className="flex gap-2 overflow-x-auto pl-4 pr-0 pt-4 pb-2 scrollbar-hide items-start"> 
                     <PackStory isAll isActive={activePack === 'all'} />
                     {packs.slice(0, 6).map(pack => <PackStory key={pack.id} pack={pack} isActive={activePack === pack.id} />)}
@@ -168,27 +161,17 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
             </div>
         )}
 
-        {/* CABEÇALHO E FILTROS: 
-            - pl-3: Ajuste fino para compensar o border-l-4 e alinhar visualmente com o carrossel (pl-4)
-            - border-l-4: A linha roxa
-            - ml-0/mr-0: GARANTE que não tenha margem direita cortando o conteúdo
-        */}
         <div className="mb-4 pl-3 md:pl-2 border-l-4 border-theme-primary ml-0 md:ml-0 mr-0">
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
                 {onlyFavorites ? 'Meus Favoritos' : (activePack === 'all' ? 'Prompts' : `Pack: ${packs.find(p => p.id === activePack)?.title || 'Selecionado'}`)}
             </h1>
             
             {!onlyFavorites && (
-                /* LISTA DE FILTROS:
-                   - w-full: Ocupa toda a largura disponível
-                   - pr-0: Scroll infinito na direita
-                */
                 <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide w-full pr-0">
                     <FilterButton label="Todos" value="all" icon={Layers} />
                     <FilterButton label="Elas" value="female" icon={User} />
                     <FilterButton label="Eles" value="male" icon={User} />
                     <FilterButton label="Casais" value="couple" icon={Users} />
-                    {/* Espaçador invisível no final para o último item não colar na borda direita */}
                     <div className="w-4 shrink-0"></div>
                 </div>
             )}
@@ -197,15 +180,15 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
         {loading ? (
             <div className="flex items-center justify-center h-40 text-theme-primary"><Loader2 size={48} className="animate-spin"/></div>
         ) : (
-            /* GRADE DE IMAGENS: 
-               - px-0: Borda infinita real (toca os lados)
-               - gap-[1px]: Linha fina entre imagens
-            */
+            /* GRADE DE IMAGENS */
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-[1px] md:gap-2 px-0 md:px-0">
                 {filteredPrompts.map((item) => {
                     const isLocked = !item.is_free && !hasAccess;
                     const isFav = favorites.has(String(item.id));
-                    const imgClasses = `w-full h-full object-cover transition-all duration-500 ${isLocked ? 'filter brightness-[0.25] blur-[2px]' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
+                    
+                    // ALTERAÇÃO: Removido filtro de brightness e blur para itens bloqueados.
+                    // Agora a imagem é nítida (vitrine).
+                    const imgClasses = `w-full h-full object-cover transition-all duration-500 ${isLocked ? '' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
 
                     return (
                         <div 
@@ -236,13 +219,18 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
 
                             {isLocked && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none transition-all group-hover:scale-110">
-                                    <div className="relative">
-                                        <Lock size={48} className="text-white/30 group-hover:opacity-0 transition-opacity absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2" strokeWidth={1.5} />
-                                        <Key size={48} className="text-theme-primary opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2" strokeWidth={2} />
+                                    {/* VINHETA: Camada preta suave (20%) para garantir contraste do ícone branco */}
+                                    <div className="absolute inset-0 bg-black/20"></div>
+
+                                    <div className="relative z-10">
+                                        {/* ÍCONE: Aumentei a visibilidade e adicionei sombra */}
+                                        <Lock size={48} className="text-white/90 drop-shadow-lg group-hover:opacity-0 transition-opacity absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2" strokeWidth={2} />
+                                        <Key size={48} className="text-theme-primary drop-shadow-lg opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2" strokeWidth={2} />
                                     </div>
-                                    <div className="mt-14 flex flex-col items-center">
-                                        <span className="text-[10px] text-white/30 uppercase tracking-[0.2em] font-light group-hover:hidden">Locked</span>
-                                        <span className="text-xs text-theme-primary font-bold uppercase tracking-widest hidden group-hover:block animate-pulse">DESBLOQUEAR</span>
+                                    
+                                    <div className="mt-14 flex flex-col items-center z-10">
+                                        <span className="text-[10px] text-white font-bold uppercase tracking-[0.2em] drop-shadow-md group-hover:hidden">Locked</span>
+                                        <span className="text-xs text-theme-primary font-bold uppercase tracking-widest hidden group-hover:block animate-pulse drop-shadow-md">DESBLOQUEAR</span>
                                     </div>
                                 </div>
                             )}
