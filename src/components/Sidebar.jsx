@@ -4,14 +4,13 @@ import { useTheme } from '../context/ThemeContext';
 
 export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, setSidebarOpen, isAdmin, onLogout }) {
   const [minimized, setMinimized] = useState(false);
+  const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false); // Novo estado para o modal
   const { identity } = useTheme();
 
   const handleNav = (id) => { setActiveTab(id); setSidebarOpen(false); };
 
-  // Função para verificar se o item deve ter cadeado
   const isLocked = (id) => {
     if (isAdmin) return false;
-    // Mantém o bloqueio APENAS no Gerador
     if (id === 'generator') return !user?.has_generators;
     return false;
   };
@@ -21,7 +20,8 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
     
     return (
       <button 
-        onClick={() => isLogout ? onLogout() : handleNav(id)} 
+        /* ALTERAÇÃO: Ao clicar em Sair, abrimos o modal em vez de deslogar direto */
+        onClick={() => isLogout ? setShowLogoutConfirmation(true) : handleNav(id)} 
         className={`
           flex items-center w-full transition-all duration-200 group font-medium mb-1 rounded-xl relative
           ${minimized ? 'justify-center px-2 py-3' : 'px-4 py-3'} 
@@ -101,12 +101,10 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
         </div>
       </aside>
 
-      {/* MOBILE SIDEBAR OVERLAY (Fundo Escuro) */}
-      {/* Z-INDEX AUMENTADO PARA z-[100] para cobrir os ícones da galeria */}
+      {/* MOBILE SIDEBAR OVERLAY */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] md:hidden animate-fadeIn" onClick={() => setSidebarOpen(false)} />}
 
-      {/* MOBILE SIDEBAR (Menu Lateral) */}
-      {/* Z-INDEX AUMENTADO PARA z-[110] para ficar acima do fundo escuro */}
+      {/* MOBILE SIDEBAR */}
       <div className={`fixed inset-y-0 left-0 z-[110] w-72 bg-theme-sidebar border-r border-white/10 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-20 flex items-center justify-between px-6 border-b border-white/10">
           <span className="text-xl font-bold text-theme-sidebar-text">Menu</span>
@@ -125,6 +123,7 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
             </div>
         </div>
 
+        {/* LISTA DE NAVEGAÇÃO MOBILE */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-2">
             <SidebarItem icon={LayoutDashboard} label="Dashboard" id="dashboard" />
             <SidebarItem icon={LayoutGrid} label="Prompts" id="prompts" />
@@ -133,14 +132,49 @@ export default function Sidebar({ user, activeTab, setActiveTab, sidebarOpen, se
             <SidebarItem icon={Zap} label="Gerador" id="generator" />
             {isAdmin && <SidebarItem icon={Shield} label="Admin" id="admin" />}
             <SidebarItem icon={User} label="Perfil" id="profile" />
-            <SidebarItem icon={LogOut} label="Sair" isLogout />
+            {/* REMOVIDO DAQUI: O botão Sair não fica mais misturado na lista */}
         </nav>
+
+        {/* NOVO RODAPÉ MOBILE: Botão Sair isolado no final */}
+        <div className="p-4 border-t border-white/10 bg-theme-sidebar pb-8">
+            <SidebarItem icon={LogOut} label="Sair" isLogout />
+        </div>
       </div>
 
-      {/* FAB: Botão Flutuante Mobile */}
-      {/* Z-INDEX REDUZIDO PARA z-40 para ficar atrás do menu quando aberto */}
+      {/* FAB Mobile */}
       {!sidebarOpen && (
         <button onClick={() => setSidebarOpen(true)} className="md:hidden fixed bottom-6 right-6 z-40 bg-theme-primary text-white p-4 rounded-full shadow-lg active:scale-95 transition-transform"><Menu size={28} /></button>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE LOGOUT (NOVO) */}
+      {showLogoutConfirmation && (
+        <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-gray-900 border border-gray-700 p-6 rounded-2xl w-full max-w-sm text-center shadow-2xl relative">
+                <button onClick={() => setShowLogoutConfirmation(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={20}/></button>
+                
+                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+                    <LogOut size={32} className="text-red-500" />
+                </div>
+                
+                <h3 className="text-xl font-bold text-white mb-2">Sair da conta?</h3>
+                <p className="text-gray-400 text-sm mb-6">Você tem certeza que deseja sair? Será necessário fazer login novamente.</p>
+                
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => setShowLogoutConfirmation(false)} 
+                        className="flex-1 py-3 rounded-xl font-bold text-gray-300 hover:bg-white/5 border border-white/5 transition-colors"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onClick={() => { onLogout(); setShowLogoutConfirmation(false); }} 
+                        className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20"
+                    >
+                        Sim, Sair
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
     </>
   );
