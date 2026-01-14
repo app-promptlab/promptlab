@@ -138,8 +138,13 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 overflow-y-auto pb-20">
                   {packs.map(pack => (
-                      <div key={pack.id} onClick={() => { setActivePack(pack.id); setShowAllPacksModal(false); }} className={`relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer group border-2 ${activePack === pack.id ? 'border-theme-primary' : 'border-transparent hover:border-white/30'}`}>
-                          <img src={pack.cover} className="w-full h-full object-cover select-none pointer-events-none" draggable="false" />
+                      /* CORREÇÃO AQUI: Forçando aspect-ratio via padding para evitar encavalamento */
+                      <div 
+                        key={pack.id} 
+                        onClick={() => { setActivePack(pack.id); setShowAllPacksModal(false); }} 
+                        className={`relative w-full pt-[133%] rounded-xl overflow-hidden cursor-pointer group border-2 ${activePack === pack.id ? 'border-theme-primary' : 'border-transparent hover:border-white/30'}`}
+                      >
+                          <img src={pack.cover} className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none" draggable="false" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex items-end p-3"><span className="text-white font-bold text-sm">{pack.title}</span></div>
                       </div>
                   ))}
@@ -194,19 +199,20 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                     const isLocked = !item.is_free && !hasAccess;
                     const isFav = favorites.has(String(item.id));
                     
-                    const imgClasses = `w-full h-full object-cover transition-all duration-500 ${isLocked ? '' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
+                    const imgClasses = `absolute inset-0 w-full h-full object-cover transition-all duration-500 ${isLocked ? '' : 'group-hover:scale-110 group-hover:brightness-50 group-hover:blur-[2px]'}`;
 
                     return (
                         <div 
                             key={item.id} 
                             onClick={() => { if (isLocked) window.open(LINK_CHECKOUT, '_blank'); else setSelectedItem(item); }} 
                             onContextMenu={(e) => e.preventDefault()} 
-                            className={`group relative rounded-none md:rounded-xl overflow-hidden bg-white/5 border border-white/5 transition-all duration-300 cursor-pointer aspect-[2/3] ${isLocked ? 'hover:border-theme-primary hover:shadow-[0_0_20px_rgba(168,85,247,0.3)]' : ''}`}
+                            /* CORREÇÃO AQUI TAMBÉM: Forçando aspect-ratio (2/3) via padding */
+                            className={`group relative w-full pt-[150%] rounded-none md:rounded-xl overflow-hidden bg-white/5 border border-white/5 transition-all duration-300 cursor-pointer ${isLocked ? 'hover:border-theme-primary hover:shadow-[0_0_20px_rgba(168,85,247,0.3)]' : ''}`}
                         >
                             {item.url ? (
                                 <img src={item.url} alt={item.title} className={`${imgClasses} pointer-events-none select-none`} draggable="false"/>
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-900 text-gray-700"><ImageIcon size={32} /></div>
+                                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-gray-700"><ImageIcon size={32} /></div>
                             )}
                             
                             {!isLocked && (
@@ -235,7 +241,7 @@ export default function PromptsGallery({ user, showToast, onlyFavorites = false 
                                     
                                     <div className="mt-14 flex flex-col items-center z-10">
                                         <span className="text-[10px] text-white font-bold uppercase tracking-[0.2em] drop-shadow-md group-hover:hidden">Locked</span>
-                                        <span className="text-xs text-theme-primary font-bold uppercase tracking-widest hidden group-hover:block animate-pulse drop-shadow-md">DESBLOQUEAR</span>
+                                        <span className="text-xs text-theme-primary font-bold uppercase tracking-widest hidden group-hover/block animate-pulse drop-shadow-md">DESBLOQUEAR</span>
                                     </div>
                                 </div>
                             )}
